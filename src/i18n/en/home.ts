@@ -1,0 +1,113 @@
+import type { home as base } from '../pt-BR/home.ts';
+import type { Widen } from '../types.ts';
+
+export const home: Widen<typeof base> = {
+  home: {
+    hero: {
+      kicker: 'Discover. Learn. Build.',
+      eyebrow: 'Educational intelligence platform',
+      titleStart: 'Intelligence to discover what is',
+      titleAccent: 'worth learning',
+      titleEnd: '— and build with it.',
+      lead: 'Bezalel brings together courses and certifications checked at the official source, maps the skills they develop and shows, in a living lab, how AI agents discover, validate and organize every opportunity.',
+      ctaPrimary: 'Explore opportunities',
+      ctaSecondary: 'Visit the lab',
+      searchLabel: 'Search the catalog',
+      searchPlaceholder: 'Search courses, skills or institutions…',
+      searchSubmit: 'Search',
+      quick: 'Quick searches',
+      quickFreeCert: 'Free with certificate',
+      floatVerified: (n: number) => `${n} verified records`,
+      floatChecked: (date: string) => `Checked at the source · ${date}`,
+      floatAgents: 'Agents in demonstration mode',
+      tickerLabel: 'Lab signal',
+      tickerDemo: 'Simulation',
+      scrollHint: 'Scroll to explore',
+    },
+    pillars: {
+      eyebrow: 'Value proposition',
+      title: 'More than a catalog: a system that explains what it finds.',
+      items: [
+        {
+          title: 'Discover',
+          verb: 'Discover',
+          text: 'Courses, certifications and paths linked to the official source, with the date of the last check and what was — and was not — confirmed.',
+        },
+        {
+          title: 'Learn',
+          verb: 'Learn',
+          text: 'Skills mapped from each course’s declared content, so you see paths and not just titles.',
+        },
+        {
+          title: 'Build',
+          verb: 'Build',
+          text: 'Specialized agents discover, validate and organize opportunities — and every step is recorded in an auditable trail.',
+        },
+      ],
+      trustTitle: 'Transparency as a principle',
+      trustText: 'Real data and demonstration data never mix: every record shows its origin, its verification status and the rule that put it there.',
+    },
+    featured: {
+      eyebrow: 'Featured',
+      title: 'Verified courses and certifications',
+      lead: 'A selection from the curated catalog: free, with a certificate confirmed on the official page.',
+      viewAll: 'See the full catalog',
+      spotlight: 'Spotlight',
+    },
+    categories: {
+      eyebrow: 'Knowledge categories',
+      title: 'Explore by area',
+      lead: 'Counts refer to verified records published in this version.',
+      courses: (n: number) => (n === 1 ? '1 record' : `${n} records`),
+      empty: 'No records yet',
+    },
+    skills: {
+      eyebrow: 'Skills in focus',
+      title: 'What the verified catalog teaches most',
+      lead: 'Number of verified catalog courses that develop each skill. It is a course count — it does not measure market demand.',
+      courses: (n: number) => (n === 1 ? '1 course' : `${n} courses`),
+      cta: 'See skills intelligence',
+    },
+    agents: {
+      eyebrow: 'Agent ecosystem',
+      title: 'Five agents, one auditable trail',
+      lead: 'Each agent has a clear role and declared limits. In this version, all of them run in demonstration mode, with events simulated locally.',
+      cta: 'Meet the agents',
+      demo: 'Demonstration mode',
+    },
+    lab: {
+      eyebrow: '3D Lab',
+      title: 'Walk through the lab where the agents work',
+      lead: 'An explorable 3D environment with the Scout, Trend, Atlas, Verifier and Sol workstations, connected to an Operations Center that follows every event.',
+      features: ['Move with the keyboard (WASD/arrows), click or touch', 'Each agent’s panel and a live event feed', 'A complete 2D version for any device'],
+      cta: 'Enter the lab',
+    },
+    indicators: {
+      eyebrow: 'Ecosystem indicators',
+      title: 'Numbers you can check',
+      items: {
+        verified: 'courses and certifications verified at the source',
+        providers: 'institutions represented',
+        skills: 'skills mapped in the catalog',
+        sources: 'official sources consulted',
+        agents: 'agents (in demonstration mode)',
+      },
+      note: (date: string) => `Last manual check of the sources: ${date}.`,
+    },
+    validation: {
+      eyebrow: 'How validation works',
+      title: 'No opportunity is published without passing explicit criteria',
+      lead: 'Every opportunity goes through the same states. Blocking criteria reject; warnings lower the quality score, which must reach 70.',
+      stepsLabel: 'Record states',
+      blocking: 'Blocking criteria',
+      warnings: 'Warnings that lower the score',
+      cta: 'Read the full methodology',
+      example: 'Simulated example',
+      exampleTitle: 'Data Analysis Fundamentals with Python (fictional)',
+    },
+    final: {
+      title: 'Start with what can be verified.',
+      lead: 'Explore the catalog, understand the skills and watch the agents at work — always knowing where each piece of information comes from.',
+    },
+  },
+};

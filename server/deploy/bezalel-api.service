@@ -1,0 +1,17 @@
+# /etc/systemd/system/bezalel-api.service — alternativa ao Docker.
+[Unit]
+Description=Bezalel API (backend de referencia)
+After=network.target
+
+[Service]
+User=bezalel
+WorkingDirectory=/opt/bezalel/server
+EnvironmentFile=/opt/bezalel/server/.env
+ExecStart=/opt/bezalel/server/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8100 --workers 1 --proxy-headers
+Restart=on-failure
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/bezalel/server
+
+[Install]
+WantedBy=multi-user.target

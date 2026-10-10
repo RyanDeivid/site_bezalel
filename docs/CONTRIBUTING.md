@@ -1,0 +1,34 @@
+# Contribuição
+
+## Fluxo
+
+1. Crie uma branch a partir da `main` (`feat/…`, `fix/…`, `docs/…`).
+2. Rode `npm run check` (tipos, lint, testes e build) e, se tocar em UI, `npm run build:pages && npm run test:e2e`.
+3. Abra um pull request; o CI repete tudo, incluindo Playwright e os testes do backend.
+
+Mensagens de commit no imperativo, em português ou inglês, descrevendo o *porquê* quando não for óbvio.
+
+## Convenções de código
+
+- **TypeScript estrito**; sem `any` (o lint recusa). Tipos de domínio em `src/types/domain.ts`.
+- **Camadas**: componentes → hooks → `useServices()` → serviços → domínio. Componentes nunca importam `src/data` diretamente (exceções documentadas: taxonomia e nomes de agentes, que são constantes de interface).
+- **Lógica pura em `src/domain`**, sempre com teste em `tests/unit`.
+- **Textos da interface só em `src/i18n`**: adicione a chave em `pt-BR/` e o tipo obrigará o inglês; o teste de i18n compara as estruturas.
+- **Cores e medidas por tokens** (`src/styles/tokens.css`); nada de hex em componentes, exceto contextos sem CSS (canvas/WebGL), centralizados em `AGENT_HEX` e nas texturas.
+- **Acessibilidade**: elementos interativos nativos (`button`, `a`, `dialog`), rótulos em ícones (`IconButton` exige `label`), foco visível, nada que dependa só de cor ou só de hover.
+- **Movimento**: respeitar `reducedMotion` (de `usePreferences`) em animações por JavaScript; CSS já é coberto globalmente.
+- **React Compiler / hooks**: sem `setState` síncrono em efeitos e sem ler `ref.current` durante a renderização (o lint aponta). Estado por quadro do 3D vive no `LabRuntime`, fora do React.
+- **Dados**: real (`origin: 'curated'`) só com conferência na fonte; fictício sempre `origin: 'demo'` e domínios `example.org`.
+
+## Estrutura de testes
+
+| Pasta | Ferramenta | Cobre |
+|---|---|---|
+| `tests/unit/*.test.ts` | Vitest | busca, filtros, pipeline, eventos, assistente, insights, integridade dos dados, i18n |
+| `tests/unit/app.test.tsx` | Vitest + Testing Library | rotas, filtros na interface, detalhe, fallback 2D, agentes, troca de idioma |
+| `tests/e2e/*.spec.ts` | Playwright | deep links no subcaminho, metadados estáticos, console limpo, 3D, mobile, rolagem horizontal |
+| `server/tests` | pytest | contrato da API |
+
+## Design
+
+Antes de criar um componente, procure em `src/components/ui` (Button, Badge, Chip, Dialog, Tabs, Tooltip, Toast, StateView, ExternalLink) e `src/components/data` (OriginBadge, VerificationBadge, PublicationBadge, FieldValue). Gráficos: `ChartFrame` exige visão em tabela; cores categóricas vêm de `--series-1…6` (validadas para daltonismo e contraste) e seguem a entidade, nunca a posição.

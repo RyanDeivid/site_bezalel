@@ -1,0 +1,267 @@
+import type { common as base } from '../pt-BR/common.ts';
+import type { Widen } from '../types.ts';
+
+export const common: Widen<typeof base> = {
+  common: {
+    appName: 'Bezalel',
+    slogan: 'Discover. Learn. Build.',
+    tagline: 'Educational intelligence to discover, learn and build.',
+    demo: 'Demo',
+    demoLong: 'Demonstration data',
+    curated: 'Verified',
+    curatedLong: 'Real record verified at the source',
+    production: 'Production',
+    notInformed: 'Not stated',
+    inferred: 'inferred',
+    loading: 'Loading…',
+    retry: 'Try again',
+    close: 'Close',
+    back: 'Back',
+    learnMore: 'Learn more',
+    viewSource: 'View original source',
+    opensInNewTab: '(opens in a new tab)',
+    copyLink: 'Copy link',
+    linkCopied: 'Link copied to clipboard.',
+    copyFailed: 'Could not copy the link.',
+    all: 'All',
+    clear: 'Clear',
+    showMore: 'Show more',
+    lastChecked: 'Last checked',
+    source: 'Source',
+    updated: 'Updated',
+    yes: 'Yes',
+    no: 'No',
+    beta: 'v1.0',
+    errorTitle: 'Something did not go as expected',
+    errorBody: 'This content could not be loaded. Your data was not affected.',
+    unavailableTitle: 'Unavailable in this version',
+    emptyTitle: 'Nothing here yet',
+    simulation: 'Local simulation',
+    count: (n: number) => (n === 1 ? '1 item' : `${n} items`),
+  },
+  nav: {
+    primary: 'Main navigation',
+    home: 'Home',
+    explore: 'Explore',
+    insights: 'Insights',
+    agents: 'Agents',
+    lab: 'Lab',
+    assistant: 'Sol',
+    assistantLong: 'Sol assistant',
+    about: 'About',
+    methodology: 'Methodology',
+    privacy: 'Privacy',
+    terms: 'Terms of use',
+    openMenu: 'Open menu',
+    closeMenu: 'Close menu',
+    skipToContent: 'Skip to content',
+    themeToLight: 'Switch to light theme',
+    themeToDark: 'Switch to dark theme',
+    language: 'Language',
+    switchLanguage: 'Mudar para português',
+    languageShort: 'PT',
+    motionReduce: 'Reduce animations',
+    motionRestore: 'Restore animations',
+    preferences: 'Preferences',
+  },
+  banner: {
+    text: 'Version 1.0 in demonstration mode: the catalog lists real, verified courses; agents and their events are simulated locally.',
+    link: 'How it works',
+    dismiss: 'Dismiss notice',
+  },
+  footer: {
+    about:
+      'An educational intelligence platform connecting people to courses, certifications and skills, with transparency about every source.',
+    product: 'Product',
+    institutional: 'Institutional',
+    transparency: 'Transparency',
+    transparencyText:
+      'Records with the Verified badge were manually checked at the official source. The Demo badge marks fictional data. No autonomous agent is in production in this version.',
+    version: 'Version 1.0 · demonstration mode',
+    rights: 'Bezalel project. Course content belongs to the respective institutions.',
+    builtWith: 'Published as a static site.',
+  },
+  enums: {
+    level: {
+      beginner: 'Beginner',
+      intermediate: 'Intermediate',
+      advanced: 'Advanced',
+      'all-levels': 'All levels',
+      unknown: 'Not stated',
+    },
+    priceType: {
+      free: 'Free',
+      'free-with-paid-certificate': 'Free · paid certificate',
+      paid: 'Paid',
+      varies: 'Price varies',
+      unknown: 'Price not stated',
+    },
+    modality: {
+      online: 'Online',
+      'online-self-paced': 'Online · self-paced',
+      'online-scheduled': 'Online · scheduled cohorts',
+      'in-person': 'In person',
+      hybrid: 'Hybrid',
+      unknown: 'Not stated',
+    },
+    opportunityType: {
+      course: 'Course',
+      certification: 'Certification',
+      'learning-path': 'Learning path',
+    },
+    certificateType: {
+      'free-certificate': 'Free certificate',
+      'paid-certificate': 'Paid certificate',
+      'free-and-paid-options': 'Free certificate and paid option',
+      'digital-badge': 'Digital badge',
+      'professional-certification': 'Professional certification',
+      'none-stated': 'No certificate',
+    },
+    verificationStatus: {
+      verified: 'Verified',
+      'partially-verified': 'Partially verified',
+      unverified: 'Unverified',
+      outdated: 'Outdated',
+      failed: 'Verification failed',
+    },
+    verificationStatusHelp: {
+      verified: 'Key information was confirmed at the official source.',
+      'partially-verified': 'Some information was confirmed; unconfirmed fields show as "Not stated".',
+      unverified: 'Not yet checked at the source. Use with caution.',
+      outdated: 'The last check is older than 180 days.',
+      failed: 'The verification attempt failed (e.g. source unavailable).',
+    },
+    publicationStatus: {
+      found: 'Found',
+      validating: 'Validating',
+      approved: 'Approved',
+      rejected: 'Rejected',
+      published: 'Published',
+      outdated: 'Outdated',
+      removed: 'Removed',
+    },
+    publicationStatusHelp: {
+      found: 'Identified by a discovery agent; not validated yet.',
+      validating: 'Going through source, HTTPS, freshness, content and quality checks.',
+      approved: 'Met every blocking criterion and the minimum quality score.',
+      rejected: 'Failed a blocking criterion or scored below the minimum.',
+      published: 'Visible in the public catalog.',
+      outdated: 'Published, but not re-checked in time — shown with a warning.',
+      removed: 'Removed from the catalog (duplicate, discontinued or at the source’s request).',
+    },
+    category: {
+      'ai-ml': 'AI & Machine Learning',
+      'computer-science': 'Computer Science',
+      'web-development': 'Web Development',
+      data: 'Data & Analytics',
+      'cloud-infra': 'Cloud & Infrastructure',
+      'security-privacy': 'Security & Privacy',
+      'digital-government': 'Digital Government',
+    },
+    agentStatus: {
+      active: 'Active',
+      idle: 'Idle',
+      failed: 'Failed',
+      offline: 'Offline',
+    },
+    environmentMode: {
+      demo: 'Demonstration mode',
+      production: 'Production',
+    },
+    duration: (value: number, unit: 'hours' | 'weeks' | 'lessons' | 'modules' | 'hours-per-week') => {
+      const plural = value !== 1;
+      switch (unit) {
+        case 'hours':
+          return `${value} ${plural ? 'hours' : 'hour'}`;
+        case 'weeks':
+          return `${value} ${plural ? 'weeks' : 'week'}`;
+        case 'lessons':
+          return `${value} ${plural ? 'lessons' : 'lesson'}`;
+        case 'modules':
+          return `${value} ${plural ? 'modules' : 'module'}`;
+        case 'hours-per-week':
+          return `~${value} h per week`;
+      }
+    },
+    language: {
+      en: 'English',
+      'pt-BR': 'Portuguese (Brazil)',
+      'pt-PT': 'Portuguese (Portugal)',
+      es: 'Spanish',
+    },
+  },
+  validationChecks: {
+    'has-title': { name: 'Title present', help: 'The record needs a title of at least 5 characters.' },
+    'has-provider': { name: 'Institution identified', help: 'The responsible institution must be known.' },
+    'https-url': { name: 'Secure link (HTTPS)', help: 'The original source must use a secure connection.' },
+    'trusted-source': { name: 'Authorized source', help: 'Only sources with registered permission and trust are accepted.' },
+    'safe-content': { name: 'Safe content', help: 'External text containing executable markup is refused.' },
+    fresh: { name: 'Current information', help: 'The last update must be at most 180 days old.' },
+    'known-category': { name: 'Recognized category', help: 'Warning: without a category the record is harder to find.' },
+    'price-declared': { name: 'Price stated', help: 'Warning: the price condition must be clear to the user.' },
+    'description-length': { name: 'Sufficient description', help: 'Warning: very short descriptions lower the quality score.' },
+  },
+  pipelineStages: {
+    discovery: { name: 'Discovery', help: 'Selects authorized sources only.' },
+    collection: { name: 'Collection', help: 'Fetches raw records respecting terms and limits.' },
+    normalization: { name: 'Normalization', help: 'Turns free text into standardized fields.' },
+    deduplication: { name: 'Deduplication', help: 'Compares identifier, normalized URL and title.' },
+    validation: { name: 'Validation', help: 'Applies blocking criteria and warnings.' },
+    quality: { name: 'Quality', help: 'Assigns a 0–100 score (minimum 70).' },
+    publication: { name: 'Publication', help: 'Publishes only what meets the criteria.' },
+    'event-log': { name: 'Event log', help: 'Every action produces an auditable event.' },
+    monitoring: { name: 'Monitoring', help: 'Failures are recorded and retried.' },
+  },
+  meta: {
+    siteName: 'Bezalel',
+    defaultDescription:
+      'Bezalel is an educational intelligence platform connecting people to free courses, certifications and skills, with AI agents and verifiable sources.',
+    home: {
+      title: 'Bezalel — Discover. Learn. Build.',
+      description:
+        'Discover courses and certifications verified at the source, understand skills in focus and visit the Bezalel AI agents lab.',
+    },
+    explore: {
+      title: 'Explore opportunities',
+      description: 'Catalog of courses, certifications and learning paths with search, filters and source verification indicators.',
+    },
+    insights: {
+      title: 'Skills intelligence',
+      description: 'Skills and categories observed in the verified catalog, with explicit methodology and limits.',
+    },
+    agents: {
+      title: 'Agent ecosystem',
+      description: 'Meet Scout, Trend, Atlas, Sol and Verifier: roles, states, limitations and recent events (demonstration mode).',
+    },
+    lab: {
+      title: '3D Lab',
+      description: 'Explore the Bezalel agents’ workstations in 3D and follow the Operations Center live (simulation).',
+    },
+    assistant: {
+      title: 'Sol assistant',
+      description: 'Chat with Sol to find catalog courses and understand verifications. Answers based on local, transparent rules.',
+    },
+    about: {
+      title: 'About Bezalel',
+      description: 'Mission, the meaning of the name and our commitment to reliable information and verifiable sources.',
+    },
+    methodology: {
+      title: 'Methodology',
+      description: 'How Bezalel verifies, validates, publishes and maintains course and certification records.',
+    },
+    privacy: {
+      title: 'Privacy policy (draft)',
+      description: 'Preliminary draft of the Bezalel privacy policy, subject to review before public launch.',
+    },
+    terms: {
+      title: 'Terms of use (draft)',
+      description: 'Preliminary draft of the Bezalel terms of use, subject to review before public launch.',
+    },
+    notFound: {
+      title: 'Page not found',
+      description: 'The address you visited does not exist on Bezalel.',
+    },
+    courseDescription: (title: string, provider: string) =>
+      `${title}, offered by ${provider}. Details, price, certificate and verification status on Bezalel.`,
+  },
+};

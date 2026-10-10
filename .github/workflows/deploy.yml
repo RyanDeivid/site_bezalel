@@ -1,0 +1,66 @@
+name: Deploy — GitHub Pages
+
+# Publica o build estático no GitHub Pages a cada push na main (ou manualmente).
+# Pré-requisito único (manual, uma vez): Settings → Pages → Source = "GitHub Actions".
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Permissões mínimas exigidas por actions/deploy-pages.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Uma publicação por vez; não cancela uma publicação em andamento.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - name: Descobrir base e origem do Pages
+        id: pages
+        uses: actions/configure-pages@v6
+
+      - name: Testes antes de publicar
+        run: npm test
+
+      # base_path vem do próprio GitHub ("/site_bezalel" num site de projeto,
+      # vazio com domínio próprio) — trocar o nome do repositório não exige
+      # editar este arquivo.
+      - name: Build
+        run: npm run build
+        env:
+          VITE_BASE_PATH: ${{ steps.pages.outputs.base_path }}/
+          VITE_SITE_ORIGIN: ${{ steps.pages.outputs.origin }}
+          VITE_DATA_MODE: ${{ vars.VITE_DATA_MODE || 'demo' }}
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Publicar
+        id: deployment
+        uses: actions/deploy-pages@v5

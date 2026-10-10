@@ -1,0 +1,178 @@
+/*
+ * Bezalel — tokens de design.
+ *
+ * Fonte única de verdade para cores, tipografia, raios, elevação e movimento.
+ * Componentes nunca usam hex inline: consomem os tokens semânticos abaixo
+ * (via utilitários Tailwind mapeados em globals.css ou var(--token)).
+ *
+ * Paleta de marca (referência do briefing):
+ *   navy   #101B2B  azul-marinho profundo
+ *   steel  #263B54  azul tecnológico
+ *   gold   #C7A86A  dourado discreto
+ *   ivory  #F2E8D5  branco quente
+ */
+
+:root {
+  /* ---- Paleta bruta ---------------------------------------------------- */
+  --navy-950: #070d17;
+  --navy-925: #0a1220;
+  --navy-900: #101b2b;
+  --navy-850: #132136;
+  --navy-800: #172840;
+  --steel-700: #1e3149;
+  --steel-600: #263b54;
+  --steel-500: #34506f;
+  --steel-400: #4d6a8c;
+  --gold-200: #ead9b2;
+  --gold-300: #dcc594;
+  --gold-400: #c7a86a;
+  --gold-500: #b0904f;
+  --gold-700: #7a5c24;
+  --ivory-50: #fbf8f2;
+  --ivory-100: #f6f1e7;
+  --ivory-200: #f2e8d5;
+  --ivory-300: #e7dbc3;
+  --gray-300: #c9ccd2;
+  --gray-400: #a9b1bd;
+  --gray-500: #7d8899;
+  --gray-600: #5d6b7f;
+  --gray-700: #44536a;
+
+  /* ---- Cores de agentes (identidade de cada estação) ------------------- */
+  --agent-scout: #63b8d6;
+  --agent-trend: #d9ae5c;
+  --agent-atlas: #7fa6f5;
+  --agent-sol: #ee9a73;
+  --agent-verifier: #5fc4a0;
+
+  /* ---- Tipografia ------------------------------------------------------- */
+  --font-sans: 'Geist Variable', 'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'Geist Mono Variable', 'Geist Mono', ui-monospace, 'SFMono-Regular', Menlo, Consolas, monospace;
+  --font-serif: 'Instrument Serif', ui-serif, Georgia, 'Times New Roman', serif;
+
+  --text-hero: clamp(2.5rem, 1.1rem + 3.9vw, 5.1rem);
+  --text-display: clamp(2.1rem, 1.3rem + 3.2vw, 3.75rem);
+  --text-title: clamp(1.6rem, 1.2rem + 1.6vw, 2.35rem);
+
+  /* ---- Raios ------------------------------------------------------------ */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+
+  /* ---- Movimento -------------------------------------------------------- */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-fast: 150ms;
+  --dur-base: 250ms;
+  --dur-slow: 450ms;
+  --dur-cinematic: 900ms;
+
+  /* ---- Layout ----------------------------------------------------------- */
+  --container: 1240px;
+  --header-h: 68px;
+}
+
+/* ---- Tema escuro (padrão) ---------------------------------------------- */
+:root,
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: var(--navy-900);
+  --bg-deep: var(--navy-925);
+  --bg-abyss: var(--navy-950);
+  --surface: #14223a;
+  --surface-2: #1a2a44;
+  --surface-3: var(--steel-700);
+  --line: rgb(242 232 213 / 0.09);
+  --line-strong: rgb(242 232 213 / 0.18);
+  --fg: var(--ivory-200);
+  --fg-muted: var(--gray-400);
+  --fg-subtle: var(--gray-500);
+  --accent: var(--gold-400);
+  --accent-strong: var(--gold-300);
+  --accent-text: var(--gold-300);
+  --accent-fg: var(--navy-900);
+  --accent-soft: rgb(199 168 106 / 0.12);
+  --steel: var(--steel-600);
+  --focus: var(--gold-300);
+
+  --ok: #5cc8a1;
+  --ok-soft: rgb(92 200 161 / 0.13);
+  --warn: #e3b35a;
+  --warn-soft: rgb(227 179 90 / 0.13);
+  --danger: #e57465;
+  --danger-soft: rgb(229 116 101 / 0.13);
+  --info: #73a7e0;
+  --info-soft: rgb(115 167 224 / 0.13);
+  --demo: #b49ae8;
+  --demo-soft: rgb(180 154 232 / 0.13);
+
+  --shadow-1: 0 1px 2px rgb(0 0 0 / 0.35);
+  --shadow-2: 0 8px 24px -8px rgb(0 0 0 / 0.55);
+  --shadow-3: 0 24px 64px -16px rgb(0 0 0 / 0.7);
+  --glow-accent: 0 0 0 1px rgb(199 168 106 / 0.35), 0 8px 32px -8px rgb(199 168 106 / 0.35);
+  --grid-line: rgb(242 232 213 / 0.045);
+
+  /* Gráficos — paleta categórica validada (scripts/validate_palette.js da
+     skill dataviz) contra a superfície escura #14223a. Ordem fixa. */
+  --chart-bar: #c7a86a;
+  --chart-grid: rgb(242 232 213 / 0.08);
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #008300;
+}
+
+/* ---- Tema claro ---------------------------------------------------------- */
+:root[data-theme='light'] {
+  color-scheme: light;
+  --bg: var(--ivory-100);
+  --bg-deep: #efe8da;
+  --bg-abyss: #e8dfcd;
+  --surface: var(--ivory-50);
+  --surface-2: #f1eadc;
+  --surface-3: #e7dccb;
+  --line: rgb(16 27 43 / 0.1);
+  --line-strong: rgb(16 27 43 / 0.2);
+  --fg: var(--navy-900);
+  --fg-muted: var(--gray-700);
+  --fg-subtle: var(--gray-600);
+  --accent: var(--gold-400);
+  --accent-strong: var(--gold-500);
+  --accent-text: var(--gold-700);
+  --accent-fg: var(--navy-900);
+  --accent-soft: rgb(176 144 79 / 0.14);
+  --steel: var(--steel-600);
+  --focus: var(--gold-700);
+
+  --ok: #1f7a5c;
+  --ok-soft: rgb(31 122 92 / 0.1);
+  --warn: #8a5a00;
+  --warn-soft: rgb(138 90 0 / 0.1);
+  --danger: #b23a2b;
+  --danger-soft: rgb(178 58 43 / 0.1);
+  --info: #2d5f9a;
+  --info-soft: rgb(45 95 154 / 0.1);
+  --demo: #5b4bb5;
+  --demo-soft: rgb(91 75 181 / 0.1);
+
+  --shadow-1: 0 1px 2px rgb(16 27 43 / 0.08);
+  --shadow-2: 0 8px 24px -10px rgb(16 27 43 / 0.18);
+  --shadow-3: 0 24px 64px -20px rgb(16 27 43 / 0.28);
+  --glow-accent: 0 0 0 1px rgb(176 144 79 / 0.45), 0 8px 28px -10px rgb(176 144 79 / 0.4);
+  --grid-line: rgb(16 27 43 / 0.05);
+
+  /* Validada contra #fbf8f2. Séries 3–5 ficam abaixo de 3:1 → toda
+     visualização oferece visão em tabela (regra de alívio). */
+  --chart-bar: #9a7230;
+  --chart-grid: rgb(16 27 43 / 0.08);
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+}

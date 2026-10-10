@@ -1,0 +1,15 @@
+# Caddy obtém e renova o certificado TLS automaticamente.
+# Troque o domínio; aponte o DNS (registro A) para o IP público da VM Oracle.
+api.seudominio.com {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+	# Limite simples por IP pode ser adicionado com o plugin caddy-ratelimit.
+	reverse_proxy 127.0.0.1:8100 {
+		flush_interval -1 # necessário para Server-Sent Events (/v1/events/stream)
+	}
+}

@@ -1,0 +1,37 @@
+# dependências
+node_modules/
+
+# build
+dist/
+dist-ssr/
+*.tsbuildinfo
+.vite/
+
+# testes
+coverage/
+playwright-report/
+test-results/
+blob-report/
+
+# ambiente — nunca versionar segredos
+.env
+.env.*
+!.env.example
+
+# backend (server/)
+server/.venv/
+server/__pycache__/
+server/**/__pycache__/
+server/.pytest_cache/
+
+# editores / SO
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.log
+npm-debug.log*
+
+# configuração local do Claude Code
+.claude/

@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="pt-BR" data-theme="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Bezalel — Discover. Learn. Build.</title>
+    <meta
+      name="description"
+      content="Bezalel é uma plataforma de inteligência educacional que conecta pessoas a cursos gratuitos, certificações e competências, com agentes de IA e fontes verificáveis."
+    />
+    <meta name="theme-color" content="#101b2b" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="robots" content="index, follow" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Bezalel" />
+    <meta property="og:locale" content="pt_BR" />
+    <meta property="og:title" content="Bezalel — Discover. Learn. Build." />
+    <meta
+      property="og:description"
+      content="Descubra cursos e certificações verificados na fonte, entenda competências em evidência e conheça o laboratório dos agentes de IA da Bezalel."
+    />
+    <meta property="og:image" content="%BASE_URL%og-image.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" type="image/svg+xml" href="%BASE_URL%favicon.svg" />
+    <link rel="apple-touch-icon" href="%BASE_URL%icons/apple-touch-icon.png" />
+    <link rel="manifest" href="%BASE_URL%manifest.webmanifest" />
+    <!-- Aplica tema, idioma e preferência de movimento antes da primeira pintura (evita flash). -->
+    <script>
+      (function () {
+        var d = document.documentElement;
+        try {
+          var t = localStorage.getItem('bz-theme');
+          if (t !== 'light' && t !== 'dark') {
+            t = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+          }
+          d.dataset.theme = t;
+          if (localStorage.getItem('bz-motion') === 'reduced') d.dataset.motion = 'reduced';
+          if (localStorage.getItem('bz-locale') === 'en') d.lang = 'en';
+        } catch (e) {
+          d.dataset.theme = 'dark';
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"><!--bz:prerender--></div>
+    <noscript>
+      <p style="padding: 1rem; font-family: system-ui, sans-serif">
+        A Bezalel precisa de JavaScript para a experiência completa. O resumo desta página está disponível acima.
+      </p>
+    </noscript>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
