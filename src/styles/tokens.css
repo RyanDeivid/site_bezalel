@@ -148,8 +148,9 @@
   --steel: var(--steel-600);
   --focus: var(--gold-700);
 
-  --ok: #1f7a5c;
-  --ok-soft: rgb(31 122 92 / 0.1);
+  /* 4,98:1 sobre --ok-soft no marfim (o anterior, #1f7a5c, ficava em 4,1–4,3:1). */
+  --ok: #1a6b50;
+  --ok-soft: rgb(26 107 80 / 0.1);
   --warn: #8a5a00;
   --warn-soft: rgb(138 90 0 / 0.1);
   --danger: #b23a2b;
