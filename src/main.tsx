@@ -3,6 +3,8 @@ import { createRoot, hydrateRoot } from 'react-dom/client';
 import { matchRoutes } from 'react-router';
 import { App } from '@/app/App';
 import { routes } from '@/app/router';
+import { loadCatalog } from '@/data/catalog/store';
+import { appConfig } from '@/lib/env';
 import '@/styles/globals.css';
 
 const container = document.getElementById('root');
@@ -19,12 +21,16 @@ function canHydrate(): boolean {
   return container!.dataset.ssr === '1' && location.search === '' && d.lang === 'pt-BR' && d.dataset.motion !== 'reduced';
 }
 
+/** No modo demonstração os serviços são locais: o catálogo (chunk próprio) precisa estar pronto. */
+const catalogReady = appConfig.dataMode === 'api' ? Promise.resolve() : loadCatalog().then(() => undefined);
+
 async function start() {
   const app = (
     <StrictMode>
       <App />
     </StrictMode>
   );
+  await catalogReady;
   if (!canHydrate()) {
     createRoot(container!).render(app);
     document.documentElement.dataset.hydrated = 'client';
@@ -58,10 +64,12 @@ start().catch((error: unknown) => {
   // Falha ao preparar a hidratação (ex.: chunk da rota indisponível): renderiza do zero.
   document.documentElement.dataset.hydrated = 'error';
   console.error(error);
-  createRoot(container).render(
-    <StrictMode>
-      <App />
-    </StrictMode>,
+  void catalogReady.finally(() =>
+    createRoot(container).render(
+      <StrictMode>
+        <App />
+      </StrictMode>,
+    ),
   );
 });
 

@@ -9,6 +9,7 @@ import { renderToString } from 'react-dom/server';
 import { createStaticHandler, createStaticRouter, StaticRouterProvider } from 'react-router';
 import { AppProviders } from '@/app/App';
 import { routes } from '@/app/router';
+import { loadCatalog } from '@/data/catalog/store';
 
 const basename = import.meta.env.BASE_URL.replace(/\/+$/, '') || '/';
 
@@ -17,6 +18,7 @@ const basename = import.meta.env.BASE_URL.replace(/\/+$/, '') || '/';
  * tema padrão. Devolve null quando a rota responde com redirecionamento ou erro.
  */
 export async function render(path: string): Promise<string | null> {
+  await loadCatalog();
   const handler = createStaticHandler(routes, { basename });
   const context = await handler.query(new Request(`http://localhost${path}`));
   if (context instanceof Response || context.errors) return null;

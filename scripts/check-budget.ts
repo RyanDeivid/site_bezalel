@@ -18,7 +18,8 @@ const KB = 1024;
 const BUDGET = {
   html: 40, // HTML pré-renderizado da home
   css: 20,
-  js: 195, // JS de entrada da home (React, roteador, home, dados do catálogo)
+  js: 195, // JS de entrada da home (React, roteador, home) — sem os dados do catálogo
+  catalog: 120, // dados do catálogo curado (chunk próprio, pré-carregado em paralelo)
   // Sob demanda. three.js fica num chunk compartilhado pela Forja (home) e
   // pelo laboratório; cada um soma só o próprio código por cima dele.
   lazy: { 'three.module': 200, scene: 30, LabScene: 100, InsightsPage: 130 },
@@ -29,13 +30,17 @@ const gz = async (file: string) => gzipSync(await readFile(file)).length / KB;
 async function main() {
   const html = await readFile(join(dist, 'index.html'), 'utf8');
   const refs = (re: RegExp) => [...html.matchAll(re)].map((m) => (m[1] ?? '').replace(/^.*\/assets\//, ''));
-  const js = [...new Set([...refs(/<script[^>]+src="([^"]+\.js)"/g), ...refs(/<link[^>]+rel="modulepreload"[^>]+href="([^"]+\.js)"/g)])];
+  const preloads = [...new Set([...refs(/<script[^>]+src="([^"]+\.js)"/g), ...refs(/<link[^>]+rel="modulepreload"[^>]+href="([^"]+\.js)"/g)])];
+  const isCatalog = (f: string) => f.startsWith('courses-');
+  const js = preloads.filter((f) => !isCatalog(f));
+  const catalogFiles = preloads.filter(isCatalog);
   const css = refs(/<link[^>]+rel="stylesheet"[^>]+href="([^"]+\.css)"/g);
 
   const results: Array<[string, number, number]> = [
     ['HTML da home', gzipSync(html).length / KB, BUDGET.html],
     ['CSS de entrada', (await Promise.all(css.map((f) => gz(join(dist, 'assets', f))))).reduce((a, b) => a + b, 0), BUDGET.css],
     ['JS de entrada', (await Promise.all(js.map((f) => gz(join(dist, 'assets', f))))).reduce((a, b) => a + b, 0), BUDGET.js],
+    ['Dados do catálogo', (await Promise.all(catalogFiles.map((f) => gz(join(dist, 'assets', f))))).reduce((a, b) => a + b, 0), BUDGET.catalog],
   ];
   const assets = await readdir(join(dist, 'assets'));
   for (const [name, limit] of Object.entries(BUDGET.lazy)) {

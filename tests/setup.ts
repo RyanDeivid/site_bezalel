@@ -1,6 +1,10 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
 import { afterEach, vi } from 'vitest';
+import { loadCatalog } from '@/data/catalog/store';
+
+// Os serviços locais leem o catálogo carregado sob demanda (como no navegador).
+await loadCatalog();
 
 // O jsdom não implementa algumas APIs de layout/gráficos usadas pela interface.
 class ResizeObserverStub {

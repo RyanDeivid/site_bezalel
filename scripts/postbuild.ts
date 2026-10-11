@@ -191,6 +191,10 @@ async function withFontPreloads(html: string): Promise<string> {
   const links = CRITICAL_FONTS.map((re) => files.find((f) => re.test(f)))
     .filter((f): f is string => Boolean(f))
     .map((f) => `<link rel="preload" href="${base}assets/${f}" as="font" type="font/woff2" crossorigin />`);
+  // Catálogo curado: chunk próprio (data/catalog/store.ts), necessário antes
+  // da hidratação — baixado em paralelo com o bundle principal.
+  const catalog = files.find((f) => /^courses-[\w-]+\.js$/.test(f));
+  if (catalog) links.push(`<link rel="modulepreload" crossorigin href="${base}assets/${catalog}" />`);
   return html.replace('<meta name="viewport"', `${links.join('\n    ')}\n    <meta name="viewport"`);
 }
 

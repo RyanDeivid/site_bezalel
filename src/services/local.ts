@@ -1,4 +1,4 @@
-import { curatedCourses } from '@/data/catalog/courses';
+import { curated } from '@/data/catalog/store';
 import { curatedSources } from '@/data/catalog/sources';
 import { skillDefinitions } from '@/data/catalog/taxonomy';
 import { demoAgents } from '@/data/demo/agents';
@@ -9,7 +9,7 @@ import { computeInsights } from '@/domain/insights';
 import { messages } from '@/i18n';
 import { formatDate } from '@/lib/format';
 import { resolved } from '@/lib/sync-promise';
-import type { Skill } from '@/types/domain';
+import type { Course, Skill } from '@/types/domain';
 import { buildDemoRegistry } from './catalog/demo-registry';
 import { createLocalCatalogService } from './catalog/local';
 import { searchVocabulary, skillCategoryMap } from './catalog/vocabulary';
@@ -21,7 +21,7 @@ import type { AssistantService, Services } from './types';
  * Serviços do MODO DEMONSTRAÇÃO: 100% locais, sem rede e sem credenciais.
  * Catálogo curado (real) + registros e eventos de demonstração (fictícios).
  */
-export function createLocalServices(now: Date = new Date()): Services {
+export function createLocalServices(now: Date = new Date(), curatedCourses: Course[] = curated()): Services {
   const { courses: demoCourses } = buildDemoRegistry(now);
   const catalog = createLocalCatalogService(curatedCourses, demoCourses);
 
