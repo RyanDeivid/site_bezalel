@@ -8,11 +8,6 @@ import { defineConfig } from 'vite';
  * `/<repositório>/` — o workflow de deploy injeta `VITE_BASE_PATH` a partir
  * de `actions/configure-pages`. Localmente o padrão é `/`.
  */
-function normalizeBase(raw: string | undefined): string {
-  if (!raw || raw === '/') return '/';
-  const trimmed = raw.trim().replace(/^\/+|\/+$/g, '');
-  return trimmed ? `/${trimmed}/` : '/';
-}
 
 export default defineConfig({
   base: '/site_bezalel/',
