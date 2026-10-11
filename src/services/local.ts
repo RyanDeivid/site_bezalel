@@ -8,6 +8,7 @@ import { searchCatalog } from '@/domain/catalog/search';
 import { computeInsights } from '@/domain/insights';
 import { messages } from '@/i18n';
 import { formatDate } from '@/lib/format';
+import { resolved } from '@/lib/sync-promise';
 import type { Skill } from '@/types/domain';
 import { buildDemoRegistry } from './catalog/demo-registry';
 import { createLocalCatalogService } from './catalog/local';
@@ -70,25 +71,25 @@ export function createLocalServices(now: Date = new Date()): Services {
     mode: 'demo',
     catalog,
     agents: {
-      async list() {
-        return demoAgents;
+      list() {
+        return resolved(demoAgents);
       },
-      async get(id) {
-        return demoAgents.find((a) => a.id === id) ?? null;
+      get(id) {
+        return resolved(demoAgents.find((a) => a.id === id) ?? null);
       },
     },
     events,
     skills: {
-      async list() {
-        return skills;
+      list() {
+        return resolved(skills);
       },
-      async getInsights(filter) {
-        return computeInsights(curatedCourses, skillCategoryMap, filter);
+      getInsights(filter) {
+        return resolved(computeInsights(curatedCourses, skillCategoryMap, filter));
       },
     },
     sources: {
-      async list() {
-        return [...curatedSources, ...demoSources];
+      list() {
+        return resolved([...curatedSources, ...demoSources]);
       },
     },
     assistant,

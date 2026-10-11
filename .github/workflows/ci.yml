@@ -40,6 +40,9 @@ jobs:
       - name: Build de produção (subcaminho do GitHub Pages)
         run: npm run build:pages
 
+      - name: Orçamento de tamanho (gzip)
+        run: npm run check:budget
+
       - name: Instalar Chromium do Playwright
         run: npx playwright install --with-deps chromium
 
@@ -55,6 +58,20 @@ jobs:
           name: playwright-report
           path: playwright-report
           retention-days: 7
+
+      # Lighthouse em modo celular (3 rodadas por página, servidor com gzip
+      # igual ao GitHub Pages). Acessibilidade e CLS bloqueiam; desempenho
+      # avisa — a máquina do CI varia demais para ser porteira.
+      - name: Lighthouse CI
+        run: npm run lighthouse
+
+      - name: Relatórios do Lighthouse
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: lighthouse
+          path: .lighthouseci
+          retention-days: 14
 
   backend:
     name: Backend de referência (server/)

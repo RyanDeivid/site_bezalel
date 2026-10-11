@@ -6,8 +6,12 @@
  * o mesmo <title>. Este script, executado após `vite build`:
  *
  *  1. gera dist/<rota>/index.html para cada rota (inclusive cada curso), com
- *     título, descrição, canonical, Open Graph e JSON-LD próprios, e um
- *     resumo estático do conteúdo dentro de #root (substituído pelo React);
+ *     título, descrição, canonical, Open Graph e JSON-LD próprios e o HTML
+ *     COMPLETO da página pré-renderizado pelo React (dist-ssr/entry-server.js,
+ *     gerado por `vite build --ssr`) — o navegador pinta o conteúdo antes de o
+ *     JavaScript chegar, e o React depois hidrata (src/main.tsx). Se uma rota
+ *     não puder ser pré-renderizada, cai para um resumo estático;
+ *  1b. pré-carrega as fontes da primeira dobra (sem troca tardia de fonte);
  *  2. gera 404.html (SPA fallback com noindex);
  *  3. gera sitemap.xml e robots.txt com URLs absolutas;
  *  4. injeta uma Content-Security-Policy por <meta> com o hash do script
@@ -17,9 +21,10 @@
  * módulos importados aqui usam apenas `import type` ou caminhos relativos.
  */
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { curatedCourses } from '../src/data/catalog/courses.ts';
 import { buildCourseJsonLd } from '../src/features/catalog/json-ld.ts';
 import { common } from '../src/i18n/pt-BR/common.ts';
@@ -28,7 +33,10 @@ import type { Course } from '../src/types/domain.ts';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const dist = join(root, 'dist');
 
-const rawBase = process.env.VITE_BASE_PATH ?? '/';
+// A base real é a que o Vite usou no build (vite.config.ts): lida do próprio
+// index.html gerado. VITE_BASE_PATH só vale se o HTML não indicar outra.
+const builtBase = readFileSync(join(dist, 'index.html'), 'utf8').match(/<script[^>]+src="([^"]*?)assets\//)?.[1];
+const rawBase = builtBase ?? process.env.VITE_BASE_PATH ?? '/';
 const base = rawBase === '/' ? '/' : `/${rawBase.replace(/^\/+|\/+$/g, '')}/`;
 const origin = (process.env.VITE_SITE_ORIGIN ?? 'http://localhost:4173').replace(/\/+$/, '');
 const apiOrigin = (() => {
@@ -136,7 +144,7 @@ function setTag(html: string, pattern: RegExp, replacement: string): string {
   return pattern.test(html) ? html.replace(pattern, replacement) : html.replace('</head>', `    ${replacement}\n  </head>`);
 }
 
-function renderPage(template: string, page: PageSpec, options: { noindex?: boolean } = {}): string {
+function renderPage(template: string, page: PageSpec, options: { noindex?: boolean; ssr?: string | null } = {}): string {
   const fullTitle = page.path === '/' ? page.title : `${page.title} · ${meta.siteName}`;
   const url = absolute(page.path);
   let html = template;
@@ -153,7 +161,8 @@ function renderPage(template: string, page: PageSpec, options: { noindex?: boole
     const json = JSON.stringify(page.jsonLd).replace(/</g, '\\u003c');
     html = html.replace('</head>', `    <script type="application/ld+json" id="bz-jsonld">${json}</script>\n  </head>`);
   }
-  return html.replace('<!--bz:prerender-->', page.body);
+  if (options.ssr) return html.replace('<div id="root"><!--bz:prerender--></div>', () => `<div id="root" data-ssr="1">${options.ssr}</div>`);
+  return html.replace('<!--bz:prerender-->', () => page.body);
 }
 
 function withCsp(html: string): string {
@@ -174,13 +183,65 @@ function withCsp(html: string): string {
   return html.replace('<meta charset="UTF-8" />', `<meta charset="UTF-8" />\n    <meta http-equiv="Content-Security-Policy" content="${csp}" />`);
 }
 
+/** Fontes usadas na primeira dobra: texto (Geist), rótulos (Geist Mono) e o acento itálico do título. */
+const CRITICAL_FONTS = [/^geist-latin-wght-normal-.*\.woff2$/, /^geist-mono-latin-wght-normal-.*\.woff2$/, /^instrument-serif-latin-400-italic-.*\.woff2$/];
+
+async function withFontPreloads(html: string): Promise<string> {
+  const files = await readdir(join(dist, 'assets'));
+  const links = CRITICAL_FONTS.map((re) => files.find((f) => re.test(f)))
+    .filter((f): f is string => Boolean(f))
+    .map((f) => `<link rel="preload" href="${base}assets/${f}" as="font" type="font/woff2" crossorigin />`);
+  return html.replace('<meta name="viewport"', `${links.join('\n    ')}\n    <meta name="viewport"`);
+}
+
+/**
+ * Service worker (scripts/sw-template.js): pré-guarda o essencial da primeira
+ * visita — HTML da home, JS/CSS de entrada, fontes críticas, ícone e manifesto —
+ * para visitas seguintes instantâneas e navegação básica sem rede. A versão
+ * muda a cada build (hash dos arquivos de entrada), o que descarta o cache antigo.
+ */
+async function writeServiceWorker(template: string) {
+  const refs = [...template.matchAll(/(?:src|href)="([^"]+)"/g)]
+    .map((m) => m[1] ?? '')
+    .filter((u) => u.startsWith(base) && /\.(js|css|woff2|svg|webmanifest)$/.test(u));
+  const precache = [...new Set([base, ...refs])];
+  const version = createHash('sha256').update(precache.join('|')).digest('hex').slice(0, 12);
+  const sw = (await readFile(join(root, 'scripts', 'sw-template.js'), 'utf8'))
+    .replace("'__VERSION__'", JSON.stringify(version))
+    .replace("'__BASE__'", JSON.stringify(base))
+    .replace('__PRECACHE__', JSON.stringify(precache));
+  await writeFile(join(dist, 'sw.js'), sw, 'utf8');
+  console.log(`postbuild: service worker ${version} · ${precache.length} arquivos pré-guardados`);
+}
+
+type SsrRender = (path: string) => Promise<string | null>;
+
+async function loadRenderer(): Promise<SsrRender | null> {
+  try {
+    const mod = (await import(pathToFileURL(join(root, 'dist-ssr', 'entry-server.js')).href)) as { render: SsrRender };
+    return mod.render;
+  } catch (err) {
+    console.warn('postbuild: pré-renderização indisponível (rode `vite build --ssr`); usando resumos estáticos.', err);
+    return null;
+  }
+}
+
 async function main() {
-  const template = withCsp(await readFile(join(dist, 'index.html'), 'utf8'));
+  const template = await withFontPreloads(withCsp(await readFile(join(dist, 'index.html'), 'utf8')));
+  const render = await loadRenderer();
+  let rendered = 0;
 
   for (const page of pages) {
     const file = page.path === '/' ? join(dist, 'index.html') : join(dist, page.path.replace(/^\//, ''), 'index.html');
     await mkdir(dirname(file), { recursive: true });
-    await writeFile(file, renderPage(template, page), 'utf8');
+    let ssr: string | null = null;
+    try {
+      ssr = render ? await render(href(page.path)) : null;
+    } catch (err) {
+      console.warn(`postbuild: falha ao pré-renderizar ${page.path}; usando resumo estático.`, err);
+    }
+    if (ssr) rendered++;
+    await writeFile(file, renderPage(template, page, { ssr }), 'utf8');
   }
 
   await writeFile(
@@ -198,10 +259,12 @@ async function main() {
   // GitHub Pages (/site_bezalel/) ele é informativo; ver docs/DEPLOYMENT.md.
   await writeFile(join(dist, 'robots.txt'), `User-agent: *\nAllow: /\n\nSitemap: ${origin}${base}sitemap.xml\n`, 'utf8');
 
+  await writeServiceWorker(template);
+
   // Impede o processamento Jekyll no GitHub Pages (pastas iniciadas por "_" etc.).
   await writeFile(join(dist, '.nojekyll'), '', 'utf8');
 
-  console.log(`postbuild: ${pages.length} páginas pré-geradas · base "${base}" · origem ${origin}`);
+  console.log(`postbuild: ${pages.length} páginas geradas (${rendered} pré-renderizadas pelo React) · base "${base}" · origem ${origin}`);
 }
 
 main().catch((err: unknown) => {

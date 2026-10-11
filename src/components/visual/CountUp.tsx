@@ -3,7 +3,10 @@ import { usePreferences } from '@/app/preferences-context';
 import { useInView } from '@/hooks/useInView';
 import { formatNumber } from '@/lib/format';
 
-/** Número que conta até o valor final quando entra na tela. */
+/**
+ * Número que conta até o valor final quando entra na tela. Leitores de tela
+ * recebem só o valor final (texto oculto), nunca a contagem intermediária.
+ */
 export function CountUp({ value, durationMs = 1400, className }: { value: number; durationMs?: number; className?: string }) {
   const { reducedMotion, locale } = usePreferences();
   const { ref, inView } = useInView<HTMLSpanElement>();
@@ -28,8 +31,9 @@ export function CountUp({ value, durationMs = 1400, className }: { value: number
   }, [inView, value, durationMs, reducedMotion]);
 
   return (
-    <span ref={ref} className={className} aria-label={formatNumber(value, locale)}>
+    <span ref={ref} className={className}>
       <span aria-hidden>{formatNumber(shown, locale)}</span>
+      <span className="sr-only">{formatNumber(value, locale)}</span>
     </span>
   );
 }

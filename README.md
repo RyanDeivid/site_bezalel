@@ -44,10 +44,13 @@ Nenhuma credencial é necessária: o modo demonstração é 100% local.
 | `npm run typecheck` | Verificação de tipos (TypeScript estrito) |
 | `npm run lint` | ESLint (inclui regras do React Compiler) |
 | `npm test` | Testes unitários e de componentes (Vitest + jsdom) |
-| `npm run build` | Build de produção + pós-build (HTML por rota, sitemap, robots, 404, CSP) |
+| `npm run build` | Build de produção + pré-renderização de cada rota (HTML completo, hidratado pelo React), sitemap, robots, 404, CSP e service worker |
 | `npm run build:pages` | Build com a base do GitHub Pages (`/site_bezalel/`) |
 | `npm run preview:pages` | Serve o build em `http://localhost:4173/site_bezalel/` |
 | `npm run test:e2e` | Testes de navegador (Playwright) contra o build em subdiretório |
+| `npm run check:budget` | Orçamento de tamanho (gzip) da primeira carga — falha se estourar |
+| `npm run serve:dist` | Serve `dist/` em `/site_bezalel/` com gzip, como o GitHub Pages |
+| `npm run lighthouse` | Lighthouse CI em modo celular (home, catálogo e um curso) |
 | `npm run check` | typecheck + lint + testes + build |
 | `npm run assets` | Regera ícones PNG e a imagem Open Graph |
 | `npm run export:data` | Exporta o catálogo para o backend (`server/data/catalog.json`) |

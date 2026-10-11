@@ -51,10 +51,14 @@ server/           backend de referência (FastAPI) + deploy Oracle Cloud
 | **TypeScript 6.0 (não 7.0)** | `typescript-eslint` 8.71 só suporta TS < 6.1 — incompatibilidade conhecida verificada antes da instalação. |
 | **React Router 8 (data router)** | Rotas com `lazy` para code splitting por página; `basename` = `import.meta.env.BASE_URL` para o subcaminho do Pages. Transições com a View Transitions API (`viewTransition`). |
 | **BrowserRouter + HTML pré-gerado por rota** (em vez de HashRouter) | URLs limpas e indexáveis. O pós-build cria `dist/<rota>/index.html` com metadados próprios; o GitHub Pages serve cada um diretamente — sem o truque de redirecionar o 404. |
+| **Pré-renderização completa (SSG) + hidratação** (v2 · Fase 0) | `src/entry-server.tsx` é compilado com `vite build --ssr`; o pós-build renderiza cada rota com `createStaticHandler`/`StaticRouterProvider` e grava o HTML completo dentro de `#root` (`data-ssr="1"`). O navegador pinta o conteúdo antes do JavaScript; `main.tsx` carrega as rotas preguiçosas da URL atual e chama `hydrateRoot`. Hidrata só quando a página bate com o HTML (sem filtros na URL, idioma e movimento padrão); senão renderiza do zero por cima. Divergências ficam em `window.__bzRecoverableErrors`, e os testes de navegador exigem zero. |
+| **Dados locais legíveis no primeiro render** (`lib/sync-promise.ts`) | No modo demonstração os serviços devolvem promessas já resolvidas e marcadas; o `useAsync` lê o valor na hora. Resultado: HTML pré-gerado com os dados reais (não esqueletos), hidratação sem troca de conteúdo e CLS zero. No modo API nada muda (a requisição começa no efeito). |
 | **Tailwind CSS 4 com tokens em CSS** | Tokens semânticos em `styles/tokens.css` (`--bg`, `--accent`, `--ok`…), mapeados com `@theme inline`: troca de tema em runtime sem recompilar. |
 | **three.js + React Three Fiber, sem drei** | Laboratório declarativo; helpers próprios (texturas em canvas, câmera) evitam dependências e downloads extras de fontes. |
-| **Sem pós-processamento (bloom)** | Brilho com materiais emissivos e sprites aditivos: visual de laboratório sem o custo de `@react-three/postprocessing`. |
-| **Canvas 2D próprio na home** (rede de partículas e icosaedro projetado à mão) | Experiência visual forte sem baixar three.js na página de entrada. |
+| **Sem pós-processamento (bloom)** — revisada na v2 | Na v1, brilho só com materiais emissivos e sprites aditivos. Na v2 o bloom foi aprovado **apenas em aparelhos fortes** (Fase 3 — laboratório), em meia resolução, desligado em celular e em qualidade reduzida. |
+| **Canvas 2D próprio na home** (rede de partículas e icosaedro projetado à mão) | Experiência visual forte sem baixar three.js na página de entrada. Na v2 a rede de partículas roda num **Web Worker com OffscreenCanvas** (`components/visual/particles/`), com traços agrupados por opacidade e 30 fps em celular; sem suporte, o mesmo motor roda na página. |
+| **Animações decorativas só no compositor** (v2 · Fase 0) | Medido num celular médio simulado (CPU 4× mais lenta), traços SVG com `stroke-dashoffset` e SMIL ocupavam ~98% da thread principal mesmo com a página parada. Regra: efeito contínuo usa só `transform`/`opacity` em elementos HTML; SVG fica estático. `useAnimationGate` pausa CSS e SMIL fora da tela e respeita "reduzir movimento" (o SMIL ignorava). |
+| **Sem `backdrop-filter` em telas de toque nem sobre canvas animado** | O desfoque é refeito a cada quadro de rolagem; em `pointer: coarse` as superfícies ficam quase opacas. |
 | **Recharts só na rota /insights** | Chunk carregado sob demanda. Paleta categórica validada (contraste e daltonismo) com o validador da skill de dataviz; toda visualização tem visão em tabela. |
 | **i18n próprio (objetos tipados)** | Português e inglês com garantia estrutural: o tipo `Widen<typeof ptBR>` obriga o inglês a ter as mesmas chaves; um teste compara as formas. Sem dependência extra. |
 | **`<dialog>` nativo** para modais e gavetas | Foco preso, Esc e fundo inerte pelo navegador. |
@@ -63,22 +67,40 @@ server/           backend de referência (FastAPI) + deploy Oracle Cloud
 
 ## Desempenho
 
-Medido no build de produção (gzip):
+### Medição (v2 · Fase 0, 11/10/2026)
 
-| Recurso | Tamanho | Quando carrega |
+Mesmas condições para antes e depois: build servido localmente com gzip (como o GitHub Pages), Lighthouse 12 em modo celular (mediana de 3 rodadas) e traço da thread principal com CPU 4× mais lenta em viewport de celular. Scripts de medição: `npm run serve:dist`, `npm run lighthouse`, `npm run check:budget`.
+
+| Métrica | v1.0 | v2 · Fase 0 |
 |---|---|---|
-| Bundle inicial (React, roteador, home, serviços, dados) | ~145 kB JS + 15 kB CSS | Sempre |
-| `InsightsPage` (Recharts) | ~115 kB | Só em `/insights` |
-| `LabScene` (three.js + R3F) | ~248 kB | Só ao escolher o modo 3D |
-| Demais páginas | 0,2–9 kB cada | Por rota |
+| Lighthouse Performance — home | 64–70 | **83–92** |
+| Total Blocking Time — home | 971–1573 ms | **175–444 ms** |
+| CLS — página de curso | 0,564 | **0** |
+| Thread principal com a home parada no topo | 81–98% | **6–9%** |
+| Thread principal com seções do meio da home na tela | ~98% | **1–21%** (validação: 40% enquanto visível) |
+| Tarefas longas ao rolar a home | 27–57 | **13** |
 
-Metas e medidas no código:
+### Orçamento (CI — `scripts/check-budget.ts`)
 
-- Animações pausam fora da viewport e com a aba oculta; densidade/resolução se ajustam ao dispositivo (`useDeviceProfile`).
-- `prefers-reduced-motion` e o botão "Reduzir animações" desligam animações (CSS e canvas); a abertura da marca é omitida.
-- No 3D: `dpr` limitado, geometria instanciada (pilares, partículas), sem sombras dinâmicas, detecção de FPS baixo com redução automática de qualidade, fallback 2D em perda de contexto WebGL.
-- `useAsync` só mostra esqueleto se a resposta demorar mais de 160 ms (sem "piscar").
-- Metas de Core Web Vitals para o lançamento: LCP < 2,5 s, CLS < 0,1, INP < 200 ms (a medir no ambiente publicado com Lighthouse/PageSpeed — não medido neste ambiente).
+| Recurso (gzip) | Teto | Hoje |
+|---|---|---|
+| HTML da home (pré-renderizado) | 40 kB | ~19 kB |
+| CSS de entrada | 20 kB | ~16 kB |
+| JS de entrada da home | 195 kB | ~185 kB |
+| `LabScene` (sob demanda) | 300 kB | ~240 kB |
+| `InsightsPage` (sob demanda) | 130 kB | ~111 kB |
+
+### Técnicas em uso
+
+- **SSG + hidratação em etapas**: cada seção abaixo da dobra é um `<Suspense>`; o React hidrata o topo primeiro e as seções em tarefas separadas.
+- **`content-visibility: auto`** nas seções abaixo da dobra (`.bz-defer`): estilo, layout e pintura adiados até a seção se aproximar da tela.
+- **Revelação ao rolar sem esconder o HTML**: só o que está abaixo da tela após a hidratação é recolhido (classificação por IntersectionObserver, sem `getBoundingClientRect`, para não forçar layout de seções adiadas); a camada da GPU é liberada ao fim da transição.
+- **Fontes da primeira dobra pré-carregadas** (`<link rel="preload">` gerado no pós-build).
+- **Simulação de eventos começa ociosa** na home (`requestIdleCallback`); tokens da busca são calculados uma vez por curso.
+- **Service worker** (`scripts/sw-template.js`): rede primeiro para páginas, cache primeiro para `/assets/` (imutáveis); páginas vistas funcionam sem rede.
+- Animações pausam fora da viewport e com a aba oculta; `prefers-reduced-motion` e o botão "Reduzir animações" desligam CSS, canvas e SMIL; a abertura da marca (só CSS, já no HTML) é omitida.
+- No 3D: `dpr` limitado, geometria instanciada, sem sombras dinâmicas, detecção de FPS baixo com redução automática de qualidade, fallback 2D em perda de contexto WebGL.
+- Metas: LCP < 2,5 s, CLS < 0,1, INP < 200 ms — verificadas no CI pelo Lighthouse (acessibilidade e CLS bloqueiam; desempenho avisa, pela variação da máquina do CI).
 
 ## Contratos de API (modo `api`)
 

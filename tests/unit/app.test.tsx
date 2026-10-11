@@ -116,7 +116,7 @@ describe('preferências', () => {
     const user = userEvent.setup();
     renderAt('/about');
     await screen.findByRole('heading', { level: 1 }, { timeout: 12000 });
-    await user.click(screen.getByRole('button', { name: 'Switch to English' }));
+    await user.click(screen.getByRole('button', { name: /Switch to English/ }));
     expect(await screen.findByRole('heading', { level: 1, name: /Knowledge is only complete/ })).toBeInTheDocument();
     expect(document.documentElement.lang).toBe('en');
   });

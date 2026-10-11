@@ -10,10 +10,10 @@ export function Footer() {
   const m = useT();
   const year = new Date().getFullYear();
   return (
-    <footer className="relative mt-24 overflow-hidden border-t border-line bg-bg-deep">
+    <footer className="relative mt-16 overflow-hidden md:mt-24 border-t border-line bg-bg-deep">
       <div aria-hidden className="bg-blueprint absolute inset-0 opacity-40 [mask-image:linear-gradient(to_bottom,black,transparent)]" />
-      <div className="container-page relative grid grid-cols-1 gap-12 py-16 md:grid-cols-12">
-        <div className="md:col-span-5">
+      <div className="container-page relative grid grid-cols-2 gap-x-6 gap-y-10 py-12 md:grid-cols-12 md:gap-12 md:py-16">
+        <div className="col-span-2 md:col-span-5">
           <div className="flex items-center gap-3">
             <BezalelMark className="size-10" />
             <Wordmark className="text-lg" />
@@ -48,7 +48,7 @@ export function Footer() {
           </ul>
         </nav>
 
-        <div className="md:col-span-3">
+        <div className="col-span-2 md:col-span-3">
           <h2 className="font-mono text-xs uppercase tracking-[0.18em] text-fg-subtle">{m.footer.transparency}</h2>
           <p className="mt-4 text-sm leading-relaxed text-fg-muted">{m.footer.transparencyText}</p>
           <div className="mt-4 flex flex-wrap gap-2 text-xs">

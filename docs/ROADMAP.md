@@ -1,5 +1,21 @@
 # Roadmap
 
+## v2 — plano aprovado em 11/10/2026
+
+Executado fase a fase; cada fase é publicada ao terminar.
+
+| Fase | Escopo | Estado |
+|---|---|---|
+| 0 · Performance no celular | Pré-renderização completa + hidratação, dados no primeiro render, partículas em Web Worker, animações só de compositor, `content-visibility`, revelação ao rolar sem esconder o HTML, fontes pré-carregadas, home mais curta (trilhos deslizantes), barra de ações no celular, service worker, orçamento de tamanho e Lighthouse no CI | **Concluída** (medições em `ARCHITECTURE.md`) |
+| 1 · "A Forja" | Animação 3D ao rolar: a estrutura da Bezalel construída em 5 atos (faísca → descobrir → verificar → conectar → construir), personalizada pelos interesses escolhidos; versões leve e 2D | Próxima |
+| 2 · Catálogo ampliado | De 7 para ~18 áreas (saúde, educação física, nutrição, saúde mental, educação, negócios, finanças, marketing, design, idiomas, indústria, agro, gestão pública, habilidades comportamentais…); o máximo possível de cursos **reais**, cada um conferido na página oficial | Planejada |
+| 3 · Laboratório 2.0 | Robôs articulados feitos em código (braços, pernas, mãos), PBR com reflexos, bloom só em aparelhos fortes, campus ~3× maior com 6 setores, monitores mostrando o trabalho de cada agente, robôs carregando registros entre setores, tour guiado, "seguir um curso", novo agente **Vigia** (reconferência de 180 dias) | Planejada |
+| 4 · Ferramentas | "Descubra sua trilha", trilhas com progresso, favoritos e comparador, planejador de estudos (.ics), calculadora de horas complementares, Ctrl+K, busca por voz, constelação de competências, trilha compartilhável | Planejada |
+| 5 · Psicologia aplicada (ética) | Pico-final, curiosidade, progresso, poucas escolhas por tela, polegar; prova social só com números reais — nada de escassez ou contador falso | Planejada |
+| 6 · Qualidade | Testes de tudo que for novo, auditoria de acessibilidade, documentação | Contínua |
+
+---
+
 Estado em 10/10/2026 (v1.0).
 
 ## Implementado

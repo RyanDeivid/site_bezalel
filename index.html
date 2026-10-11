@@ -24,20 +24,29 @@
     <link rel="icon" type="image/svg+xml" href="%BASE_URL%favicon.svg" />
     <link rel="apple-touch-icon" href="%BASE_URL%icons/apple-touch-icon.png" />
     <link rel="manifest" href="%BASE_URL%manifest.webmanifest" />
-    <!-- Aplica tema, idioma e preferência de movimento antes da primeira pintura (evita flash). -->
+    <!-- Aplica tema, idioma, movimento, aviso de demonstração e abertura da marca
+         antes da primeira pintura (o HTML pré-gerado é igual para todos; isto o
+         ajusta ao visitante sem flash). -->
     <script>
       (function () {
         var d = document.documentElement;
+        var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         try {
           var t = localStorage.getItem('bz-theme');
           if (t !== 'light' && t !== 'dark') {
             t = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
           }
           d.dataset.theme = t;
-          if (localStorage.getItem('bz-motion') === 'reduced') d.dataset.motion = 'reduced';
+          if (localStorage.getItem('bz-motion') === 'reduced') {
+            d.dataset.motion = 'reduced';
+            reduced = true;
+          }
           if (localStorage.getItem('bz-locale') === 'en') d.lang = 'en';
+          if (localStorage.getItem('bz-demo-banner-v1') === 'dismissed') d.dataset.banner = 'off';
+          if (reduced || navigator.webdriver || sessionStorage.getItem('bz-intro-seen')) d.dataset.intro = 'off';
         } catch (e) {
           d.dataset.theme = 'dark';
+          d.dataset.intro = 'off';
         }
       })();
     </script>

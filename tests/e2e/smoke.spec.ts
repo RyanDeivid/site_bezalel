@@ -32,14 +32,55 @@ const ROUTES: Array<[string, RegExp]> = [
   ['terms/', /Termos de uso/],
 ];
 
+/** Espera o React assumir a página (o HTML pré-renderizado aparece antes de ser interativo). */
+async function gotoReady(page: Page, path: string) {
+  await page.goto(path);
+  await page.waitForFunction(() => Boolean(document.documentElement.dataset.hydrated), undefined, { timeout: 15_000 });
+}
+
+/** Divergências entre o HTML pré-renderizado e o primeiro render do React (src/main.tsx). */
+async function hydrationReport(page: Page) {
+  await page.waitForFunction(() => Boolean(document.documentElement.dataset.hydrated), undefined, { timeout: 15_000 });
+  return page.evaluate(() => ({
+    mode: document.documentElement.dataset.hydrated,
+    errors: (window as Window & { __bzRecoverableErrors?: string[] }).__bzRecoverableErrors ?? [],
+  }));
+}
+
 for (const [path, title] of ROUTES) {
-  test(`deep link /${path} carrega sem erros`, async ({ page }) => {
+  test(`deep link /${path} carrega sem erros e hidrata o HTML pré-renderizado`, async ({ page, request }) => {
+    // O HTML já traz a página completa (antes do JavaScript).
+    const html = await (await request.get(path)).text();
+    expect(html).toContain('data-ssr="1"');
     const errors = trackErrors(page);
     await page.goto(path);
     await expect(page.getByRole('heading', { level: 1, name: title })).toBeVisible();
+    expect(await hydrationReport(page)).toEqual({ mode: 'true', errors: [] });
     expect(errors).toEqual([]);
   });
 }
+
+test('conteúdo principal aparece sem JavaScript', async ({ browser }) => {
+  const context = await browser.newContext({ javaScriptEnabled: false });
+  const page = await context.newPage();
+  await page.goto('course/harvard-cs50x/');
+  await expect(page.getByRole('heading', { level: 1, name: "CS50's Introduction to Computer Science" })).toBeVisible();
+  await page.goto('');
+  await expect(page.getByRole('heading', { level: 1, name: /Inteligência para descobrir/ })).toBeVisible();
+  await context.close();
+});
+
+test('barra de ações do celular aparece depois do topo e some no rodapé', async ({ page, isMobile }) => {
+  test.skip(!isMobile, 'Somente em viewport móvel.');
+  await gotoReady(page, '');
+  const bar = page.getByRole('navigation', { name: 'Ações rápidas' });
+  await expect(bar).toBeHidden();
+  await page.evaluate(() => window.scrollTo(0, 1400));
+  await expect(bar).toBeVisible();
+  await expect(bar.getByRole('link', { name: 'Buscar cursos' })).toBeVisible();
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  await expect(bar).toBeHidden();
+});
 
 test('rota inexistente mostra a página 404 da aplicação', async ({ page }) => {
   await page.goto('nao-existe/');
@@ -57,7 +98,7 @@ test('metadados por rota estão no HTML estático', async ({ request }) => {
 });
 
 test('busca e filtros alteram os resultados', async ({ page }) => {
-  await page.goto('explore/');
+  await gotoReady(page, 'explore/');
   const heading = page.getByRole('heading', { level: 2, name: /oportunidades?/ });
   await expect(heading).toContainText('19');
   await page.getByLabel('Buscar no catálogo').fill('linux');
@@ -68,14 +109,14 @@ test('busca e filtros alteram os resultados', async ({ page }) => {
 });
 
 test('assistente responde com cursos do catálogo', async ({ page }) => {
-  await page.goto('assistant/');
+  await gotoReady(page, 'assistant/');
   await page.getByLabel('Sua pergunta').fill('cursos gratuitos de Python');
   await page.getByRole('button', { name: 'Enviar' }).click();
   await expect(page.getByText(/oportunidades? no catálogo verificado/)).toBeVisible();
 });
 
 test('laboratório 2D é utilizável', async ({ page }) => {
-  await page.goto('lab/');
+  await gotoReady(page, 'lab/');
   await page.getByRole('button', { name: 'Abrir versão 2D' }).click();
   await page.getByRole('button', { name: /Abrir estação Verifier/ }).click();
   await expect(page.getByRole('heading', { name: 'Estação Verifier' })).toBeVisible();
@@ -85,7 +126,7 @@ test('laboratório 2D é utilizável', async ({ page }) => {
 test('laboratório 3D carrega a cena e a Central de Operações', async ({ page, isMobile }) => {
   test.skip(isMobile, 'O fluxo 3D com teclado é coberto no desktop.');
   const errors = trackErrors(page);
-  await page.goto('lab/');
+  await gotoReady(page, 'lab/');
   const enter = page.getByRole('button', { name: 'Entrar no laboratório 3D' });
   test.skip(await enter.isDisabled(), 'WebGL indisponível neste navegador de teste.');
   await enter.click();
@@ -102,7 +143,7 @@ test('laboratório 3D carrega a cena e a Central de Operações', async ({ page,
 test('sem rolagem horizontal acidental', async ({ page }) => {
   for (const path of ['', 'explore/', 'insights/', 'agents/', 'lab/', 'methodology/']) {
     await page.goto(path);
-    await page.waitForLoadState('networkidle');
+    await page.waitForFunction(() => Boolean(document.documentElement.dataset.hydrated));
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow, `rolagem horizontal em /${path}`).toBeLessThanOrEqual(1);
   }
@@ -110,7 +151,7 @@ test('sem rolagem horizontal acidental', async ({ page }) => {
 
 test('menu móvel abre e navega', async ({ page, isMobile }) => {
   test.skip(!isMobile, 'Somente em viewport móvel.');
-  await page.goto('');
+  await gotoReady(page, '');
   await page.getByRole('button', { name: 'Abrir menu' }).click();
   await page.getByRole('dialog').getByRole('link', { name: 'Insights' }).click();
   await expect(page.getByRole('heading', { level: 1, name: /Competências observadas/ })).toBeVisible();

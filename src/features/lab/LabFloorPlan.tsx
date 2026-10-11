@@ -4,6 +4,7 @@ import { BezalelMark } from '@/components/brand/BezalelMark';
 import { cn } from '@/lib/cn';
 import type { Agent, AgentId, AgentStatus } from '@/types/domain';
 import { HUB_RADIUS, LAB_RADIUS, STATION_LINKS, STATIONS, stationById } from './layout';
+import { useAnimationGate } from '@/hooks/useAnimationGate';
 
 interface Props {
   agents: Agent[];
@@ -25,8 +26,9 @@ const toPct = (v: number) => ((v + VIEW / 2) / VIEW) * 100;
 export function LabFloorPlan({ agents, statuses, pulseAgent, onSelect }: Props) {
   const { m, locale } = usePreferences();
   const byId = new Map(agents.map((a) => [a.id, a]));
+  const gate = useAnimationGate<HTMLDivElement>();
   return (
-    <div className="relative mx-auto aspect-square w-full max-w-[620px]">
+    <div ref={gate} className="relative mx-auto aspect-square w-full max-w-[620px]">
       <svg viewBox={`${-VIEW / 2} ${-VIEW / 2} ${VIEW} ${VIEW}`} className="absolute inset-0 size-full" aria-hidden>
         <circle r={LAB_RADIUS + 0.6} fill="var(--surface)" stroke="var(--accent)" strokeOpacity="0.5" strokeWidth="0.12" />
         {[4, 8, 12].map((r) => (

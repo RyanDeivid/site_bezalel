@@ -1,5 +1,5 @@
 import { ArrowRight } from 'lucide-react';
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { usePreferences } from '@/app/preferences-context';
 import { AGENT_COLOR, AgentGlyph } from '@/components/agents/AgentGlyph';
 import { BezalelMark } from '@/components/brand/BezalelMark';
@@ -34,9 +34,9 @@ export function AgentsPreviewSection() {
   const [hover, setHover] = useState<AgentId | null>(null);
 
   return (
-    <section className="relative overflow-hidden border-y border-line bg-bg-abyss py-20 md:py-28">
-      <div className="container-page grid grid-cols-1 items-center gap-14 lg:grid-cols-2">
-        <Reveal className="relative mx-auto aspect-square w-full max-w-[460px]">
+    <section className="relative overflow-hidden border-y border-line bg-bg-abyss py-14 md:py-28">
+      <div className="container-page grid grid-cols-1 items-center gap-10 md:gap-14 lg:grid-cols-2">
+        <Reveal className="relative mx-auto aspect-square w-full max-w-[280px] [container-type:inline-size] sm:max-w-[460px]">
           <svg viewBox="0 0 400 400" className="size-full" role="img" aria-label={a.title}>
             <defs>
               <radialGradient id="bz-core-glow">
@@ -57,7 +57,7 @@ export function AgentsPreviewSection() {
                 strokeOpacity={hover === null || hover === id ? 0.5 : 0.12}
                 strokeWidth="1.2"
                 strokeDasharray="4 6"
-                style={{ animation: 'bz-flow 6s linear infinite', transition: 'stroke-opacity 300ms' }}
+                style={{ transition: 'stroke-opacity 300ms' }}
               />
             ))}
             {LINKS.map(([from, to]) => (
@@ -74,6 +74,26 @@ export function AgentsPreviewSection() {
               />
             ))}
           </svg>
+          {/* Pulsos de dados viajando de cada agente até o núcleo: elementos HTML
+              animados só com transform/opacity (compositor). Traços SVG animados
+              custavam a thread principal inteira de um celular médio. */}
+          {(Object.keys(NODES) as AgentId[]).map((id, i) => (
+            <span
+              key={`p-${id}`}
+              aria-hidden
+              className="bz-travel-dot"
+              style={
+                {
+                  left: `${NODES[id].x / 4}%`,
+                  top: `${NODES[id].y / 4}%`,
+                  color: AGENT_COLOR[id],
+                  '--tx': `${(200 - NODES[id].x) / 4}cqw`,
+                  '--ty': `${(200 - NODES[id].y) / 4}cqw`,
+                  '--delay': `${-i * 0.55}s`,
+                } as CSSProperties
+              }
+            />
+          ))}
           <BezalelMark className="absolute left-1/2 top-1/2 size-16 -translate-x-1/2 -translate-y-1/2 text-fg" />
           {(Object.keys(NODES) as AgentId[]).map((id) => (
             <span

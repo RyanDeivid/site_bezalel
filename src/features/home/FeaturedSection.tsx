@@ -21,7 +21,7 @@ export function FeaturedSection() {
   const [spot, ...rest] = result.data?.hits.map((h) => h.course) ?? [];
 
   return (
-    <section className="container-page py-20 md:py-28">
+    <section className="container-page py-14 md:py-28">
       <Reveal>
         <SectionHeader
           eyebrow={f.eyebrow}
@@ -48,22 +48,22 @@ export function FeaturedSection() {
       )}
 
       {spot && (
-        <div className="mt-12 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="mt-10 grid grid-cols-1 gap-6 md:mt-12 lg:grid-cols-2">
           <Reveal>
             <Link
               to={coursePath(spot)}
               viewTransition
-              className="group relative flex h-full min-h-80 flex-col overflow-hidden rounded-2xl border border-line bg-gradient-to-br from-surface-2 via-surface to-bg p-8 transition-[border-color,box-shadow] duration-500 hover:border-accent/50 hover:shadow-3"
+              className="group relative flex h-full min-h-64 flex-col overflow-hidden rounded-2xl border border-line bg-gradient-to-br from-surface-2 via-surface to-bg p-6 sm:min-h-80 sm:p-8 transition-[border-color,box-shadow] duration-500 hover:border-accent/50 hover:shadow-3"
             >
               <BezalelMark className="absolute -right-10 -top-10 size-64 text-fg opacity-[0.07] transition-transform duration-[1.2s] ease-[var(--ease-out)] group-hover:rotate-[30deg] group-hover:scale-110" />
               <div className="flex flex-wrap items-center gap-2">
                 <Badge tone="accent">{f.spotlight}</Badge>
                 <OriginBadge origin={spot.origin} />
               </div>
-              <p className="mt-8 font-mono text-xs uppercase tracking-[0.2em] text-fg-subtle">{spot.provider.name}</p>
-              <h3 className="mt-3 max-w-md text-3xl font-semibold leading-tight">{spot.title}</h3>
+              <p className="mt-6 font-mono text-xs uppercase tracking-[0.2em] text-fg-subtle sm:mt-8">{spot.provider.name}</p>
+              <h3 className="mt-3 max-w-md text-2xl font-semibold leading-tight sm:text-3xl">{spot.title}</h3>
               <p className="mt-4 line-clamp-3 max-w-lg text-fg-muted">{spot.description}</p>
-              <div className="mt-auto flex flex-wrap items-center gap-x-5 gap-y-2 pt-8 text-sm text-fg-muted">
+              <div className="mt-auto flex flex-wrap items-center gap-x-5 gap-y-2 pt-6 text-sm text-fg-muted sm:pt-8">
                 <span className="text-ok">{priceLabel(spot, m, locale)}</span>
                 {durationLabel(spot, m) && (
                   <span className="inline-flex items-center gap-1.5">

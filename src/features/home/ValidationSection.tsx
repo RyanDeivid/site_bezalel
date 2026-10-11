@@ -33,7 +33,7 @@ export function ValidationSection() {
   const checksDone = active >= 1 ? (active === 1 ? 3 : BLOCKING.length) : 0;
 
   return (
-    <section className="relative overflow-hidden border-y border-line bg-bg-deep py-20 md:py-28">
+    <section className="relative overflow-hidden border-y border-line bg-bg-deep py-14 md:py-28">
       <div aria-hidden className="bg-blueprint absolute inset-0 opacity-40" />
       <div className="container-page relative">
         <Reveal className="max-w-3xl">
@@ -42,14 +42,15 @@ export function ValidationSection() {
           <p className="mt-4 text-fg-muted">{v.lead}</p>
         </Reveal>
 
-        <div ref={ref} className="mt-14 grid grid-cols-1 gap-8 lg:grid-cols-12">
+        <div ref={ref} className="mt-10 grid grid-cols-1 gap-8 md:mt-14 lg:grid-cols-12">
           <div className="lg:col-span-7">
             <ol aria-label={v.stepsLabel} className="relative grid grid-cols-4 gap-2">
               <span aria-hidden className="absolute left-[12.5%] right-[12.5%] top-5 h-px bg-line-strong" />
+              {/* Progresso por scaleX (compositor), não por width (layout a cada quadro). */}
               <span
                 aria-hidden
-                className="absolute left-[12.5%] top-5 h-px bg-accent transition-[width] duration-700 ease-[var(--ease-out)]"
-                style={{ width: `${(active / (STEPS.length - 1)) * 75}%` }}
+                className="absolute left-[12.5%] top-5 h-px w-3/4 origin-left bg-accent transition-transform duration-700 ease-[var(--ease-out)]"
+                style={{ transform: `scaleX(${active / (STEPS.length - 1)})` }}
               />
               {STEPS.map((s, i) => (
                 <li key={s} className="relative flex flex-col items-center text-center">
@@ -59,7 +60,7 @@ export function ValidationSection() {
                     aria-pressed={pinned === i}
                     aria-current={i === active ? 'step' : undefined}
                     className={cn(
-                      'relative z-10 grid size-10 place-items-center rounded-full border-2 font-mono text-sm transition-all duration-500',
+                      'relative z-10 grid size-10 place-items-center rounded-full border-2 font-mono text-sm transition-[transform,background-color,border-color,color] duration-500',
                       i < active && 'border-accent bg-accent text-accent-fg',
                       i === active && 'scale-110 border-accent bg-bg text-accent-text shadow-[var(--glow-accent)]',
                       i > active && 'border-line-strong bg-bg text-fg-subtle',
@@ -85,16 +86,17 @@ export function ValidationSection() {
                   </Badge>
                 </div>
               </div>
-              <p className="px-5 py-4 text-sm text-fg-muted" aria-live="polite">
+              {/* Só anuncia mudanças pedidas pelo visitante; o ciclo automático não fala sem parar. */}
+              <p className="px-5 py-4 text-sm text-fg-muted" aria-live={pinned !== null ? 'polite' : 'off'}>
                 {m.enums.publicationStatusHelp[status]}
               </p>
-              <div className="h-1 bg-surface-2">
-                <div className="h-full bg-accent transition-[width] duration-700" style={{ width: `${((active + 1) / STEPS.length) * 100}%` }} />
+              <div className="h-1 overflow-hidden bg-surface-2">
+                <div className="h-full origin-left bg-accent transition-transform duration-700" style={{ transform: `scaleX(${(active + 1) / STEPS.length})` }} />
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:col-span-5 lg:grid-cols-1">
+          <div className="bz-rail bz-rail-bleed grid grid-cols-1 gap-4 sm:grid-cols-2 lg:col-span-5 lg:grid-cols-1">
             <div className="panel p-5">
               <h3 className="font-mono text-xs uppercase tracking-[0.16em] text-fg-subtle">{v.blocking}</h3>
               <ul className="mt-4 space-y-2.5">

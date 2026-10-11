@@ -41,7 +41,6 @@ export function HeroSection() {
     navigate(explorePath({ q }), { viewTransition: true });
   }
 
-  const words = h.titleStart.split(' ');
   const checked = facets.data?.lastCheckedAt ? formatDate(facets.data.lastCheckedAt, locale) : null;
 
   return (
@@ -54,38 +53,34 @@ export function HeroSection() {
 
       <div className="container-page relative grid grid-cols-1 min-h-[min(92dvh,920px)] items-center gap-10 pb-28 pt-14 lg:grid-cols-12 lg:pt-10">
         <div className="lg:col-span-7">
-          <p className="eyebrow page-enter">{h.eyebrow}</p>
-          <p className="page-enter mt-6 font-mono text-sm tracking-[0.3em] text-accent-text [animation-delay:80ms]">{h.kicker}</p>
+          <p className="eyebrow bz-hero-in">{h.eyebrow}</p>
+          <p className="bz-hero-in mt-6 font-mono text-sm tracking-[0.3em] text-accent-text [--d:60ms]">{h.kicker}</p>
+          {/* Título e texto de apoio ficam visíveis desde a primeira pintura (são o
+              conteúdo principal da página — LCP); a vida fica no traço dourado. */}
           <h1 className="text-hero mt-4 font-semibold">
-            {/* Frase completa para leitores de tela; as palavras animadas são decorativas. */}
-            <span className="sr-only">{`${h.titleStart} ${h.titleAccent} ${h.titleEnd}`}</span>
-            <span aria-hidden>
-              {words.map((w, i) => (
-                <span key={i}>
-                  <span className="bz-intro-word" style={{ animationDelay: `${120 + i * 70}ms` }}>
-                    {w}
-                  </span>{' '}
-                </span>
-              ))}
-              <span className="bz-intro-word font-serif-accent text-accent-text" style={{ animationDelay: `${140 + words.length * 70}ms` }}>
-                {h.titleAccent}
-              </span>{' '}
-              <span className="bz-intro-word block text-[0.55em] font-medium tracking-[-0.03em] text-fg-muted" style={{ animationDelay: `${220 + words.length * 70}ms` }}>
-                {h.titleEnd}
-              </span>
-            </span>
+            {h.titleStart} <span className="bz-accent-underline font-serif-accent text-accent-text">{h.titleAccent}</span>{' '}
+            <span className="block text-[0.55em] font-medium tracking-[-0.03em] text-fg-muted">{h.titleEnd}</span>
           </h1>
-          <p className="page-enter mt-7 max-w-xl text-lg leading-relaxed text-fg-muted [animation-delay:500ms]">{h.lead}</p>
+          <p className="mt-7 max-w-xl text-lg leading-relaxed text-fg-muted">{h.lead}</p>
 
-          <form onSubmit={onSubmit} role="search" className="page-enter mt-9 max-w-xl [animation-delay:600ms]">
+          {/* action/method: sem JavaScript (ou antes da hidratação) a busca ainda leva ao catálogo filtrado. */}
+          <form
+            id="hero-search-form"
+            action={`${import.meta.env.BASE_URL}explore/`}
+            method="get"
+            onSubmit={onSubmit}
+            role="search"
+            className="bz-hero-in mt-9 max-w-xl [--d:300ms]"
+          >
             <label htmlFor="hero-search" className="sr-only">
               {h.searchLabel}
             </label>
-            <div className="group flex items-center gap-2 rounded-2xl border border-line-strong bg-surface/70 p-1.5 pl-4 shadow-2 backdrop-blur-xl transition-[border-color,box-shadow] duration-300 focus-within:border-accent/70 focus-within:shadow-[var(--glow-accent)]">
+            <div className="group flex items-center gap-2 rounded-2xl border border-line-strong bg-surface/90 p-1.5 pl-4 shadow-2 transition-[border-color,box-shadow] duration-300 focus-within:border-accent/70 focus-within:shadow-[var(--glow-accent)]">
               <Search aria-hidden className="size-5 shrink-0 text-fg-subtle group-focus-within:text-accent-text" />
               <input
                 ref={inputRef}
                 id="hero-search"
+                name="q"
                 type="search"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
@@ -121,7 +116,7 @@ export function HeroSection() {
             </div>
           </form>
 
-          <div className="page-enter mt-9 flex flex-wrap gap-3 [animation-delay:700ms]">
+          <div className="bz-hero-in mt-9 flex flex-wrap gap-3 [--d:360ms]">
             <ButtonLink to="/explore" size="lg" iconRight={<ArrowRight className="size-4" />}>
               {h.ctaPrimary}
             </ButtonLink>
@@ -133,15 +128,15 @@ export function HeroSection() {
 
         <div className="relative hidden aspect-square w-full lg:col-span-5 lg:block">
           <GeometryCore className="absolute inset-0" />
-          <div className="bz-float glass absolute left-0 top-[16%] rounded-xl px-4 py-3 shadow-2 [--float-delay:0s]">
+          <div className="bz-float bz-hero-card absolute left-0 top-[16%] rounded-xl px-4 py-3 shadow-2 [--float-delay:0s]">
             <p className="font-mono text-[0.7rem] uppercase tracking-wider text-ok">● {m.common.curated}</p>
             <p className="mt-1 text-sm font-medium">{facets.data ? h.floatVerified(facets.data.total) : '—'}</p>
           </div>
-          <div className="bz-float glass absolute right-0 top-[52%] rounded-xl px-4 py-3 shadow-2 [--float-delay:-2s]">
+          <div className="bz-float bz-hero-card absolute right-0 top-[52%] rounded-xl px-4 py-3 shadow-2 [--float-delay:-2s]">
             <p className="font-mono text-[0.7rem] uppercase tracking-wider text-fg-subtle">{m.common.lastChecked}</p>
             <p className="mt-1 text-sm font-medium">{checked ? h.floatChecked(checked) : '—'}</p>
           </div>
-          <div className="bz-float glass absolute bottom-[8%] left-[12%] flex items-center gap-3 rounded-xl px-4 py-3 shadow-2 [--float-delay:-4s]">
+          <div className="bz-float bz-hero-card absolute bottom-[8%] left-[12%] flex items-center gap-3 rounded-xl px-4 py-3 shadow-2 [--float-delay:-4s]">
             <span className="flex -space-x-1.5">
               {(['scout', 'verifier', 'atlas', 'trend', 'sol'] as const).map((id) => (
                 <span key={id} className="grid size-7 place-items-center rounded-full border border-line bg-bg" style={{ color: `var(--agent-${id})` }}>

@@ -1,20 +1,37 @@
 import { ArrowRight, Box } from 'lucide-react';
+import { Suspense, type ReactNode } from 'react';
 import { useT } from '@/app/preferences-context';
 import { BezalelMark } from '@/components/brand/BezalelMark';
 import { ButtonLink } from '@/components/ui/Button';
 import { BrandIntro } from '@/components/visual/BrandIntro';
 import { DataStreams } from '@/components/visual/DataStreams';
 import { Reveal } from '@/components/visual/Reveal';
+import { useAnimationGate } from '@/hooks/useAnimationGate';
 import { useDocumentMeta } from '@/hooks/useDocumentMeta';
+import { cn } from '@/lib/cn';
 import { AgentsPreviewSection } from './AgentsPreviewSection';
 import { CategoriesSection } from './CategoriesSection';
 import { FeaturedSection } from './FeaturedSection';
 import { HeroSection } from './HeroSection';
 import { IndicatorsSection } from './IndicatorsSection';
 import { LabPreviewSection } from './LabPreviewSection';
+import { MobileActionBar } from './MobileActionBar';
 import { PillarsSection } from './PillarsSection';
 import { SkillsSection } from './SkillsSection';
 import { ValidationSection } from './ValidationSection';
+
+/**
+ * Bloco abaixo da primeira dobra: renderização adiada pelo navegador
+ * (content-visibility) e animações decorativas só enquanto está na tela.
+ */
+function Deferred({ as: Tag = 'div', className, children }: { as?: 'div' | 'section'; className?: string; children: ReactNode }) {
+  const ref = useAnimationGate<HTMLDivElement>();
+  return (
+    <Tag ref={ref} className={cn('bz-defer', className)}>
+      {children}
+    </Tag>
+  );
+}
 
 export function HomePage() {
   const m = useT();
@@ -36,16 +53,18 @@ export function HomePage() {
     <>
       <BrandIntro />
       <HeroSection />
-      <PillarsSection />
-      <FeaturedSection />
-      <CategoriesSection />
-      <SkillsSection />
-      <AgentsPreviewSection />
-      <LabPreviewSection />
-      <IndicatorsSection />
-      <ValidationSection />
+      {/* Abaixo da primeira dobra: o navegador adia estilo/layout/pintura
+          (content-visibility) e cada <Suspense> vira uma etapa separada da
+          hidratação — o topo fica interativo antes e sem tarefas longas. */}
+      {[PillarsSection, FeaturedSection, CategoriesSection, SkillsSection, AgentsPreviewSection, LabPreviewSection, IndicatorsSection, ValidationSection].map((Section, i) => (
+        <Suspense key={i} fallback={null}>
+          <Deferred>
+            <Section />
+          </Deferred>
+        </Suspense>
+      ))}
 
-      <section className="relative overflow-hidden">
+      <Deferred as="section" className="relative overflow-hidden">
         <DataStreams className="opacity-70" />
         <div className="container-page relative py-28 text-center md:py-36">
           <Reveal className="mx-auto flex max-w-3xl flex-col items-center">
@@ -62,7 +81,8 @@ export function HomePage() {
             </div>
           </Reveal>
         </div>
-      </section>
+      </Deferred>
+      <MobileActionBar watchId="hero-search-form" />
     </>
   );
 }

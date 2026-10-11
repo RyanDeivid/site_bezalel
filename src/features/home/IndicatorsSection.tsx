@@ -3,27 +3,24 @@ import { CountUp } from '@/components/visual/CountUp';
 import { Reveal } from '@/components/visual/Reveal';
 import { useAsync } from '@/hooks/useAsync';
 import { formatDate } from '@/lib/format';
+import { combine } from '@/lib/sync-promise';
 import { useServices } from '@/services/context';
 
 export function IndicatorsSection() {
   const { m, locale } = usePreferences();
   const services = useServices();
-  const data = useAsync(async () => {
-    const [facets, insights, sources, agents] = await Promise.all([
-      services.catalog.getFacets(),
-      services.skills.getInsights({}),
-      services.sources.list(),
-      services.agents.list(),
-    ]);
-    return {
-      verified: facets.total,
-      providers: facets.providers,
-      skills: insights.skills.length,
-      sources: sources.filter((s) => s.origin === 'curated').length,
-      agents: agents.length,
-      lastChecked: facets.lastCheckedAt,
-    };
-  }, []);
+  const data = useAsync(
+    () =>
+      combine([services.catalog.getFacets(), services.skills.getInsights({}), services.sources.list(), services.agents.list()] as const, ([facets, insights, sources, agents]) => ({
+        verified: facets.total,
+        providers: facets.providers,
+        skills: insights.skills.length,
+        sources: sources.filter((s) => s.origin === 'curated').length,
+        agents: agents.length,
+        lastChecked: facets.lastCheckedAt,
+      })),
+    [],
+  );
   const i = m.home.indicators;
   const items = data.data
     ? ([
@@ -36,7 +33,7 @@ export function IndicatorsSection() {
     : [];
 
   return (
-    <section className="container-page py-20 md:py-28">
+    <section className="container-page py-14 md:py-28">
       <Reveal>
         <p className="eyebrow">{i.eyebrow}</p>
         <h2 className="text-title mt-4">{i.title}</h2>

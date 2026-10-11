@@ -194,6 +194,13 @@
     border: 1px solid var(--line);
   }
 
+  /* Cartões flutuantes do hero: quase opacos, sem backdrop-filter — o desfoque
+     sobre um canvas animado seria recalculado a cada quadro. */
+  .bz-hero-card {
+    background: color-mix(in srgb, var(--surface) 90%, transparent);
+    border: 1px solid var(--line);
+  }
+
   /* Superfície padrão de cartão */
   .panel {
     background: var(--surface);
@@ -246,30 +253,119 @@
 }
 
 /* ---- Revelação ao rolar (ver components/visual/Reveal.tsx) -------------- */
-[data-reveal] {
+/* "pending" só é aplicado pelo JavaScript a elementos ainda abaixo da tela;
+   o HTML pré-gerado nunca esconde conteúdo. A transição dura pouco e a camada
+   da GPU é liberada ao terminar (o atributo é removido). */
+[data-reveal='pending'] {
   opacity: 0;
   transform: translate3d(0, 18px, 0);
+}
+
+[data-reveal='in'] {
   transition:
-    opacity var(--dur-cinematic) var(--ease-out),
-    transform var(--dur-cinematic) var(--ease-out);
+    opacity 520ms var(--ease-out),
+    transform 520ms var(--ease-out);
   transition-delay: var(--reveal-delay, 0ms);
 }
 
-[data-reveal][data-revealed='true'] {
-  opacity: 1;
+/* Portão de animações (hooks/useAnimationGate.ts): fora da tela, tudo parado. */
+[data-anim-paused],
+[data-anim-paused] *,
+[data-anim-paused] *::before,
+[data-anim-paused] *::after {
+  animation-play-state: paused !important;
+}
+
+/* ---- Ícone do tema: a marcação é a mesma nos dois temas ------------------ */
+:root[data-theme='dark'] .bz-theme-light-only,
+:root[data-theme='light'] .bz-theme-dark-only {
+  display: none;
+}
+
+/* ---- Celulares e tablets: sem backdrop-filter ---------------------------- */
+/* O desfoque de fundo é refeito a cada quadro de rolagem e pesa em GPUs de
+   celular médio. Em telas de toque as superfícies ficam quase opacas. */
+@media (pointer: coarse) {
+  .glass,
+  [class*='backdrop-blur'] {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .glass {
+    background: color-mix(in srgb, var(--surface) 95%, transparent);
+  }
+
+  .bz-header-solid {
+    background: color-mix(in srgb, var(--bg) 97%, transparent);
+  }
+}
+
+/* ---- Trilhos deslizantes no celular ------------------------------------- */
+/* Grades de cartões viram uma fileira com rolagem horizontal e encaixe: a
+   página fica muito mais curta e o cartão seguinte "espiando" na borda
+   convida a deslizar. A partir de 640px volta a ser a grade original. */
+@media (max-width: 639px) {
+  .bz-rail {
+    display: flex;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .bz-rail::-webkit-scrollbar {
+    display: none;
+  }
+
+  .bz-rail > * {
+    flex: 0 0 84%;
+    scroll-snap-align: start;
+  }
+
+  /* Variante que vaza até as bordas da tela (sem moldura própria). */
+  .bz-rail-bleed {
+    margin-inline: calc(-1 * clamp(1rem, 4vw, 2rem));
+    padding-inline: clamp(1rem, 4vw, 2rem);
+    scroll-padding-inline: clamp(1rem, 4vw, 2rem);
+  }
+}
+
+/* Barra de ações do celular (MobileActionBar.tsx): entra deslizando de baixo. */
+.bz-mobile-bar {
+  transform: translate3d(0, 110%, 0);
+  visibility: hidden;
+  transition:
+    transform 320ms var(--ease-out),
+    visibility 0s linear 320ms;
+}
+
+.bz-mobile-bar[data-shown] {
   transform: none;
+  visibility: visible;
+  transition:
+    transform 320ms var(--ease-out),
+    visibility 0s;
+}
+
+/* Aviso de demonstração dispensado (aplicado antes da pintura no index.html). */
+:root[data-banner='off'] .bz-demo-banner {
+  display: none;
 }
 
 /* ---- Keyframes compartilhados ------------------------------------------- */
+/* Anel que se expande a partir do ponto de status: escala + opacidade num
+   pseudo-elemento (compositor), em vez de box-shadow animado (repintura). */
 @keyframes bz-pulse-ring {
   0% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, currentColor 55%, transparent);
+    transform: scale(1);
+    opacity: 0.55;
   }
-  70% {
-    box-shadow: 0 0 0 8px transparent;
-  }
+  70%,
   100% {
-    box-shadow: 0 0 0 0 transparent;
+    transform: scale(3.6);
+    opacity: 0;
   }
 }
 
@@ -298,10 +394,10 @@
 
 @keyframes bz-shimmer {
   from {
-    background-position: -200% 0;
+    transform: translateX(-100%);
   }
   to {
-    background-position: 200% 0;
+    transform: translateX(100%);
   }
 }
 
@@ -321,19 +417,40 @@
 }
 
 .skeleton {
-  background: linear-gradient(
-    90deg,
-    var(--surface-2) 0%,
-    color-mix(in srgb, var(--surface-3) 80%, var(--fg) 4%) 50%,
-    var(--surface-2) 100%
-  );
-  background-size: 200% 100%;
-  animation: bz-shimmer 1.6s linear infinite;
+  position: relative;
+  overflow: hidden;
+  background: var(--surface-2);
   border-radius: var(--radius-sm);
 }
 
+/* Brilho que atravessa o esqueleto: só transform (compositor). */
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--surface-3) 80%, var(--fg) 4%), transparent);
+  animation: bz-shimmer 1.6s linear infinite;
+}
+
 .status-pulse {
+  position: relative;
+}
+
+.status-pulse::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: currentColor;
   animation: bz-pulse-ring 2s var(--ease-out) infinite;
+}
+
+/* Seções abaixo da primeira dobra: o navegador pula estilo, layout e pintura
+   (inclusive animações) enquanto estão longe da tela. `auto` guarda o tamanho
+   real depois do primeiro render, mantendo a barra de rolagem estável. */
+.bz-defer {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 1000px;
 }
 
 .page-enter {
@@ -389,16 +506,16 @@
   }
 }
 
+/* Só opacidade e transformação: animam no compositor (o blur de antes
+   forçava repintura a cada quadro, caro em celular). */
 @keyframes bz-rise {
   from {
     opacity: 0;
-    transform: translate3d(0, 0.5em, 0);
-    filter: blur(6px);
+    transform: translate3d(0, 0.5em, 0) scale(0.98);
   }
   to {
     opacity: 1;
     transform: none;
-    filter: none;
   }
 }
 
@@ -465,7 +582,192 @@
 
 .bz-intro-line {
   transform-origin: center;
-  animation: bz-line-grow 1.2s var(--ease-out) 1.2s both;
+  animation: bz-line-grow 1s var(--ease-out) var(--intro-words, 1.2s) both;
+}
+
+/* Abertura da marca (BrandIntro.tsx): vem no HTML e se esconde sozinha. */
+@keyframes bz-intro-out {
+  to {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+
+.bz-intro {
+  --intro-step: 60ms;
+  --intro-letters: 650ms;
+  --intro-words: 1050ms;
+  --intro-out: 1800ms;
+  animation: bz-intro-out 450ms var(--ease-out) var(--intro-out) forwards;
+}
+
+.bz-intro[data-leaving] {
+  animation: bz-intro-out 380ms var(--ease-out) forwards;
+}
+
+:root[data-intro='off'] .bz-intro {
+  display: none;
+}
+
+/* No celular a abertura é mais curta: o visitante chega mais rápido ao conteúdo. */
+@media (max-width: 767px) {
+  .bz-intro {
+    --intro-step: 40ms;
+    --intro-letters: 420ms;
+    --intro-words: 720ms;
+    --intro-out: 1300ms;
+  }
+
+  .bz-intro .bz-mark-animated .bz-face {
+    animation-duration: 0.8s, 0.6s;
+  }
+
+  .bz-intro .bz-mark-animated .bz-face-2 {
+    animation-delay: 0.2s, 0.2s;
+  }
+
+  .bz-intro .bz-mark-animated .bz-face-3 {
+    animation-delay: 0.4s, 0.4s;
+  }
+
+  .bz-intro .bz-mark-animated .bz-node {
+    animation-delay: 0.65s;
+  }
+}
+
+/* Traço dourado que se desenha sob o acento do título (só transform). */
+@keyframes bz-underline {
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.bz-accent-underline {
+  position: relative;
+  white-space: nowrap;
+}
+
+.bz-accent-underline::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0.05em 0;
+  bottom: 0.12em;
+  height: 0.05em;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 10%, transparent));
+  transform: scaleX(0);
+  transform-origin: left center;
+  animation: bz-underline 1.1s var(--ease-out) 350ms forwards;
+}
+
+:root:not([data-intro='off']) .bz-accent-underline::after {
+  animation-delay: 2000ms;
+}
+
+@media (max-width: 767px) {
+  :root:not([data-intro='off']) .bz-accent-underline::after {
+    animation-delay: 1500ms;
+  }
+}
+
+/* Entrada do hero: escalonada e curta. Com a abertura em cena, espera ela
+   terminar para que a entrada seja vista (e não aconteça por baixo). */
+.bz-hero-in {
+  opacity: 0;
+  animation: bz-rise 0.7s var(--ease-out) forwards;
+  animation-delay: var(--d, 0ms);
+}
+
+span.bz-hero-in {
+  display: inline-block;
+}
+
+:root:not([data-intro='off']) .bz-hero-in {
+  animation-delay: calc(1800ms + var(--d, 0ms));
+}
+
+@media (max-width: 767px) {
+  :root:not([data-intro='off']) .bz-hero-in {
+    animation-delay: calc(1300ms + var(--d, 0ms));
+  }
+}
+
+/* ---- Efeitos decorativos só de compositor -------------------------------- */
+/* Pulso que viaja em linha reta até o núcleo (--tx/--ty: deslocamento). */
+@keyframes bz-travel {
+  0% {
+    transform: translate(-50%, -50%) scale(0.5);
+    opacity: 0;
+  }
+  18%,
+  82% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) translate(var(--tx), var(--ty)) scale(1);
+    opacity: 0;
+  }
+}
+
+.bz-travel-dot {
+  position: absolute;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow: 0 0 10px 1px currentColor;
+  animation: bz-travel 2.8s cubic-bezier(0.45, 0, 0.2, 1) var(--delay, 0s) infinite;
+  pointer-events: none;
+}
+
+/* Anel que pulsa (escala + opacidade). */
+@keyframes bz-breathe {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(0.85);
+    opacity: 0.35;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.15);
+    opacity: 0.9;
+  }
+}
+
+/* Pequeno sobe-e-desce (indicadores de status). */
+@keyframes bz-bob {
+  0%,
+  100% {
+    transform: translate(-50%, -50%);
+  }
+  50% {
+    transform: translate(-50%, calc(-50% - 4px));
+  }
+}
+
+/* Barra de "progresso" numa tela (escala horizontal). */
+@keyframes bz-scan-bar {
+  0%,
+  100% {
+    transform: scaleX(0.35);
+  }
+  45% {
+    transform: scaleX(1);
+  }
+  70% {
+    transform: scaleX(0.65);
+  }
+}
+
+/* Respiração lenta de um desenho inteiro (opacidade do elemento raiz). */
+@keyframes bz-glow-breathe {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
 /* ---- Flutuação suave dos cartões do hero -------------------------------- */

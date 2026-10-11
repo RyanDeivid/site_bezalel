@@ -13,6 +13,7 @@ import { skillDefinitions } from '@/data/catalog/taxonomy';
 import { useAsync } from '@/hooks/useAsync';
 import { detectWebGL, useDeviceProfile } from '@/hooks/useDeviceProfile';
 import { useDocumentMeta } from '@/hooks/useDocumentMeta';
+import { useIsClient } from '@/hooks/useIsClient';
 import { useEventFeed } from '@/hooks/useEventFeed';
 import { readSession, writeSession } from '@/lib/storage';
 import { cn } from '@/lib/cn';
@@ -31,6 +32,20 @@ const LabScene = lazy(() => import('./scene/LabScene'));
 
 type Mode = 'launcher' | '3d' | '2d';
 const MODE_KEY = 'bz-lab-mode';
+
+let webglSupport: boolean | undefined;
+/** Detecta WebGL uma única vez (cria um contexto descartável). */
+function hasWebGL(): boolean {
+  webglSupport ??= detectWebGL();
+  return webglSupport;
+}
+
+function savedMode(): Mode {
+  const saved = readSession(MODE_KEY);
+  if (saved === '2d') return '2d';
+  if (saved === '3d' && hasWebGL()) return '3d';
+  return 'launcher';
+}
 
 /** Se a cena 3D falhar (driver, memória, import), cai para a versão 2D. */
 class SceneBoundary extends Component<{ onError: () => void; children: ReactNode }, { failed: boolean }> {
@@ -52,13 +67,12 @@ export default function LabPage() {
   const services = useServices();
   const { notify } = useToast();
   const device = useDeviceProfile();
-  const [webgl] = useState(() => detectWebGL());
-  const [mode, setModeState] = useState<Mode>(() => {
-    const saved = readSession(MODE_KEY);
-    if (saved === '2d') return '2d';
-    if (saved === '3d' && detectWebGL()) return '3d';
-    return 'launcher';
-  });
+  // Até a hidratação terminar, renderiza como o HTML pré-gerado (sem saber do
+  // aparelho nem da sessão); depois usa os valores reais.
+  const isClient = useIsClient();
+  const webgl = isClient ? hasWebGL() : true;
+  const [chosenMode, setModeState] = useState<Mode | null>(null);
+  const mode: Mode = chosenMode ?? (isClient ? savedMode() : 'launcher');
   const [quality, setQuality] = useState<'high' | 'low'>(() => (device.tier === 'high' ? 'high' : 'low'));
   const [effects, setEffects] = useState(!reducedMotion);
   const [near, setNear] = useState<AgentId | null>(null);
@@ -174,7 +188,7 @@ export default function LabPage() {
                       {webgl ? <Check aria-hidden className="mt-0.5 size-4 text-ok" /> : <TriangleAlert aria-hidden className="mt-0.5 size-4" />}
                       {webgl ? l.launcher.webglOk : l.launcher.webglMissing}
                     </li>
-                    {webgl && device.tier !== 'high' && (
+                    {isClient && webgl && device.tier !== 'high' && (
                       <li className="flex items-start gap-2 text-fg-muted">
                         <Gauge aria-hidden className="mt-0.5 size-4 text-warn" /> {l.launcher.lowPower}
                       </li>

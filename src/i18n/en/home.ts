@@ -23,6 +23,9 @@ export const home: Widen<typeof base> = {
       tickerLabel: 'Lab signal',
       tickerDemo: 'Simulation',
       scrollHint: 'Scroll to explore',
+      mobileBarLabel: 'Quick actions',
+      mobileBarSearch: 'Search courses',
+      mobileBarLab: 'Lab',
     },
     pillars: {
       eyebrow: 'Value proposition',

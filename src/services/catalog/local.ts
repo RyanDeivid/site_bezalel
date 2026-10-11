@@ -1,31 +1,33 @@
 import { computeFacets, relatedCourses, searchCatalog } from '@/domain/catalog/search';
+import { resolved } from '@/lib/sync-promise';
 import type { Course } from '@/types/domain';
 import type { CatalogService } from '../types';
 import { searchVocabulary } from './vocabulary';
 
 /**
  * Catálogo local: registros curados (reais) + registros de demonstração.
- * Funciona sem rede e sem credenciais.
+ * Funciona sem rede e sem credenciais. As respostas são `resolved(...)`:
+ * legíveis já no primeiro render (ver lib/sync-promise.ts).
  */
 export function createLocalCatalogService(curated: Course[], demo: Course[]): CatalogService {
   const all = [...curated, ...demo];
   const bySlug = new Map(all.map((c) => [c.slug, c]));
 
   return {
-    async search(query) {
-      return searchCatalog(all, query, searchVocabulary);
+    search(query) {
+      return resolved(searchCatalog(all, query, searchVocabulary));
     },
-    async getBySlug(slug) {
-      return bySlug.get(slug) ?? null;
+    getBySlug(slug) {
+      return resolved(bySlug.get(slug) ?? null);
     },
-    async getRelated(course, limit = 3) {
-      return relatedCourses(course, all, limit);
+    getRelated(course, limit = 3) {
+      return resolved(relatedCourses(course, all, limit));
     },
-    async getFacets(options) {
-      return computeFacets(all, options?.includeDemo ?? false);
+    getFacets(options) {
+      return resolved(computeFacets(all, options?.includeDemo ?? false));
     },
-    async listRegistry() {
-      return all;
+    listRegistry() {
+      return resolved(all);
     },
   };
 }

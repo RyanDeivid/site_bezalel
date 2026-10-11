@@ -12,11 +12,11 @@ import { useEventFeed } from '@/hooks/useEventFeed';
  */
 export function LabSignal() {
   const { m, locale } = usePreferences();
-  const { events, environmentMode } = useEventFeed();
+  const { events, environmentMode } = useEventFeed({ clockMs: 0, startWhenIdle: true });
   const last = events.at(-1);
 
   return (
-    <div className="border-t border-line bg-bg/70 backdrop-blur-md">
+    <div className="border-t border-line bg-bg/90">
       <div className="container-page flex h-14 items-center gap-3 text-sm">
         <span className="hidden items-center gap-2 font-mono text-xs uppercase tracking-[0.16em] text-fg-subtle sm:flex">
           <Activity aria-hidden className="size-3.5 text-accent-text" />

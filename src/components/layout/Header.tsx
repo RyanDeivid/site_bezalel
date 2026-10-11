@@ -9,7 +9,7 @@ import { MobileMenu } from './MobileMenu';
 import { PRIMARY_NAV } from './nav-items';
 
 export function Header() {
-  const { m, theme, toggleTheme, locale, setLocale, motion, toggleMotion } = usePreferences();
+  const { m, toggleTheme, locale, setLocale, motion, toggleMotion } = usePreferences();
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -24,7 +24,7 @@ export function Header() {
     <header
       className={cn(
         'sticky top-0 z-40 transition-[background-color,border-color,backdrop-filter] duration-300',
-        scrolled ? 'border-b border-line bg-bg/80 backdrop-blur-xl backdrop-saturate-150' : 'border-b border-transparent',
+        scrolled ? 'bz-header-solid border-b border-line bg-bg/80 backdrop-blur-xl backdrop-saturate-150' : 'border-b border-transparent',
       )}
     >
       <div className="container-page flex h-[var(--header-h)] items-center gap-4">
@@ -55,17 +55,20 @@ export function Header() {
             type="button"
             onClick={() => setLocale(locale === 'pt-BR' ? 'en' : 'pt-BR')}
             className="inline-flex h-9 items-center gap-1.5 rounded-lg px-2.5 font-mono text-xs tracking-wider text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
-            aria-label={m.nav.switchLanguage}
             title={m.nav.switchLanguage}
           >
             <Languages aria-hidden className="size-4" />
             {m.nav.languageShort}
+            <span className="sr-only"> — {m.nav.switchLanguage}</span>
           </button>
           <IconButton label={motion === 'full' ? m.nav.motionReduce : m.nav.motionRestore} onClick={toggleMotion} active={motion === 'reduced'} className="hidden sm:inline-flex">
             {motion === 'full' ? <Sparkles className="size-4" /> : <Wind className="size-4" />}
           </IconButton>
-          <IconButton label={theme === 'dark' ? m.nav.themeToLight : m.nav.themeToDark} onClick={toggleTheme}>
-            {theme === 'dark' ? <Sun className="size-4" /> : <Moon className="size-4" />}
+          {/* Marcação igual nos dois temas (o HTML pré-gerado não sabe o tema do
+              visitante): o CSS mostra o ícone certo pelo data-theme do <html>. */}
+          <IconButton label={m.nav.themeToggle} onClick={toggleTheme}>
+            <Sun aria-hidden className="bz-theme-dark-only size-4" />
+            <Moon aria-hidden className="bz-theme-light-only size-4" />
           </IconButton>
           <IconButton label={m.nav.openMenu} onClick={() => setMenuOpen(true)} className="lg:hidden" aria-expanded={menuOpen} aria-haspopup="dialog">
             <Menu className="size-5" />

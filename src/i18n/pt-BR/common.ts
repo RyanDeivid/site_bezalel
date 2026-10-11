@@ -58,6 +58,7 @@ export const common = {
     skipToContent: 'Pular para o conteúdo',
     themeToLight: 'Ativar tema claro',
     themeToDark: 'Ativar tema escuro',
+    themeToggle: 'Alternar tema claro/escuro',
     language: 'Idioma',
     switchLanguage: 'Switch to English',
     languageShort: 'EN',

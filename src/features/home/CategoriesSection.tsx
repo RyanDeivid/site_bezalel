@@ -29,13 +29,13 @@ export function CategoriesSection() {
   const c = m.home.categories;
 
   return (
-    <section className="relative border-y border-line bg-bg-deep py-20 md:py-28">
+    <section className="relative border-y border-line bg-bg-deep py-14 md:py-28">
       <div aria-hidden className="bg-blueprint absolute inset-0 opacity-50" />
       <div className="container-page relative">
         <Reveal>
           <SectionHeader eyebrow={c.eyebrow} title={c.title} lead={c.lead} />
         </Reveal>
-        <ul className="mt-12 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <ul className="bz-rail bz-rail-bleed mt-10 grid grid-cols-1 gap-4 sm:grid-cols-2 md:mt-12 lg:grid-cols-4">
           {categories.map((cat, i) => {
             const Icon = CATEGORY_ICON[cat.id];
             const n = count(cat.id);
@@ -46,7 +46,7 @@ export function CategoriesSection() {
                   viewTransition
                   className={cn(
                     'group relative flex h-full flex-col overflow-hidden rounded-2xl border border-line bg-surface/70 p-6 backdrop-blur transition-[border-color,transform,background-color] duration-500 hover:-translate-y-1 hover:border-accent/50 hover:bg-surface',
-                    i === 0 ? 'min-h-48 lg:p-8' : 'min-h-48',
+                    i === 0 ? 'min-h-44 sm:min-h-48 lg:p-8' : 'min-h-44 sm:min-h-48',
                   )}
                 >
                   <div className="flex items-start justify-between">
@@ -55,7 +55,7 @@ export function CategoriesSection() {
                     </span>
                     <ArrowUpRight aria-hidden className="size-5 text-fg-subtle transition-transform duration-300 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-accent-text" />
                   </div>
-                  <h3 className={cn('mt-auto pt-8 font-semibold', i === 0 ? 'text-3xl' : 'text-lg')}>{cat.name[locale]}</h3>
+                  <h3 className={cn('mt-auto pt-6 font-semibold sm:pt-8', i === 0 ? 'text-2xl sm:text-3xl' : 'text-lg')}>{cat.name[locale]}</h3>
                   <p className={cn('mt-2 text-sm text-fg-muted', i === 0 ? 'max-w-sm' : 'line-clamp-2')}>{cat.description[locale]}</p>
                   <p className="mt-4 font-mono text-xs uppercase tracking-wider text-accent-text">{n > 0 ? c.courses(n) : c.empty}</p>
                 </Link>

@@ -57,6 +57,7 @@ export const common: Widen<typeof base> = {
     skipToContent: 'Skip to content',
     themeToLight: 'Switch to light theme',
     themeToDark: 'Switch to dark theme',
+    themeToggle: 'Toggle light/dark theme',
     language: 'Language',
     switchLanguage: 'Mudar para português',
     languageShort: 'PT',

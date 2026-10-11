@@ -35,3 +35,5 @@ npm-debug.log*
 
 # configuração local do Claude Code
 .claude/
+.lighthouseci/
+dist-prof/

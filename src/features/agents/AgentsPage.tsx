@@ -18,10 +18,12 @@ import { formatRelative } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import { useServices } from '@/services/context';
 import type { AgentId } from '@/types/domain';
+import { useAnimationGate } from '@/hooks/useAnimationGate';
 
 /** Diagrama do fluxo entre agentes com conexões animadas. */
 function AgentFlow() {
   const { m } = usePreferences();
+  const gate = useAnimationGate<HTMLDivElement>();
   const nodes: Array<{ id: AgentId | 'catalog'; x: number; y: number }> = [
     { id: 'scout', x: 90, y: 90 },
     { id: 'verifier', x: 300, y: 90 },
@@ -41,7 +43,7 @@ function AgentFlow() {
     ['trend', 'sol'],
   ];
   return (
-    <div className="overflow-x-auto rounded-2xl border border-line bg-bg-deep p-4">
+    <div ref={gate} className="overflow-x-auto rounded-2xl border border-line bg-bg-deep p-4">
       <svg viewBox="0 0 810 320" className="min-w-[640px]" role="img" aria-label={m.agentsPage.flowLead}>
         {edges.map(([a, b], i) => {
           const p = pos[a]!;

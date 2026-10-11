@@ -82,8 +82,23 @@ const FIELD_WEIGHTS = {
 
 type Field = keyof typeof FIELD_WEIGHTS;
 
+/**
+ * Tokens de cada campo, calculados uma vez por curso (e vocabulário) e
+ * reaproveitados em todas as buscas: tokenizar a descrição inteira a cada
+ * consulta era o maior custo da busca. Registros são imutáveis; um objeto
+ * novo gera tokens novos.
+ */
+const tokenCache = new WeakMap<SearchVocabulary, WeakMap<Course, Record<Field, string[]>>>();
+
 function fieldTokens(course: Course, vocab: SearchVocabulary): Record<Field, string[]> {
-  return {
+  let byCourse = tokenCache.get(vocab);
+  if (!byCourse) {
+    byCourse = new WeakMap();
+    tokenCache.set(vocab, byCourse);
+  }
+  const cached = byCourse.get(course);
+  if (cached) return cached;
+  const tokens: Record<Field, string[]> = {
     title: tokenize(course.title),
     skills: course.skills.flatMap((id) => [id, ...(vocab.skillNames[id] ?? [])]).flatMap((s) => tokenize(s.replace(/-/g, ' '))),
     provider: tokenize(`${course.provider.name} ${course.contentAuthor ?? ''}`),
@@ -91,6 +106,8 @@ function fieldTokens(course: Course, vocab: SearchVocabulary): Record<Field, str
     category: (vocab.categoryNames[course.category] ?? []).flatMap((c) => tokenize(c)),
     description: tokenize(course.description),
   };
+  byCourse.set(course, tokens);
+  return tokens;
 }
 
 function termMatches(term: string, tokens: string[]): boolean {

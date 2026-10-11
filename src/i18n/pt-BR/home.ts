@@ -20,6 +20,9 @@ export const home = {
       tickerLabel: 'Sinal do laboratório',
       tickerDemo: 'Simulação',
       scrollHint: 'Role para explorar',
+      mobileBarLabel: 'Ações rápidas',
+      mobileBarSearch: 'Buscar cursos',
+      mobileBarLab: 'Laboratório',
     },
     pillars: {
       eyebrow: 'Proposta de valor',

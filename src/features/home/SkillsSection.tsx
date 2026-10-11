@@ -21,7 +21,7 @@ export function SkillsSection() {
   const name = (id: string) => skillDefinitions.find((d) => d.id === id)?.name[locale] ?? id;
 
   return (
-    <section className="container-page grid grid-cols-1 gap-12 py-20 md:py-28 lg:grid-cols-12">
+    <section className="container-page grid grid-cols-1 gap-12 py-14 md:py-28 lg:grid-cols-12">
       <Reveal className="lg:col-span-5">
         <p className="eyebrow">{s.eyebrow}</p>
         <h2 className="text-title mt-4">{s.title}</h2>
@@ -43,9 +43,10 @@ export function SkillsSection() {
             >
               <span className="truncate text-sm font-medium group-hover:text-accent-text">{name(skill.skillId)}</span>
               <span className="relative h-2.5 overflow-hidden rounded-full bg-surface-2">
+                {/* Barra crescendo por scaleX (compositor), não por width (layout a cada quadro). */}
                 <span
-                  className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-accent/60 to-accent transition-[width] duration-[1.2s] ease-[var(--ease-out)]"
-                  style={{ width: inView ? `${(skill.courseCount / max) * 100}%` : '0%', transitionDelay: `${i * 80}ms` }}
+                  className="absolute inset-0 origin-left rounded-full bg-gradient-to-r from-accent/60 to-accent transition-transform duration-[1.2s] ease-[var(--ease-out)]"
+                  style={{ transform: `scaleX(${inView ? skill.courseCount / max : 0})`, transitionDelay: `${i * 80}ms` }}
                 />
               </span>
               <span className="w-20 text-right font-mono text-xs text-fg-muted">{s.courses(skill.courseCount)}</span>
