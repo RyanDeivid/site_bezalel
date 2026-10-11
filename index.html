@@ -53,6 +53,9 @@
         var n = navigator, c = n.connection || {};
         var weak = (n.hardwareConcurrency || 4) <= 2 || (n.deviceMemory || 4) <= 2 || c.saveData === true || /(^|-)2g$/.test(c.effectiveType || '');
         d.dataset.forja = reduced || weak ? 'lite' : 'full';
+        // A origem (Sobre): a manivela funciona em todo aparelho com JS; em
+        // aparelho fraco a planta usa menos partículas.
+        d.dataset.origem = weak ? 'lite' : 'full';
       })();
     </script>
   </head>

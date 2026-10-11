@@ -9,11 +9,6 @@ export const institutional: Widen<typeof base> = {
     missionTitle: 'Mission',
     mission:
       'Help people discover what is worth learning, understand the skills each opportunity develops and build their paths with verifiable information — no noise, no empty promises.',
-    nameTitle: 'The meaning of the name',
-    name: [
-      'The name comes from an ancient craftsman remembered for combining wisdom, understanding and skill to build with excellence — someone who turned knowledge into work.',
-      'That is the idea the platform carries: discovering and learning are the beginning; the goal is to build. Discover. Learn. Build.',
-    ],
     reliabilityTitle: 'Why reliability matters',
     reliability: [
       'Course information ages fast: prices change, certificates stop being free, cohorts close. A catalog that does not say when it was checked says almost nothing.',

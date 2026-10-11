@@ -6,11 +6,6 @@ export const institutional = {
     missionTitle: 'Missão',
     mission:
       'Ajudar pessoas a descobrir o que vale aprender, entender as competências que cada oportunidade desenvolve e construir seus caminhos com informação verificável — sem ruído, sem promessas vazias.',
-    nameTitle: 'O significado do nome',
-    name: [
-      'O nome vem de um antigo artesão lembrado por reunir sabedoria, entendimento e habilidade para construir com excelência — alguém que transformava conhecimento em obra.',
-      'É essa a ideia que a plataforma carrega: descobrir e aprender são o começo; o objetivo é construir. Discover. Learn. Build.',
-    ],
     reliabilityTitle: 'Por que confiabilidade importa',
     reliability: [
       'Informações sobre cursos envelhecem rápido: preços mudam, certificados deixam de ser gratuitos, turmas encerram. Um catálogo que não diz quando foi conferido não diz quase nada.',

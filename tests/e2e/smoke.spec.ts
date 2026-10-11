@@ -271,3 +271,72 @@ test('Forja: a cena 3D carrega depois da primeira interação', async ({ page, i
   await expect(canvas).not.toHaveAttribute('data-ready', '');
   expect(errors.filter((e) => !/GPU|WebGL|GL_|X4122/.test(e))).toEqual([]);
 });
+
+// ---- A origem (Sobre): a manivela -----------------------------------------------------
+
+test('Sobre: a manivela constrói a história capítulo a capítulo', async ({ page }) => {
+  const errors = trackErrors(page);
+  await gotoReady(page, 'about/');
+  const dial = page.getByRole('slider', { name: 'Manivela da história de Bezalel' });
+  await dial.scrollIntoViewIfNeeded();
+  await expect(dial).toHaveAttribute('aria-valuenow', '0');
+  await expect(page.getByRole('heading', { level: 3, name: 'Tudo começa como matéria espalhada.' })).toBeVisible();
+  await dial.focus();
+  await page.keyboard.press('PageUp');
+  await expect(dial).toHaveAttribute('aria-valuenow', '1');
+  await expect(dial).toHaveAttribute('aria-valuetext', 'Capítulo 1 de 7: Um nome que é sombra');
+  await expect(page.getByRole('heading', { level: 3, name: 'Um nome que é sombra' })).toBeVisible();
+  // A planta (canvas) é carregada quando a seção chega à tela.
+  await expect(page.locator('#origem')).toHaveAttribute('data-ready', 'true');
+  await page.keyboard.press('End');
+  await expect(dial).toHaveAttribute('aria-valuenow', '7', { timeout: 10_000 });
+  await expect(page.getByRole('heading', { level: 3, name: 'O que fica de pé' })).toBeVisible();
+  await expect(page.locator('#origem').getByRole('link', { name: 'Explorar cursos' })).toBeVisible();
+  // Recomeçar gira de volta ao início.
+  await page.locator('#origem').getByRole('button', { name: 'Recomeçar' }).click();
+  await expect(dial).toHaveAttribute('aria-valuenow', '0', { timeout: 10_000 });
+  expect(errors).toEqual([]);
+});
+
+test('Sobre: arrastar a manivela em círculo avança a história', async ({ page, isMobile }) => {
+  test.skip(isMobile, 'Arraste com mouse coberto no desktop; no celular o mesmo código recebe toque.');
+  await gotoReady(page, 'about/');
+  const dial = page.getByRole('slider', { name: 'Manivela da história de Bezalel' });
+  await dial.scrollIntoViewIfNeeded();
+  const box = (await dial.boundingBox())!;
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+  const r = box.width * 0.4;
+  await page.mouse.move(cx, cy - r);
+  await page.mouse.down();
+  for (let i = 0; i <= 48; i++) {
+    const a = -Math.PI / 2 + (i / 48) * Math.PI * 2 * 1.35;
+    await page.mouse.move(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
+  }
+  await page.mouse.up();
+  // Mais de uma volta no sentido horário: encaixa no capítulo 2 (ou além, pelo embalo).
+  await expect.poll(async () => Number(await dial.getAttribute('aria-valuenow')), { timeout: 8_000 }).toBeGreaterThanOrEqual(2);
+});
+
+test('Sobre: com movimento reduzido a manivela encaixa na hora', async ({ browser }) => {
+  const context = await browser.newContext({ reducedMotion: 'reduce' });
+  const page = await context.newPage();
+  await gotoReady(page, 'about/');
+  const dial = page.getByRole('slider', { name: 'Manivela da história de Bezalel' });
+  await dial.focus();
+  await page.keyboard.press('PageUp');
+  await page.keyboard.press('PageUp');
+  await expect(dial).toHaveAttribute('aria-valuenow', '2', { timeout: 1_000 });
+  await context.close();
+});
+
+test('Sobre: sem JavaScript a história inteira aparece como lista', async ({ browser }) => {
+  const context = await browser.newContext({ javaScriptEnabled: false });
+  const page = await context.newPage();
+  await page.goto('about/');
+  for (const title of ['Um nome que é sombra', 'O Tabernáculo, medida por medida', 'As letras da criação', 'O que fica de pé']) {
+    await expect(page.getByRole('heading', { level: 3, name: title })).toBeVisible();
+  }
+  await expect(page.getByRole('slider')).toHaveCount(0);
+  await context.close();
+});

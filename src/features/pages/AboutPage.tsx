@@ -5,6 +5,7 @@ import { PageHero } from '@/components/layout/PageHero';
 import { ButtonLink } from '@/components/ui/Button';
 import { Reveal } from '@/components/visual/Reveal';
 import { useDocumentMeta } from '@/hooks/useDocumentMeta';
+import { OrigemSection } from '../about/origem/OrigemSection';
 
 export default function AboutPage() {
   const m = useT();
@@ -25,19 +26,14 @@ export default function AboutPage() {
         }
       />
 
+      {/* A origem do nome, construída pelo visitante com a manivela. */}
+      <OrigemSection />
+
       <div className="container-page grid grid-cols-1 gap-16 py-20 lg:grid-cols-12">
         <div className="space-y-16 lg:col-span-7">
           <Reveal as="section">
             <h2 className="eyebrow">{a.missionTitle}</h2>
             <p className="mt-5 font-serif-accent text-3xl leading-snug text-fg md:text-4xl">{a.mission}</p>
-          </Reveal>
-          <Reveal as="section">
-            <h2 className="text-title">{a.nameTitle}</h2>
-            {a.name.map((p) => (
-              <p key={p} className="mt-4 text-lg leading-relaxed text-fg-muted">
-                {p}
-              </p>
-            ))}
           </Reveal>
           <Reveal as="section">
             <h2 className="text-title">{a.reliabilityTitle}</h2>
