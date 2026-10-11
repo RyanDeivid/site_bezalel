@@ -2,26 +2,23 @@ import { ArrowRight, Box, Search } from 'lucide-react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { usePreferences } from '@/app/preferences-context';
-import { AgentGlyph } from '@/components/agents/AgentGlyph';
 import { Button, ButtonLink } from '@/components/ui/Button';
-import { GeometryCore } from '@/components/visual/GeometryCore';
-import { ParticleField } from '@/components/visual/ParticleField';
 import { explorePath } from '@/domain/catalog/query-params';
-import { useAsync } from '@/hooks/useAsync';
-import { formatDate } from '@/lib/format';
-import { useServices } from '@/services/context';
 import { LabSignal } from './LabSignal';
 
 const QUICK = ['Python', 'IA generativa', 'LGPD', 'Linux'];
 
-export function HeroSection() {
-  const { m, locale } = usePreferences();
+/**
+ * Abertura da home: título, busca e chamadas. Fica na camada que rola por
+ * cima do palco da Forja (ForjaSection) — é o primeiro "ato" da história.
+ * Título e texto de apoio aparecem desde a primeira pintura (LCP).
+ */
+export function HeroIntro() {
+  const { m } = usePreferences();
   const h = m.home.hero;
   const navigate = useNavigate();
-  const services = useServices();
   const [q, setQ] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
-  const facets = useAsync(() => services.catalog.getFacets(), []);
 
   // Atalho "/" foca a busca (padrão de ferramentas de pesquisa).
   useEffect(() => {
@@ -41,17 +38,12 @@ export function HeroSection() {
     navigate(explorePath({ q }), { viewTransition: true });
   }
 
-  const checked = facets.data?.lastCheckedAt ? formatDate(facets.data.lastCheckedAt, locale) : null;
-
   return (
-    <section className="relative isolate overflow-hidden border-b border-line bg-bg-abyss">
-      {/* Camadas de profundidade: grade, partículas, brilho e vinheta */}
-      <div aria-hidden className="bg-blueprint absolute inset-0 opacity-80 [mask-image:radial-gradient(ellipse_80%_70%_at_70%_40%,black,transparent)]" />
-      <ParticleField className="opacity-90" density={1} />
-      <div aria-hidden className="absolute -right-40 top-10 size-[44rem] rounded-full bg-[radial-gradient(circle,rgb(199_168_106/0.14),transparent_62%)] blur-2xl" />
-      <div aria-hidden className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-bg to-transparent" />
-
-      <div className="container-page relative grid grid-cols-1 min-h-[min(92dvh,920px)] items-center gap-10 pb-28 pt-14 lg:grid-cols-12 lg:pt-10">
+    <div className="relative">
+      {/* Legibilidade do texto sobre o palco da Forja (a cena fica atrás). */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgb(7_13_23/0.55),rgb(7_13_23/0.25)_55%,transparent)] lg:bg-[linear-gradient(90deg,rgb(7_13_23/0.92)_0%,rgb(7_13_23/0.7)_45%,transparent_72%)]" />
+      <div aria-hidden className="bg-blueprint pointer-events-none absolute inset-0 opacity-60 [mask-image:radial-gradient(ellipse_70%_60%_at_25%_45%,black,transparent)]" />
+      <div className="container-page relative grid min-h-[min(94svh,940px)] grid-cols-1 items-center gap-10 pb-28 pt-14 lg:grid-cols-12 lg:pt-10">
         <div className="lg:col-span-7">
           <p className="eyebrow bz-hero-in">{h.eyebrow}</p>
           <p className="bz-hero-in mt-6 font-mono text-sm tracking-[0.3em] text-accent-text [--d:60ms]">{h.kicker}</p>
@@ -125,33 +117,11 @@ export function HeroSection() {
             </ButtonLink>
           </div>
         </div>
-
-        <div className="relative hidden aspect-square w-full lg:col-span-5 lg:block">
-          <GeometryCore className="absolute inset-0" />
-          <div className="bz-float bz-hero-card absolute left-0 top-[16%] rounded-xl px-4 py-3 shadow-2 [--float-delay:0s]">
-            <p className="font-mono text-[0.7rem] uppercase tracking-wider text-ok">● {m.common.curated}</p>
-            <p className="mt-1 text-sm font-medium">{facets.data ? h.floatVerified(facets.data.total) : '—'}</p>
-          </div>
-          <div className="bz-float bz-hero-card absolute right-0 top-[52%] rounded-xl px-4 py-3 shadow-2 [--float-delay:-2s]">
-            <p className="font-mono text-[0.7rem] uppercase tracking-wider text-fg-subtle">{m.common.lastChecked}</p>
-            <p className="mt-1 text-sm font-medium">{checked ? h.floatChecked(checked) : '—'}</p>
-          </div>
-          <div className="bz-float bz-hero-card absolute bottom-[8%] left-[12%] flex items-center gap-3 rounded-xl px-4 py-3 shadow-2 [--float-delay:-4s]">
-            <span className="flex -space-x-1.5">
-              {(['scout', 'verifier', 'atlas', 'trend', 'sol'] as const).map((id) => (
-                <span key={id} className="grid size-7 place-items-center rounded-full border border-line bg-bg" style={{ color: `var(--agent-${id})` }}>
-                  <AgentGlyph agent={id} className="size-4" />
-                </span>
-              ))}
-            </span>
-            <span className="text-sm text-fg-muted">{h.floatAgents}</span>
-          </div>
-        </div>
       </div>
 
       <div className="absolute inset-x-0 bottom-0">
         <LabSignal />
       </div>
-    </section>
+    </div>
   );
 }

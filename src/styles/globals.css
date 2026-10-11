@@ -770,6 +770,277 @@ span.bz-hero-in {
   }
 }
 
+/* ---- A Forja (features/home/forja) ---------------------------------------- */
+/* Dois modos, escolhidos ANTES da primeira pintura pelo script do index.html
+   (data-forja no <html>) — a marcação pré-renderizada é a mesma nos dois:
+   - "full": palco 3D preso à tela; o hero rola por cima dele; abaixo, um
+     trilho de rolagem que conduz os atos;
+   - padrão (sem JavaScript, movimento reduzido, aparelho fraco, economia de
+     dados): o hero normal seguido da história em cartões, sem 3D. */
+.bz-forja {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-abyss);
+  color: var(--fg);
+}
+
+.bz-forja-hero {
+  position: relative;
+  z-index: 10;
+  order: 0;
+}
+
+.bz-forja-stage {
+  position: relative;
+  order: 1;
+}
+
+.bz-forja-canvas,
+.bz-forja-poster,
+.bz-forja-scrim,
+.bz-forja-fade,
+.bz-forja-rail,
+.bz-forja-skip {
+  display: none;
+}
+
+:root[data-forja='full'] .bz-forja {
+  display: block;
+  padding-bottom: var(--forja-track, 430svh);
+}
+
+:root[data-forja='full'] .bz-forja-stage {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  overflow: hidden;
+}
+
+:root[data-forja='full'] .bz-forja-hero {
+  margin-top: -100svh;
+}
+
+:root[data-forja='full'] :is(.bz-forja-canvas, .bz-forja-poster, .bz-forja-scrim, .bz-forja-fade) {
+  display: block;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.bz-forja-canvas {
+  opacity: 0;
+  transition: opacity 1.1s var(--ease-out);
+}
+
+.bz-forja-canvas[data-ready] {
+  opacity: 1;
+}
+
+.bz-forja-poster {
+  background:
+    radial-gradient(circle at 68% 46%, rgb(199 168 106 / 0.22), transparent 26%),
+    radial-gradient(ellipse at 60% 60%, rgb(38 59 84 / 0.55), transparent 62%),
+    var(--bg-abyss);
+}
+
+.bz-forja-poster::after {
+  content: '';
+  position: absolute;
+  left: 68%;
+  top: 46%;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 999px;
+  background: #fff3d6;
+  box-shadow:
+    0 0 24px 8px rgb(234 207 150 / 0.6),
+    0 0 80px 24px rgb(199 168 106 / 0.35);
+  animation: bz-glow-breathe 2.6s var(--ease-in-out) infinite;
+}
+
+/* Legibilidade do texto dos atos sobre a cena. */
+.bz-forja-scrim {
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 600ms var(--ease-out);
+  background: linear-gradient(90deg, rgb(7 13 23 / 0.92) 0%, rgb(7 13 23 / 0.72) 34%, transparent 62%);
+}
+
+.bz-forja:not([data-act='0']) .bz-forja-scrim {
+  opacity: 1;
+}
+
+.bz-forja-fade {
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(circle at 50% 50%, rgb(255 240 210 / 0.9), rgb(199 168 106 / 0.5) 22%, var(--bg-abyss) 62%);
+}
+
+/* Atos: sobrepostos no palco; só o ativo aparece. Continuam no DOM (leitores
+   de tela e navegação por cabeçalhos leem todos); focar algo num ato leva a
+   rolagem até ele. */
+:root[data-forja='full'] .bz-forja-acts {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+:root[data-forja='full'] .bz-act {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  padding-top: var(--header-h);
+  opacity: 0;
+  transform: translate3d(0, 28px, 0);
+  transition:
+    opacity 420ms var(--ease-out),
+    transform 650ms var(--ease-out);
+}
+
+:root[data-forja='full'] .bz-forja:is([data-act='1']) .bz-act[data-act='1'],
+:root[data-forja='full'] .bz-forja:is([data-act='2']) .bz-act[data-act='2'],
+:root[data-forja='full'] .bz-forja:is([data-act='3']) .bz-act[data-act='3'],
+:root[data-forja='full'] .bz-forja:is([data-act='4']) .bz-act[data-act='4'],
+:root[data-forja='full'] .bz-forja:is([data-act='5']) .bz-act[data-act='5'] {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+
+.bz-act-card {
+  max-width: 32rem;
+}
+
+/* Modo padrão: história em cartões depois do hero. */
+:root:not([data-forja='full']) .bz-forja-stage {
+  background: var(--bg-deep);
+  border-top: 1px solid var(--line);
+  padding-block: 3.5rem;
+}
+
+:root:not([data-forja='full']) .bz-forja-acts {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr));
+}
+
+:root:not([data-forja='full']) .bz-act {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  padding: 1.5rem;
+}
+
+:root:not([data-forja='full']) .bz-act-title {
+  font-size: 1.35rem;
+}
+
+:root:not([data-forja='full']) .bz-forja-hero {
+  background:
+    radial-gradient(circle at 75% 35%, rgb(199 168 106 / 0.14), transparent 45%),
+    var(--bg-abyss);
+}
+
+/* Trilho de progresso (desktop: à direita; celular: barra no topo). */
+:root[data-forja='full'] .bz-forja-rail {
+  display: flex;
+  position: absolute;
+  z-index: 5;
+  right: clamp(1rem, 3vw, 2.5rem);
+  top: 50%;
+  transform: translateY(-50%);
+  flex-direction: column;
+  gap: 1.1rem;
+  opacity: 0;
+  transition: opacity 500ms var(--ease-out);
+}
+
+.bz-forja:not([data-act='0']) .bz-forja-rail {
+  opacity: 1;
+}
+
+.bz-forja-rail-fill {
+  transform-origin: top;
+  transform: scaleY(0);
+}
+
+/* Pontos do trilho acendem conforme os atos passam (troca só na mudança de ato). */
+.bz-forja:is([data-act='1'], [data-act='2'], [data-act='3'], [data-act='4'], [data-act='5']) .bz-rail-dot[data-act='1'],
+.bz-forja:is([data-act='2'], [data-act='3'], [data-act='4'], [data-act='5']) .bz-rail-dot[data-act='2'],
+.bz-forja:is([data-act='3'], [data-act='4'], [data-act='5']) .bz-rail-dot[data-act='3'],
+.bz-forja:is([data-act='4'], [data-act='5']) .bz-rail-dot[data-act='4'] {
+  border-color: var(--accent);
+  background: var(--accent);
+  box-shadow: 0 0 12px rgb(199 168 106 / 0.6);
+}
+
+/* Encaixe final: o título do ato "Construir" acende junto com o clarão. */
+@keyframes bz-lock {
+  0% {
+    text-shadow: 0 0 0 transparent;
+  }
+  25% {
+    text-shadow: 0 0 28px rgb(234 207 150 / 0.9);
+  }
+  100% {
+    text-shadow: 0 0 0 transparent;
+  }
+}
+
+.bz-forja[data-locked] .bz-lock-glow {
+  animation: bz-lock 900ms var(--ease-out);
+}
+
+:root[data-forja='full'] .bz-forja-skip {
+  display: inline-flex;
+  position: absolute;
+  z-index: 5;
+  right: clamp(1rem, 3vw, 2.5rem);
+  bottom: clamp(1rem, 3vh, 2rem);
+}
+
+@media (max-width: 767px) {
+  :root[data-forja='full'] .bz-forja {
+    --forja-track: 380svh;
+  }
+
+  .bz-forja-scrim {
+    background: linear-gradient(0deg, rgb(7 13 23 / 0.95) 0%, rgb(7 13 23 / 0.82) 42%, transparent 70%);
+  }
+
+  .bz-forja-poster::after {
+    left: 50%;
+    top: 34%;
+  }
+
+  :root[data-forja='full'] .bz-act {
+    align-items: flex-end;
+    padding-bottom: 4.5rem;
+  }
+
+  :root[data-forja='full'] .bz-forja-rail {
+    top: calc(var(--header-h) + 0.6rem);
+    left: clamp(1rem, 4vw, 2rem);
+    right: clamp(1rem, 4vw, 2rem);
+    transform: none;
+    flex-direction: row;
+  }
+
+  .bz-forja-rail-fill {
+    transform-origin: left;
+    transform: scaleX(0);
+  }
+
+  :root[data-forja='full'] .bz-forja-skip {
+    bottom: auto;
+    top: calc(var(--header-h) + 1.6rem);
+  }
+}
+
 /* ---- Flutuação suave dos cartões do hero -------------------------------- */
 @keyframes bz-float {
   0%,

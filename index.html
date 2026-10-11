@@ -48,6 +48,11 @@
           d.dataset.theme = 'dark';
           d.dataset.intro = 'off';
         }
+        // A Forja (home): palco 3D com rolagem conduzida só quando cabe no
+        // aparelho e na preferência do visitante; senão, história em cartões.
+        var n = navigator, c = n.connection || {};
+        var weak = (n.hardwareConcurrency || 4) <= 2 || (n.deviceMemory || 4) <= 2 || c.saveData === true || /(^|-)2g$/.test(c.effectiveType || '');
+        d.dataset.forja = reduced || weak ? 'lite' : 'full';
       })();
     </script>
   </head>

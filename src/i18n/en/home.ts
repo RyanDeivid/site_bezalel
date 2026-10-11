@@ -27,6 +27,51 @@ export const home: Widen<typeof base> = {
       mobileBarSearch: 'Search courses',
       mobileBarLab: 'Lab',
     },
+    forja: {
+      label: 'The Forge: how Bezalel builds what you will learn',
+      skip: 'Skip the animation',
+      skipShort: 'Skip',
+      progress: (pct: number) => `Construction ${pct}%`,
+      railLabel: 'Construction stages',
+      goTo: (name: string) => `Go to: ${name}`,
+      storyTitle: 'How Bezalel builds',
+      discover: {
+        eyebrow: '01 · Discover',
+        title: 'It all starts scattered.',
+        lead: (providers: number, areas: number) =>
+          `Courses and certifications from ${providers} institutions, across ${areas} fields of knowledge, arrive from official sources.`,
+        interests: 'What do you want to build? Pick up to 3 fields.',
+        clear: 'Clear selection',
+      },
+      verify: {
+        eyebrow: '02 · Verify',
+        title: 'Only what is confirmed becomes structure.',
+        lead: 'Every record goes through 6 blocking criteria — HTTPS, trusted source, safe content, current information — and 3 quality warnings. Whatever the source does not confirm stays out.',
+        verified: (n: number) => `${n} verified records`,
+        checked: (date: string) => `Last checked: ${date}`,
+      },
+      connect: {
+        eyebrow: '03 · Connect',
+        title: 'Every course links to what it teaches.',
+        lead: (skills: number, courses: number, links: number) =>
+          `${skills} skills linked to ${courses} courses through ${links} connections — the map the agents use to suggest paths.`,
+      },
+      build: {
+        eyebrow: '04 · Build',
+        titleDefault: 'The structure takes shape.',
+        titleMine: (n: number, areas: string) => `Your structure: ${n === 1 ? '1 verified course' : `${n} verified courses`} in ${areas}.`,
+        lead: 'Knowledge is only complete when it becomes creation.',
+        ctaMine: 'See my courses',
+        ctaAll: 'See all courses',
+      },
+      enter: {
+        eyebrow: '05 · Enter',
+        title: 'Now, step inside where the structure is built.',
+        lead: 'In the lab, the agents work in plain sight: every record, every rule, every connection.',
+        lab: 'Enter the lab',
+        explore: 'Explore the catalog',
+      },
+    },
     pillars: {
       eyebrow: 'Value proposition',
       title: 'More than a catalog: a system that explains what it finds.',

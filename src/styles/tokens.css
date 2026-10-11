@@ -75,8 +75,11 @@
 }
 
 /* ---- Tema escuro (padrão) ---------------------------------------------- */
+/* `.bz-cinema`: palco sempre escuro (ex.: a Forja da home), mesmo no tema
+   claro — os tokens são redefinidos só para aquele trecho da página. */
 :root,
-:root[data-theme='dark'] {
+:root[data-theme='dark'],
+.bz-cinema {
   color-scheme: dark;
   --bg: var(--navy-900);
   --bg-deep: var(--navy-925);

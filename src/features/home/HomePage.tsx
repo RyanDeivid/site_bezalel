@@ -12,7 +12,7 @@ import { cn } from '@/lib/cn';
 import { AgentsPreviewSection } from './AgentsPreviewSection';
 import { CategoriesSection } from './CategoriesSection';
 import { FeaturedSection } from './FeaturedSection';
-import { HeroSection } from './HeroSection';
+import { ForjaSection } from './forja/ForjaSection';
 import { IndicatorsSection } from './IndicatorsSection';
 import { LabPreviewSection } from './LabPreviewSection';
 import { MobileActionBar } from './MobileActionBar';
@@ -52,7 +52,7 @@ export function HomePage() {
   return (
     <>
       <BrandIntro />
-      <HeroSection />
+      <ForjaSection />
       {/* Abaixo da primeira dobra: o navegador adia estilo/layout/pintura
           (content-visibility) e cada <Suspense> vira uma etapa separada da
           hidratação — o topo fica interativo antes e sem tarefas longas. */}

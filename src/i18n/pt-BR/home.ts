@@ -24,6 +24,51 @@ export const home = {
       mobileBarSearch: 'Buscar cursos',
       mobileBarLab: 'Laboratório',
     },
+    forja: {
+      label: 'A Forja: como a Bezalel constrói o que você vai aprender',
+      skip: 'Pular a animação',
+      skipShort: 'Pular',
+      progress: (pct: number) => `Construção ${pct}%`,
+      railLabel: 'Etapas da construção',
+      goTo: (name: string) => `Ir para: ${name}`,
+      storyTitle: 'Como a Bezalel constrói',
+      discover: {
+        eyebrow: '01 · Descobrir',
+        title: 'Tudo começa espalhado.',
+        lead: (providers: number, areas: number) =>
+          `Cursos e certificações de ${providers} instituições, em ${areas} áreas do conhecimento, chegam de fontes oficiais.`,
+        interests: 'O que você quer construir? Escolha até 3 áreas.',
+        clear: 'Limpar escolha',
+      },
+      verify: {
+        eyebrow: '02 · Verificar',
+        title: 'Só o que é confirmado vira estrutura.',
+        lead: 'Cada registro passa por 6 critérios bloqueantes — HTTPS, fonte confiável, conteúdo seguro, informação atual — e 3 avisos de qualidade. O que não se confirma na fonte fica de fora.',
+        verified: (n: number) => `${n} registros verificados`,
+        checked: (date: string) => `Última conferência: ${date}`,
+      },
+      connect: {
+        eyebrow: '03 · Conectar',
+        title: 'Cada curso se liga ao que ensina.',
+        lead: (skills: number, courses: number, links: number) =>
+          `${skills} competências ligadas a ${courses} cursos em ${links} conexões — o mapa que os agentes usam para sugerir caminhos.`,
+      },
+      build: {
+        eyebrow: '04 · Construir',
+        titleDefault: 'A estrutura ganha forma.',
+        titleMine: (n: number, areas: string) => `Sua estrutura: ${n === 1 ? '1 curso verificado' : `${n} cursos verificados`} em ${areas}.`,
+        lead: 'Conhecimento só se completa quando vira criação.',
+        ctaMine: 'Ver meus cursos',
+        ctaAll: 'Ver todos os cursos',
+      },
+      enter: {
+        eyebrow: '05 · Entrar',
+        title: 'Agora, entre onde a estrutura é construída.',
+        lead: 'No laboratório, os agentes trabalham à vista: cada registro, cada regra, cada conexão.',
+        lab: 'Entrar no laboratório',
+        explore: 'Explorar o catálogo',
+      },
+    },
     pillars: {
       eyebrow: 'Proposta de valor',
       title: 'Mais que um catálogo: um sistema que explica o que encontra.',
