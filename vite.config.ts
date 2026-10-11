@@ -15,7 +15,7 @@ function normalizeBase(raw: string | undefined): string {
 }
 
 export default defineConfig({
-  base: normalizeBase(process.env.VITE_BASE_PATH),
+  base: '/site_bezalel/',
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
