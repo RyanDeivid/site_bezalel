@@ -1,7 +1,8 @@
 import type { Source } from '../../types/domain.ts';
 
 /**
- * Fontes oficiais consultadas na curadoria manual de 10/10/2026.
+ * Fontes oficiais consultadas na curadoria manual de 10/10/2026 e na
+ * ampliação da v2 (Fase 2) em 11/10/2026.
  *
  * `collectionPolicy: 'manual-curation'` significa que NENHUM robô coleta
  * essas páginas: elas foram lidas por uma pessoa. Coleta automatizada futura
@@ -10,13 +11,15 @@ import type { Source } from '../../types/domain.ts';
  */
 const CHECKED = '2026-10-10';
 
-const src = (id: string, name: string, url: string, sourceType: Source['sourceType']): Source => ({
+const CHECKED_V2 = '2026-10-11';
+
+const src = (id: string, name: string, url: string, sourceType: Source['sourceType'], checked = CHECKED): Source => ({
   id,
   name,
   url,
   sourceType,
   trustStatus: 'trusted',
-  lastCheckedAt: CHECKED,
+  lastCheckedAt: checked,
   collectionPolicy: 'manual-curation',
   origin: 'curated',
 });
@@ -31,8 +34,10 @@ export const curatedSources: Source[] = [
   src('src-hugging-face-learn', 'Hugging Face Learn', 'https://huggingface.co/learn', 'official-site'),
   src('src-fast-ai', 'fast.ai', 'https://course.fast.ai', 'official-site'),
   src('src-odin-project', 'The Odin Project', 'https://www.theodinproject.com', 'official-site'),
-  src('src-escola-virtual-gov', 'Escola Virtual.Gov (Enap)', 'https://www.escolavirtual.gov.br', 'institutional-page'),
+  // Na Fase 2 também lida a exportação pública do catálogo (escolavirtual.gov.br/catalogo/exportar/csv).
+  src('src-escola-virtual-gov', 'Escola Virtual.Gov (Enap)', 'https://www.escolavirtual.gov.br', 'institutional-page', CHECKED_V2),
   src('src-microsoft-learn', 'Microsoft Learn', 'https://learn.microsoft.com', 'official-site'),
   src('src-linux-foundation', 'Linux Foundation Training', 'https://training.linuxfoundation.org', 'official-site'),
-  src('src-fundacao-bradesco', 'Escola Virtual — Fundação Bradesco', 'https://www.ev.org.br', 'institutional-page'),
+  src('src-fundacao-bradesco', 'Escola Virtual — Fundação Bradesco', 'https://www.ev.org.br', 'institutional-page', CHECKED_V2),
+  src('src-coursera', 'Coursera', 'https://www.coursera.org', 'official-site', CHECKED_V2),
 ];

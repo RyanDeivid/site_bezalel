@@ -4,7 +4,7 @@ import { usePreferences } from '@/app/preferences-context';
 import { OriginBadge } from '@/components/data/DataBadges';
 import { ButtonLink } from '@/components/ui/Button';
 import { Reveal } from '@/components/visual/Reveal';
-import { skillDefinitions } from '@/data/catalog/taxonomy';
+import { skillName } from '@/data/catalog/store';
 import { explorePath } from '@/domain/catalog/query-params';
 import { useAsync } from '@/hooks/useAsync';
 import { useInView } from '@/hooks/useInView';
@@ -18,7 +18,7 @@ export function SkillsSection() {
   const s = m.home.skills;
   const top = insights.data?.skills.slice(0, 8) ?? [];
   const max = top[0]?.courseCount ?? 1;
-  const name = (id: string) => skillDefinitions.find((d) => d.id === id)?.name[locale] ?? id;
+  const name = (id: string) => skillName(id, locale);
 
   return (
     <section className="container-page grid grid-cols-1 gap-12 py-14 md:py-28 lg:grid-cols-12">

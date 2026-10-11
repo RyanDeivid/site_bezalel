@@ -46,7 +46,7 @@ Se o repositório for renomeado, o deploy continua correto (a base vem do GitHub
 
 ## O que o pós-build gera (`scripts/postbuild.ts`)
 
-- `dist/<rota>/index.html` para as 10 rotas e para cada um dos 19 cursos, com `<title>`, descrição, Open Graph, canonical e JSON-LD próprios, além de um resumo estático em `#root` (para robôs e navegação sem JavaScript);
+- `dist/<rota>/index.html` para as 10 rotas e para cada um dos 105 cursos, com `<title>`, descrição, Open Graph, canonical e JSON-LD próprios, além de um resumo estático em `#root` (para robôs e navegação sem JavaScript);
 - `404.html` com `noindex` (o roteador da SPA mostra a página 404);
 - `sitemap.xml` com URLs absolutas e `robots.txt`;
 - `.nojekyll`;

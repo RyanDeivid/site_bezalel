@@ -25,10 +25,13 @@ import { readFileSync } from 'node:fs';
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { curatedCourses } from '../src/data/catalog/courses.ts';
+import { loadCatalog } from '../src/data/catalog/store.ts';
 import { buildCourseJsonLd } from '../src/features/catalog/json-ld.ts';
 import { common } from '../src/i18n/pt-BR/common.ts';
 import type { Course } from '../src/types/domain.ts';
+
+// O JSON-LD usa os nomes das competências, que vêm com o chunk do catálogo.
+const curatedCourses = await loadCatalog();
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const dist = join(root, 'dist');

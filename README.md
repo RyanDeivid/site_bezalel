@@ -4,13 +4,13 @@
 
 Plataforma de inteligência educacional que conecta pessoas a cursos, certificações e competências — com cada informação ligada à sua fonte oficial, ao estado de verificação e à data da última conferência. Agentes de IA especializados (Scout, Verifier, Atlas, Trend e Sol) descobrem, validam e organizam oportunidades, e um laboratório 3D torna esse trabalho visível.
 
-> **Versão 1.0 — modo demonstração.** O catálogo traz **19 cursos e certificações reais**, conferidos manualmente nas páginas oficiais em 10/10/2026. Os agentes, seus eventos e a série temporal de menções são **simulados localmente** e sempre rotulados como tal. Nenhum agente autônomo está em produção.
+> **Versão 1.0 — modo demonstração.** O catálogo traz **105 cursos e certificações reais em 21 áreas** (saúde, educação física, nutrição, saúde mental, educação, idiomas, negócios, finanças, carreira, design, marketing, engenharia, meio ambiente, gestão pública e tecnologia), conferidos manualmente nas páginas oficiais em 10 e 11/10/2026. Os agentes, seus eventos e a série temporal de menções são **simulados localmente** e sempre rotulados como tal. Nenhum agente autônomo está em produção.
 
 ## Principais rotas
 
 | Rota | Conteúdo |
 |---|---|
-| `/` | A Forja (abertura em 3D conduzida pela rolagem, personalizável pelos interesses), busca, destaques, categorias, competências, agentes, prévia do laboratório, indicadores e validação |
+| `/` | A Forja (abertura em 3D conduzida pela rolagem, personalizável pelos interesses), busca, destaques, áreas agrupadas em 7 temas, competências, agentes, prévia do laboratório, indicadores e validação |
 | `/explore` | Catálogo com busca, filtros (categoria, preço, nível, modalidade, tipo, certificado), ordenação, "carregar mais" e visualização rápida |
 | `/course/:slug` | Detalhe com fonte oficial, estado de verificação, "Não informado" para campos ausentes e relacionados |
 | `/insights` | Competências por número de cursos, categorias, grafo competência→curso, série temporal **demonstrativa** e painel de vagas indisponível |
@@ -69,7 +69,7 @@ Detalhes, base URL, domínio próprio e limitações de SEO: [`docs/DEPLOYMENT.m
 
 | Real | Demonstração (sempre rotulada) |
 |---|---|
-| 19 cursos/certificações verificados na fonte | Atividade dos agentes e eventos da Central de Operações |
+| 105 cursos/certificações verificados na fonte | Atividade dos agentes e eventos da Central de Operações |
 | Busca, filtros, detalhes, relacionados | Registros fictícios do pipeline (domínios `example.org`) |
 | Insights sobre o catálogo verificado | Série temporal de menções |
 | Assistente com regras locais | Estados "ativo/ocioso/com falha" derivados da simulação |

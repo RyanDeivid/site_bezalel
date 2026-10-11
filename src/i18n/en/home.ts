@@ -40,7 +40,7 @@ export const home: Widen<typeof base> = {
         title: 'It all starts scattered.',
         lead: (providers: number, areas: number) =>
           `Courses and certifications from ${providers} institutions, across ${areas} fields of knowledge, arrive from official sources.`,
-        interests: 'What do you want to build? Pick up to 3 fields.',
+        interests: 'What do you want to build? Pick up to 3 themes.',
         clear: 'Clear selection',
       },
       verify: {
@@ -105,9 +105,10 @@ export const home: Widen<typeof base> = {
     categories: {
       eyebrow: 'Knowledge categories',
       title: 'Explore by area',
-      lead: 'Counts refer to verified records published in this version.',
+      lead: (areas: number, groups: number) => `${areas} areas organized into ${groups} broad themes. Counts refer to verified records published in this version.`,
       courses: (n: number) => (n === 1 ? '1 record' : `${n} records`),
       empty: 'No records yet',
+      seeGroup: 'See the whole theme',
     },
     skills: {
       eyebrow: 'Skills in focus',

@@ -1,6 +1,5 @@
-import { curated } from '@/data/catalog/store';
+import { curated, skillName, skills as skillDefinitions } from '@/data/catalog/store';
 import { curatedSources } from '@/data/catalog/sources';
-import { skillDefinitions } from '@/data/catalog/taxonomy';
 import { demoAgents } from '@/data/demo/agents';
 import { demoSources } from '@/data/demo/pipeline-fixtures';
 import { answerQuestion } from '@/domain/assistant/engine';
@@ -27,19 +26,19 @@ export function createLocalServices(now: Date = new Date(), curatedCourses: Cour
 
   const published = curatedCourses.filter((c) => c.publicationStatus === 'published');
 
-  const skills: Skill[] = skillDefinitions.map((def) => ({
+  const skills: Skill[] = skillDefinitions().map((def) => ({
     ...def,
     relatedCourseIds: published.filter((c) => c.skills.includes(def.id)).map((c) => c.id),
     evidenceSources: [{ kind: 'catalog', label: 'Catálogo curado Bezalel', origin: 'curated' }],
   }));
 
-  const baseInsights = computeInsights(curatedCourses, skillCategoryMap);
-  const skillLabel = (id: string) => skillDefinitions.find((s) => s.id === id)?.name['pt-BR'] ?? id;
+  const baseInsights = computeInsights(curatedCourses, skillCategoryMap());
+  const skillLabel = (id: string) => skillName(id, 'pt-BR');
 
   const events = new DemoEventFeed({
     buildRun: (runIndex, at) =>
       buildDemoScenario(runIndex, at, {
-        countResults: (q) => searchCatalog(curatedCourses, { q }, searchVocabulary).total,
+        countResults: (q) => searchCatalog(curatedCourses, { q }, searchVocabulary()).total,
         topSkills: baseInsights.skills.slice(0, 6).map((s) => ({ skillId: s.skillId, label: skillLabel(s.skillId), count: s.courseCount })),
         skillLinks: published.reduce((n, c) => n + c.skills.length, 0),
       }),
@@ -52,7 +51,7 @@ export function createLocalServices(now: Date = new Date(), curatedCourses: Cour
       const reply = answerQuestion(question.slice(0, 500), {
         strings: m.assistant.engine,
         courses: published,
-        search: (query) => searchCatalog(curatedCourses, query, searchVocabulary),
+        search: (query) => searchCatalog(curatedCourses, query, searchVocabulary()),
         labels: {
           category: m.enums.category,
           level: m.enums.level,
@@ -84,7 +83,7 @@ export function createLocalServices(now: Date = new Date(), curatedCourses: Cour
         return resolved(skills);
       },
       getInsights(filter) {
-        return resolved(computeInsights(curatedCourses, skillCategoryMap, filter));
+        return resolved(computeInsights(curatedCourses, skillCategoryMap(), filter));
       },
     },
     sources: {

@@ -77,6 +77,20 @@ const CATEGORY_KEYWORDS: Array<[RegExp, CategoryId]> = [
   [/\b(seguranca|security|privacidade|privacy|lgpd)\b/, 'security-privacy'],
   [/\b(linux|nuvem|cloud|infraestrutura|redes|networking)\b/, 'cloud-infra'],
   [/\b(governo|government|setor publico|public sector)\b/, 'digital-government'],
+  [/\b(saude mental|mental health|ansiedade|anxiety|bem.?estar|well.?being|felicidade|happiness|emocional|emotional|mindfulness)\b/, 'mental-health'],
+  [/\b(educacao fisica|physical education|exercicio\w*|exercise|esporte\w*|sports?|fitness|atividade fisica)\b/, 'physical-education'],
+  [/\b(nutricao|nutrition|alimentacao|alimentos|food|dieta|diet|culinaria|cooking)\b/, 'nutrition'],
+  [/\b(financ\w*|dinheiro|money|investiment\w*|invest\w*|orcamento|budget)\b/, 'finance'],
+  [/\b(saude|health|sus|epidemiologia|epidemiology|vigilancia sanitaria)\b/, 'health'],
+  [/\b(professor\w*|teacher\w*|docencia|teaching|pedagog\w*|educacao|education|aprender a aprender|learning how to learn)\b/, 'education'],
+  [/\b(idioma\w*|language\w*|ingles|mandarim|chines|chinese|libras|portugues|gramatica|grammar)\b/, 'languages'],
+  [/\b(empreend\w*|entrepreneur\w*|negocio\w*|business|startup|gestao de projetos|project management|scrum|agil|agile)\b/, 'business'],
+  [/\b(carreira|career|lideranca|leadership|negociacao|negotiation|emprego|job|curriculo|resume)\b/, 'career'],
+  [/\b(design|ux|experiencia do usuario|user experience|design grafico|graphic design)\b/, 'design'],
+  [/\b(marketing|comunicacao|communication|redes sociais|social media|marca|brand)\b/, 'marketing'],
+  [/\b(engenharia|engineering|industria|industry|obras|construction|bim|energia|energy)\b/, 'industry'],
+  [/\b(agro|agricultura|agriculture|meio ambiente|environment|clima|climate|sustentab\w*|sustainab\w*|agua|water)\b/, 'agro-environment'],
+  [/\b(licitac\w*|procurement|direito|law|lei|etica|ethics|transparencia|transparency|direitos humanos|human rights)\b/, 'public-admin-law'],
 ];
 
 /** Palavras que indicam intenção, mas não devem virar termo de busca. */

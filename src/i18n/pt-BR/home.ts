@@ -37,7 +37,7 @@ export const home = {
         title: 'Tudo começa espalhado.',
         lead: (providers: number, areas: number) =>
           `Cursos e certificações de ${providers} instituições, em ${areas} áreas do conhecimento, chegam de fontes oficiais.`,
-        interests: 'O que você quer construir? Escolha até 3 áreas.',
+        interests: 'O que você quer construir? Escolha até 3 temas.',
         clear: 'Limpar escolha',
       },
       verify: {
@@ -102,9 +102,11 @@ export const home = {
     categories: {
       eyebrow: 'Categorias de conhecimento',
       title: 'Explore por área',
-      lead: 'Contagens referem-se aos registros verificados publicados nesta versão.',
+      lead: (areas: number, groups: number) =>
+        `${areas} áreas organizadas em ${groups} grandes temas. As contagens são de registros verificados publicados nesta versão.`,
       courses: (n: number) => (n === 1 ? '1 registro' : `${n} registros`),
       empty: 'Sem registros ainda',
+      seeGroup: 'Ver todo o tema',
     },
     skills: {
       eyebrow: 'Competências em evidência',

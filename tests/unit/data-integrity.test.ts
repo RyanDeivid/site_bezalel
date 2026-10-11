@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { curatedCourses } from '@/data/catalog/courses';
 import { curatedSources } from '@/data/catalog/sources';
-import { categoryIds, skillDefinitions } from '@/data/catalog/taxonomy';
+import { skillDefinitions } from '@/data/catalog/skills';
+import { categoryIds } from '@/data/catalog/taxonomy';
 import { demoAgents } from '@/data/demo/agents';
 import { demoSources } from '@/data/demo/pipeline-fixtures';
 import { buildCourseJsonLd } from '@/features/catalog/json-ld';

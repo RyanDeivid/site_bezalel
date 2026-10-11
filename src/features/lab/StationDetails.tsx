@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 import { usePreferences } from '@/app/preferences-context';
 import { PublicationBadge } from '@/components/data/DataBadges';
-import { skillDefinitions } from '@/data/catalog/taxonomy';
+import { skillName } from '@/data/catalog/store';
 import { Badge } from '@/components/ui/Badge';
 import type { OpsMetrics } from '@/domain/operations';
 import { cn } from '@/lib/cn';
@@ -124,7 +124,7 @@ export function StationDetails({ agent, events, metrics, sources, topSkills }: P
                 {String(e.meta?.skills ?? '')
                   .split(',')
                   .filter(Boolean)
-                  .map((id) => skillDefinitions.find((d) => d.id === id)?.name[locale] ?? id)
+                  .map((id) => skillName(id, locale))
                   .join(', ')}
               </li>
             ))

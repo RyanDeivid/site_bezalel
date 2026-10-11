@@ -2,7 +2,8 @@ import { ArrowDown, ArrowRight, Box, Check, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FocusEvent, type MouseEvent } from 'react';
 import { usePreferences } from '@/app/preferences-context';
 import { ButtonLink } from '@/components/ui/Button';
-import { categories, skillDefinitions } from '@/data/catalog/taxonomy';
+import { skills } from '@/data/catalog/store';
+import { categories, categoryGroups } from '@/data/catalog/taxonomy';
 import { explorePath } from '@/domain/catalog/query-params';
 import { useAsync } from '@/hooks/useAsync';
 import { useDeviceProfile } from '@/hooks/useDeviceProfile';
@@ -11,12 +12,13 @@ import { formatDate } from '@/lib/format';
 import { readStorage, writeStorage } from '@/lib/storage';
 import { combine } from '@/lib/sync-promise';
 import { useServices } from '@/services/context';
-import type { CategoryId } from '@/types/domain';
+import type { CategoryGroupId } from '@/types/domain';
 import { HeroIntro } from '../HeroIntro';
 import type { ForjaData, ForjaQuality, ForjaScene } from './scene';
 import { ACT_START, ACTS, actAt, areaColor, clamp01, phasesAt } from './timeline';
 
-const INTERESTS_KEY = 'bz-interests';
+// v2: guarda grupos de áreas (7 temas) em vez das áreas soltas.
+const INTERESTS_KEY = 'bz-interest-groups';
 const MAX_INTERESTS = 3;
 const STORY_ACTS = [1, 2, 3, 4] as const;
 
@@ -30,7 +32,7 @@ function useForjaData() {
     () =>
       combine([services.catalog.getFacets(), services.catalog.listRegistry(), services.skills.getInsights({})] as const, ([facets, registry, insights]) => {
         const courses = registry.filter((c) => c.origin === 'curated' && c.publicationStatus === 'published');
-        const usedSkills = skillDefinitions.filter((s) => courses.some((c) => c.skills.includes(s.id)));
+        const usedSkills = skills().filter((s) => courses.some((c) => c.skills.includes(s.id)));
         const skillIndex = new Map(usedSkills.map((s, i) => [s.id, i]));
         const links: Array<[number, number]> = [];
         courses.forEach((c, i) => c.skills.forEach((id) => skillIndex.has(id) && links.push([i, skillIndex.get(id)!])));
@@ -85,25 +87,27 @@ export function ForjaSection() {
   const [awake, setAwake] = useState(false);
   const awakeRef = useRef(false);
   const syncRef = useRef<(() => void) | null>(null);
-  const [interests, setInterests] = useState<CategoryId[]>([]);
+  const [interests, setInterests] = useState<CategoryGroupId[]>([]);
 
   // Escolhas anteriores do visitante (só no navegador, depois da hidratação).
   useEffect(() => {
-    const saved = (readStorage(INTERESTS_KEY) ?? '').split(',').filter((id): id is CategoryId => categories.some((c) => c.id === id));
+    const saved = (readStorage(INTERESTS_KEY) ?? '').split(',').filter((id): id is CategoryGroupId => categoryGroups.some((g) => g.id === id));
     if (saved.length) {
       const id = requestAnimationFrame(() => setInterests(saved.slice(0, MAX_INTERESTS)));
       return () => cancelAnimationFrame(id);
     }
   }, []);
 
-  const interestAreas = useMemo(() => interests.map((id) => categories.findIndex((c) => c.id === id)), [interests]);
+  /** Áreas (índices na taxonomia) dos temas escolhidos — é o que a cena 3D destaca. */
+  const interestAreas = useMemo(() => categories.flatMap((c, i) => (interests.includes(c.group) ? [i] : [])), [interests]);
+  const interestCategories = useMemo(() => categories.filter((c) => interests.includes(c.group)).map((c) => c.id), [interests]);
   const interestAreasRef = useRef(interestAreas);
   useEffect(() => {
     interestAreasRef.current = interestAreas;
     sceneRef.current?.setInterests(interestAreas);
   }, [interestAreas]);
 
-  const toggleInterest = (id: CategoryId) => {
+  const toggleInterest = (id: CategoryGroupId) => {
     setInterests((cur) => {
       const next = cur.includes(id) ? cur.filter((x) => x !== id) : cur.length >= MAX_INTERESTS ? [...cur.slice(1), id] : [...cur, id];
       writeStorage(INTERESTS_KEY, next.join(','));
@@ -310,8 +314,8 @@ export function ForjaSection() {
   }, [reducedMotion]);
 
   // ---- Textos ---------------------------------------------------------------------------
-  const mine = data ? data.courses.filter((c) => interests.includes(c.category)) : [];
-  const areaNames = interests.map((id) => categories.find((c) => c.id === id)?.name[locale] ?? id);
+  const mine = data ? data.courses.filter((c) => interestCategories.includes(c.category)) : [];
+  const areaNames = interests.map((id) => categoryGroups.find((g) => g.id === id)?.name[locale] ?? id);
   const buildTitle = interests.length && data ? f.build.titleMine(mine.length, areaNames.join(' + ')) : f.build.titleDefault;
   const checked = data?.lastCheckedAt ? formatDate(data.lastCheckedAt, locale) : null;
   const actNames = [f.discover.eyebrow, f.verify.eyebrow, f.connect.eyebrow, f.build.eyebrow];
@@ -341,15 +345,18 @@ export function ForjaSection() {
               <p className="mt-3 text-fg-muted">{data ? f.discover.lead(data.providers, categories.length) : null}</p>
               <p className="mt-5 text-sm font-medium">{f.discover.interests}</p>
               <ul className="mt-3 flex flex-wrap gap-2">
-                {categories.map((cat, i) => {
-                  const on = interests.includes(cat.id);
-                  const [r, g, b] = areaColor(i, categories.length);
+                {categoryGroups.map((group) => {
+                  const on = interests.includes(group.id);
+                  // A cor do tema é a da área central do grupo (as áreas de um grupo têm cores vizinhas).
+                  const members = categories.flatMap((c, i) => (c.group === group.id ? [i] : []));
+                  const [r, g, b] = areaColor(members[Math.floor(members.length / 2)] ?? 0, categories.length);
                   return (
-                    <li key={cat.id}>
+                    <li key={group.id}>
                       <button
                         type="button"
                         aria-pressed={on}
-                        onClick={() => toggleInterest(cat.id)}
+                        title={group.tagline[locale]}
+                        onClick={() => toggleInterest(group.id)}
                         className={cn(
                           'inline-flex min-h-9 items-center gap-2 rounded-full border px-3 py-1 text-sm transition-colors',
                           on ? 'border-accent bg-accent-soft text-fg' : 'border-line-strong bg-surface/80 text-fg-muted hover:text-fg',
@@ -357,7 +364,7 @@ export function ForjaSection() {
                         style={{ '--area': `rgb(${Math.round(r * 255)} ${Math.round(g * 255)} ${Math.round(b * 255)})` } as CSSProperties}
                       >
                         <span aria-hidden className="size-2 rounded-full bg-[var(--area)] shadow-[0_0_8px_var(--area)]" />
-                        {cat.name[locale]}
+                        {group.name[locale]}
                         {on && <Check aria-hidden className="size-3.5 text-accent-text" />}
                       </button>
                     </li>
@@ -412,7 +419,7 @@ export function ForjaSection() {
               <h3 className="bz-act-title bz-lock-glow text-title mt-3">{buildTitle}</h3>
               <p className="mt-3 font-serif-accent text-xl text-accent-text">{f.build.lead}</p>
               <ButtonLink
-                to={interests.length ? explorePath({ categories: interests }) : '/explore'}
+                to={interests.length ? explorePath({ categories: interestCategories }) : '/explore'}
                 className="mt-6"
                 iconRight={<ArrowRight className="size-4" />}
               >

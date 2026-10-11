@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { usePreferences } from '@/app/preferences-context';
 import { Chip } from '@/components/ui/Chip';
+import { categoryGroupOf, categoryGroups } from '@/data/catalog/taxonomy';
 import type { CatalogFacets, CatalogQuery } from '@/domain/catalog/search';
 import { cn } from '@/lib/cn';
 
@@ -30,18 +31,34 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
  * dados"); as contagens vêm das facetas do conjunto publicado.
  */
 export function FilterPanel({ query, facets, onChange, className }: FilterPanelProps) {
-  const { m } = usePreferences();
+  const { m, locale } = usePreferences();
   const e = m.explore;
   if (!facets) return null;
 
   return (
     <div className={cn('space-y-5', className)}>
       <Group title={e.category}>
-        {facets.categories.map(({ value, count }) => (
-          <Chip key={value} selected={!!query.categories?.includes(value)} count={count} onClick={() => onChange({ categories: toggle(query.categories, value) })}>
-            {m.enums.category[value]}
-          </Chip>
-        ))}
+        {/* 21 áreas lidas em 7 blocos rotulados por tema — mais fácil de escanear. */}
+        <div className="w-full space-y-3">
+          {categoryGroups.map((group) => {
+            const items = facets.categories.filter((f) => categoryGroupOf[f.value] === group.id);
+            if (!items.length) return null;
+            return (
+              <div key={group.id} role="group" aria-label={group.name[locale]}>
+                <p aria-hidden className="mb-1.5 text-xs text-fg-muted">
+                  {group.name[locale]}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {items.map(({ value, count }) => (
+                    <Chip key={value} selected={!!query.categories?.includes(value)} count={count} onClick={() => onChange({ categories: toggle(query.categories, value) })}>
+                      {m.enums.category[value]}
+                    </Chip>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </Group>
       <Group title={e.price}>
         {facets.priceTypes.map(({ value, count }) => (

@@ -8,7 +8,7 @@ import { Button, ButtonLink } from '@/components/ui/Button';
 import { ExternalLink, isSafeExternalUrl } from '@/components/ui/ExternalLink';
 import { Skeleton, StateView } from '@/components/ui/StateView';
 import { useToast } from '@/components/ui/toast-context';
-import { skillDefinitions } from '@/data/catalog/taxonomy';
+import { skillName as skillLabel } from '@/data/catalog/store';
 import { explorePath } from '@/domain/catalog/query-params';
 import { useAsync } from '@/hooks/useAsync';
 import { useDocumentMeta } from '@/hooks/useDocumentMeta';
@@ -86,7 +86,7 @@ export default function CourseDetailPage() {
     );
   }
 
-  const skillName = (id: string) => skillDefinitions.find((s) => s.id === id)?.name[locale] ?? id;
+  const skillName = (id: string) => skillLabel(id, locale);
   const isDemo = course.origin === 'demo';
   const outdated = course.verificationStatus === 'outdated' || course.publicationStatus === 'outdated';
 

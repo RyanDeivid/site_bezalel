@@ -61,6 +61,8 @@ server/           backend de referência (FastAPI) + deploy Oracle Cloud
 | **A Forja: three.js puro na home** (v2 · Fase 1) | A abertura da home é uma construção em 3D dirigida pela rolagem (`features/home/forja/`): faísca → partículas por área chegando → triagem com braços robóticos (aprovadas viram estrutura, reprovadas caem) → arestas e o grafo real curso↔competência → placas encaixando até a pose exata do símbolo da marca → mergulho no núcleo. Sem React/R3F na cena (controle fino do laço de renderização); partículas movidas só por shader. O palco fica preso à tela (`position: sticky` num trilho que é **elemento**, não padding — sticky só prende na área de conteúdo do pai) e o hero rola por cima. |
 | **Dois modos da Forja, decididos antes da pintura** | O script do `index.html` grava `data-forja="full"` (3D com rolagem conduzida) ou deixa o padrão — história em cartões — para sem JavaScript, movimento reduzido, economia de dados ou aparelho fraco. A marcação pré-renderizada é a mesma nos dois; só o CSS muda, então não há salto de layout nem divergência de hidratação. |
 | **3D só quando vale a pena** | Ocioso: só pré-carrega o módulo. A cena é montada na primeira interação; no primeiro ato ela "dorme" (pôster em CSS). Em repouso o desktop segue a 20–24 quadros/s e o celular congela no último quadro. Sem placa de vídeo (WebGL por software, ex.: SwiftShader/llvmpipe) a cena não roda — fica o pôster e o texto dos atos. Braços desenhados por instâncias (11 chamadas de desenho em vez de 56) e shaders compilados em paralelo na montagem (`compileAsync`), para não travar a estreia de cada ato. |
+| **Catálogo num chunk próprio** (v2 · Fase 2) | Cursos (`courses.ts` + `expansion/`) e definições de competências (`skills.ts`) ficam num chunk separado, pré-carregado com `<link rel="modulepreload">` em toda página e aguardado (`loadCatalog()`) antes do primeiro render, da pré-renderização e dos testes. O resto do app lê por acessores síncronos (`curated()`, `skills()`, `skillName()`); nada no bundle principal importa esses arquivos — senão o Rollup os puxaria de volta para o JS inicial. Assim o catálogo pode crescer sem pesar no primeiro carregamento. |
+| **21 áreas em 7 temas** (v2 · Fase 2) | Com 21 áreas, toda escolha é feita primeiro por tema (lei de Hick): a home mostra 7 cartões com as áreas dentro, os filtros e o seletor de Insights agrupam por tema, e a Forja oferece os 7 temas como interesses. A ordem das áreas segue os temas, então áreas de um mesmo tema recebem cores vizinhas na cena. |
 | **Robôs feitos em código** | `robot-arm.ts`: braço industrial (base, torre, ombro, braço, cotovelo, antebraço, punho, garra) com cinemática inversa analítica de dois segmentos (testada pela cinemática direta). Reaproveitável no laboratório (Fase 3). |
 | **Sem `backdrop-filter` em telas de toque nem sobre canvas animado** | O desfoque é refeito a cada quadro de rolagem; em `pointer: coarse` as superfícies ficam quase opacas. |
 | **Recharts só na rota /insights** | Chunk carregado sob demanda. Paleta categórica validada (contraste e daltonismo) com o validador da skill de dataviz; toda visualização tem visão em tabela. |
@@ -98,13 +100,27 @@ Mesmas condições (servidor gzip local, CPU 4× mais lenta em viewport de celul
 | Parada no meio da história (celular) | — | 5–22% (cena congelada) |
 | Parada no meio da história (desktop) | — | 7–8% (ambiente a 24 quadros/s) |
 
+### Medição da Fase 2 (catálogo de 19 → 105 cursos), 11/10/2026
+
+Mesmas condições, mediana de 3 rodadas, comparação pareada com a `main` anterior.
+
+| Métrica | Home antes | Home Fase 2 | /explore antes | /explore Fase 2 |
+|---|---|---|---|---|
+| Lighthouse Performance | 87 | 88 | 87 | 89 |
+| LCP | 3,10 s | 3,02 s | 3,27 s | 3,26 s |
+| Total Blocking Time | 253 ms | 236 ms | 256 ms | 158 ms |
+| CLS / Acessibilidade | 0 / 100 | 0 / 100 | 0 / 100 | 0 / 100 |
+
+O catálogo 5,5× maior não pesou: cursos e competências saíram do JS inicial (185 kB, antes 182 kB com 7 áreas) para o chunk pré-carregado.
+
 ### Orçamento (CI — `scripts/check-budget.ts`)
 
 | Recurso (gzip) | Teto | Hoje |
 |---|---|---|
-| HTML da home (pré-renderizado) | 40 kB | ~19 kB |
-| CSS de entrada | 20 kB | ~16 kB |
+| HTML da home (pré-renderizado) | 40 kB | ~24 kB |
+| CSS de entrada | 20 kB | ~17 kB |
 | JS de entrada da home | 195 kB | ~185 kB |
+| Catálogo (cursos + competências, chunk pré-carregado) | 120 kB | ~28 kB (105 cursos, 104 competências) |
 | `three.module` (sob demanda, compartilhado: Forja + laboratório) | 200 kB | ~181 kB |
 | `scene` — Forja (sob demanda, na 1ª interação) | 30 kB | ~13 kB |
 | `LabScene` (sob demanda, além do three) | 100 kB | ~60 kB |

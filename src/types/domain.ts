@@ -40,7 +40,24 @@ export type CategoryId =
   | 'data'
   | 'cloud-infra'
   | 'security-privacy'
-  | 'digital-government';
+  | 'digital-government'
+  | 'health'
+  | 'physical-education'
+  | 'nutrition'
+  | 'mental-health'
+  | 'education'
+  | 'languages'
+  | 'business'
+  | 'finance'
+  | 'career'
+  | 'design'
+  | 'marketing'
+  | 'industry'
+  | 'agro-environment'
+  | 'public-admin-law';
+
+/** Grandes grupos que organizam as áreas na navegação (menos escolhas por vez). */
+export type CategoryGroupId = 'tech' | 'health' | 'learning' | 'business' | 'creative' | 'production' | 'public';
 
 export type OpportunityType = 'course' | 'certification' | 'learning-path';
 
@@ -243,6 +260,13 @@ export interface Source {
 
 export interface Category {
   id: CategoryId;
+  group: CategoryGroupId;
   name: LocalizedText;
   description: LocalizedText;
+}
+
+export interface CategoryGroup {
+  id: CategoryGroupId;
+  name: LocalizedText;
+  tagline: LocalizedText;
 }

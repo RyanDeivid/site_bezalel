@@ -7,7 +7,8 @@ import { Badge } from '@/components/ui/Badge';
 import { ButtonLink } from '@/components/ui/Button';
 import { Skeleton, StateView } from '@/components/ui/StateView';
 import { Reveal } from '@/components/visual/Reveal';
-import { categories, skillDefinitions } from '@/data/catalog/taxonomy';
+import { skillName as skillLabel } from '@/data/catalog/store';
+import { categories, categoryGroups } from '@/data/catalog/taxonomy';
 import { DEMO_MENTION_PERIODS } from '@/data/demo/mentions';
 import { useAsync } from '@/hooks/useAsync';
 import { useDocumentMeta } from '@/hooks/useDocumentMeta';
@@ -39,7 +40,7 @@ export default function InsightsPage() {
   const registry = useAsync(() => services.catalog.listRegistry(), []);
   const facets = useAsync(() => services.catalog.getFacets(), []);
   const curated = useMemo(() => (registry.data ?? []).filter((c) => c.origin !== 'demo' && c.publicationStatus === 'published'), [registry.data]);
-  const skillName = (id: string) => skillDefinitions.find((s) => s.id === id)?.name[locale] ?? id;
+  const skillName = (id: string) => skillLabel(id, locale);
   const data = insights.data;
 
   const skillBars = (data?.skills ?? []).slice(0, 12).map((s) => ({
@@ -84,10 +85,16 @@ export default function InsightsPage() {
               className="mt-1 block h-9 rounded-lg border border-line-strong bg-surface px-2 text-sm text-fg"
             >
               <option value="all">{t.filters.allCategories}</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name[locale]}
-                </option>
+              {categoryGroups.map((g) => (
+                <optgroup key={g.id} label={g.name[locale]}>
+                  {categories
+                    .filter((c) => c.group === g.id)
+                    .map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name[locale]}
+                      </option>
+                    ))}
+                </optgroup>
               ))}
             </select>
           </label>

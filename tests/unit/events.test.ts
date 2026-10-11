@@ -9,7 +9,7 @@ import type { AgentEvent } from '@/types/domain';
 
 const NOW = new Date('2026-10-10T12:00:00Z');
 const deps: ScenarioDeps = {
-  countResults: (q) => searchCatalog(curatedCourses, { q }, searchVocabulary).total,
+  countResults: (q) => searchCatalog(curatedCourses, { q }, searchVocabulary()).total,
   topSkills: [{ skillId: 'python', label: 'Python', count: 8 }],
   skillLinks: 69,
 };

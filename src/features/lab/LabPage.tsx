@@ -9,7 +9,7 @@ import { Button, IconButton } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
 import { ProcessingIndicator } from '@/components/ui/StateView';
 import { useToast } from '@/components/ui/toast-context';
-import { skillDefinitions } from '@/data/catalog/taxonomy';
+import { skillName } from '@/data/catalog/store';
 import { useAsync } from '@/hooks/useAsync';
 import { detectWebGL, useDeviceProfile } from '@/hooks/useDeviceProfile';
 import { useDocumentMeta } from '@/hooks/useDocumentMeta';
@@ -97,7 +97,7 @@ export default function LabPage() {
     [agents.data],
   );
   const topSkills = useMemo(
-    () => (insights.data?.skills ?? []).slice(0, 6).map((s) => ({ label: skillDefinitions.find((d) => d.id === s.skillId)?.name[locale] ?? s.skillId, count: s.courseCount })),
+    () => (insights.data?.skills ?? []).slice(0, 6).map((s) => ({ label: skillName(s.skillId, locale), count: s.courseCount })),
     [insights.data, locale],
   );
   const statuses = feed.agents;

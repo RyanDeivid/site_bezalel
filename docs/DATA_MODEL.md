@@ -21,7 +21,7 @@ AgentEvent * ── 1 entidade (entityType + entityId: course | source | skill |
 | `title`, `description` | string | Descrição é resumo próprio em português, não cópia. |
 | `provider` | `{ name, url? }` | Instituição responsável (certificadora). |
 | `contentAuthor` | string? | Autor do conteúdo quando diferente (ex.: ITS Rio, Universidade de Oxford). |
-| `category` | `CategoryId` | Uma das 7 categorias da taxonomia. |
+| `category` | `CategoryId` | Uma das 21 áreas da taxonomia (cada área pertence a um dos 7 grupos/temas). |
 | `skills` | string[] | IDs da taxonomia — **classificação da curadoria**, não afirmação do provedor. |
 | `type` | `course` \| `certification` \| `learning-path` | |
 | `level` | `beginner` \| `intermediate` \| `advanced` \| `all-levels` \| `unknown` | |
@@ -66,9 +66,11 @@ Na interface, `status`, `lastActivity` e contagem de tarefas são **derivados da
 
 | Arquivo | Conteúdo | Origem |
 |---|---|---|
-| `src/data/catalog/courses.ts` | 19 registros reais | Conferência manual em 10/10/2026 |
-| `src/data/catalog/sources.ts` | 13 fontes oficiais | idem |
-| `src/data/catalog/taxonomy.ts` | 7 categorias, 41 competências | Curadoria |
+| `src/data/catalog/courses.ts` | 19 registros reais da v1 + agregação do catálogo | Conferência manual em 10/10/2026 |
+| `src/data/catalog/expansion/` | 86 registros reais da v2 · Fase 2 (Escola Virtual.Gov, Fundação Bradesco, Coursera) | Conferência manual em 11/10/2026: página oficial de cada curso (e, na EV.G, a exportação pública do catálogo) |
+| `src/data/catalog/sources.ts` | 14 fontes oficiais | idem |
+| `src/data/catalog/taxonomy.ts` | 7 grupos e 21 áreas (vão no JS inicial) | Curadoria |
+| `src/data/catalog/skills.ts` | 104 competências bilíngues (vão no chunk do catálogo; leia com `skills()`/`skillName()` de `store.ts`) | Curadoria |
 | `src/data/demo/pipeline-fixtures.ts` | 4 fontes e 10 registros **fictícios** (`example.org`) | Demonstração |
 | `src/data/demo/agents.ts` | Perfis dos agentes (modo demo) | Demonstração |
 | `src/data/demo/mentions.ts` | Série de menções **fictícia** e consultas de exemplo | Demonstração |

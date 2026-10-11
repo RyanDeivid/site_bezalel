@@ -46,7 +46,7 @@ describe('assistente Sol (regras locais)', () => {
   });
 
   it('informa dados insuficientes quando nada é encontrado', async () => {
-    const r = await ask('curso de culinária molecular');
+    const r = await ask('curso de mergulho em cavernas submarinas');
     expect(r.kind).toBe('insufficient-data');
     expect(r.courses).toHaveLength(0);
   });

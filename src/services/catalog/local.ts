@@ -15,7 +15,7 @@ export function createLocalCatalogService(curated: Course[], demo: Course[]): Ca
 
   return {
     search(query) {
-      return resolved(searchCatalog(all, query, searchVocabulary));
+      return resolved(searchCatalog(all, query, searchVocabulary()));
     },
     getBySlug(slug) {
       return resolved(bySlug.get(slug) ?? null);

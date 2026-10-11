@@ -8,7 +8,7 @@ import { searchVocabulary } from '@/services/catalog/vocabulary';
 const NOW = new Date('2026-10-10T12:00:00Z');
 const demo = buildDemoRegistry(NOW).courses;
 const all = [...curatedCourses, ...demo];
-const search = (q: Parameters<typeof searchCatalog>[1]) => searchCatalog(all, q, searchVocabulary);
+const search = (q: Parameters<typeof searchCatalog>[1]) => searchCatalog(all, q, searchVocabulary());
 
 describe('busca textual', () => {
   it('encontra cursos pelo título e prioriza o título', () => {
@@ -40,11 +40,11 @@ describe('busca textual', () => {
 
   it('não devolve registros de demonstração por padrão', () => {
     expect(search({}).hits.every((h) => h.course.origin !== 'demo')).toBe(true);
-    expect(search({ includeDemo: true, pageSize: 100 }).hits.some((h) => h.course.origin === 'demo')).toBe(true);
+    expect(search({ includeDemo: true, pageSize: 1000 }).hits.some((h) => h.course.origin === 'demo')).toBe(true);
   });
 
   it('nunca devolve registros rejeitados ou removidos', () => {
-    const r = search({ includeDemo: true, pageSize: 100 });
+    const r = search({ includeDemo: true, pageSize: 1000 });
     expect(r.hits.every((h) => ['published', 'outdated'].includes(h.course.publicationStatus))).toBe(true);
   });
 });

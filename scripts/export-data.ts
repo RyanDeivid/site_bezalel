@@ -12,7 +12,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { curatedCourses } from '../src/data/catalog/courses.ts';
 import { curatedSources } from '../src/data/catalog/sources.ts';
-import { categories, skillDefinitions } from '../src/data/catalog/taxonomy.ts';
+import { skillDefinitions } from '../src/data/catalog/skills.ts';
+import { categories } from '../src/data/catalog/taxonomy.ts';
 import { demoAgents } from '../src/data/demo/agents.ts';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');

@@ -107,7 +107,8 @@ test('metadados por rota estão no HTML estático', async ({ request }) => {
 test('busca e filtros alteram os resultados', async ({ page }) => {
   await gotoReady(page, 'explore/');
   const heading = page.getByRole('heading', { level: 2, name: /oportunidades?/ });
-  await expect(heading).toContainText('19');
+  // Catálogo real ampliado na Fase 2 (mais de 100 registros verificados).
+  await expect(heading).toHaveText(/\b\d{3,} oportunidades/);
   await page.getByLabel('Buscar no catálogo').fill('linux');
   await expect(page).toHaveURL(/q=linux/);
   await expect(heading).toContainText('1 oportunidade');
@@ -198,21 +199,22 @@ test('Forja: a rolagem conduz os atos com números do catálogo', async ({ page 
   }
   // Números reais do catálogo verificado (não inventados).
   await scrollForja(page, 0.62);
-  await expect(page.getByText(/\d+ competências ligadas a 19 cursos em \d+ conexões/)).toBeVisible();
+  await expect(page.getByText(/\d+ competências ligadas a \d{3,} cursos em \d+ conexões/)).toBeVisible();
 });
 
 test('Forja: interesses escolhidos personalizam a estrutura final', async ({ page }) => {
   await gotoReady(page, '');
   await scrollForja(page, 0.2);
-  await page.getByRole('button', { name: 'IA e Machine Learning' }).click();
-  await page.getByRole('button', { name: 'Segurança e Privacidade' }).click();
-  await expect(page.getByRole('button', { name: 'IA e Machine Learning' })).toHaveAttribute('aria-pressed', 'true');
+  // Escolha por temas (7) em vez de 21 áreas soltas.
+  await page.getByRole('button', { name: 'Tecnologia', exact: true }).click();
+  await page.getByRole('button', { name: 'Saúde e bem-estar', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Tecnologia', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await scrollForja(page, 0.8);
-  await expect(page.getByRole('heading', { level: 3, name: /Sua estrutura: \d+ cursos verificados em IA e Machine Learning \+ Segurança e Privacidade\./ })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 3, name: /Sua estrutura: \d+ cursos verificados em Tecnologia \+ Saúde e bem-estar\./ })).toBeVisible();
   const cta = page.getByRole('link', { name: 'Ver meus cursos' });
   await expect(cta).toHaveAttribute('href', /cat=ai-ml/);
   // A escolha fica guardada para a próxima visita.
-  expect(await page.evaluate(() => localStorage.getItem('bz-interests'))).toBe('ai-ml,security-privacy');
+  expect(await page.evaluate(() => localStorage.getItem('bz-interest-groups'))).toBe('tech,health');
 });
 
 test('Forja: "Pular" leva para depois da animação', async ({ page }) => {

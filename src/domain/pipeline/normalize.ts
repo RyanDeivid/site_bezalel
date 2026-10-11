@@ -90,6 +90,20 @@ const CATEGORY_HINTS: Array<[RegExp, CategoryId]> = [
   [/\b(nuvem|cloud|linux|devops|infraestrutura|redes|network)\b/, 'cloud-infra'],
   [/\b(governo|government|setor publico|public sector)\b/, 'digital-government'],
   [/\b(programacao|programming|algoritmos|computacao|computer science|python)\b/, 'computer-science'],
+  [/\b(saude mental|mental health|bem.?estar|well.?being|psicolog\w*|psycholog\w*|mindfulness)\b/, 'mental-health'],
+  [/\b(educacao fisica|physical education|exercicio|exercise|esporte|sports?|fitness)\b/, 'physical-education'],
+  [/\b(nutricao|nutrition|alimentacao|alimentos|food)\b/, 'nutrition'],
+  [/\b(financas|finance|financeira|financial|orcamento|budget)\b/, 'finance'],
+  [/\b(saude|health|epidemiologia|epidemiology|sus)\b/, 'health'],
+  [/\b(educacao|education|docencia|teaching|pedagogia|professores|teachers)\b/, 'education'],
+  [/\b(idiomas|languages|ingles|english|libras|mandarim|chinese)\b/, 'languages'],
+  [/\b(empreendedorismo|entrepreneurship|negocios|business|projetos|projects|agil|agile)\b/, 'business'],
+  [/\b(carreira|career|lideranca|leadership|negociacao|negotiation)\b/, 'career'],
+  [/\b(design|ux|experiencia do usuario|user experience)\b/, 'design'],
+  [/\b(marketing|comunicacao|communication)\b/, 'marketing'],
+  [/\b(engenharia|engineering|industria|industry|energia|energy)\b/, 'industry'],
+  [/\b(agro|agricultura|agriculture|meio ambiente|environment|clima|climate|sustentabilidade|sustainability)\b/, 'agro-environment'],
+  [/\b(licitacoes|procurement|direito|law|etica|ethics|transparencia|transparency)\b/, 'public-admin-law'],
 ];
 
 export function mapCategory(...hints: Array<string | undefined>): CategoryId | null {

@@ -1,4 +1,7 @@
 import type { Course } from '../../types/domain.ts';
+import { bradescoCourses } from './expansion/bradesco.ts';
+import { courseraCourses } from './expansion/coursera.ts';
+import { evgCourses } from './expansion/evg.ts';
 
 /**
  * Catálogo curado — registros REAIS.
@@ -21,7 +24,7 @@ import type { Course } from '../../types/domain.ts';
 
 const CHECKED = '2026-10-10';
 
-export const curatedCourses: Course[] = [
+const originalCourses: Course[] = [
   {
     id: 'crs-harvard-cs50x',
     slug: 'harvard-cs50x',
@@ -602,3 +605,13 @@ export const curatedCourses: Course[] = [
     updatedAt: CHECKED,
   },
 ];
+
+/**
+ * Catálogo completo: a curadoria original (10/10/2026) + a ampliação da v2
+ * (Fase 2, 11/10/2026) com saúde, educação física, nutrição, educação,
+ * negócios, design, idiomas, indústria, meio ambiente e mais.
+ */
+export const curatedCourses: Course[] = [...originalCourses, ...evgCourses, ...bradescoCourses, ...courseraCourses];
+
+/** Competências vão no mesmo chunk que os cursos (ver store.ts). */
+export { skillDefinitions } from './skills.ts';

@@ -1,6 +1,7 @@
 import { renderHook } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it } from 'vitest';
+import { curatedCourses } from '@/data/catalog/courses';
 import { render } from '@/entry-server';
 import { useAsync } from '@/hooks/useAsync';
 import { combine, peek, resolved } from '@/lib/sync-promise';
@@ -76,6 +77,9 @@ describe('pré-renderização (entry-server)', () => {
 
   it('o catálogo pré-renderizado lista cursos', async () => {
     const html = await render(`${base}explore/`);
-    expect(text(html!)).toContain('CS50');
+    // Ordem padrão (relevância sem busca) é alfabética: o 1º título publicado aparece no HTML.
+    const first = [...curatedCourses].sort((a, b) => a.title.localeCompare(b.title, 'pt-BR'))[0]!;
+    expect(text(html!)).toContain(first.title);
+    expect(text(html!)).toMatch(new RegExp(`${curatedCourses.length} oportunidades`));
   });
 });

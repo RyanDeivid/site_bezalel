@@ -1,6 +1,9 @@
 from fastapi.testclient import TestClient
 
-from app.main import app
+from app.main import COURSES, app
+
+# Total publicado no catálogo exportado (o número cresce a cada curadoria).
+PUBLISHED = sum(1 for c in COURSES if c.get("publicationStatus") == "published")
 
 client = TestClient(app)
 
@@ -8,12 +11,12 @@ client = TestClient(app)
 def test_health():
     res = client.get("/health")
     assert res.status_code == 200
-    assert res.json()["courses"] == 19
+    assert res.json()["courses"] == PUBLISHED
 
 
 def test_list_courses_contract():
     data = client.get("/v1/courses").json()
-    assert data["total"] == 19
+    assert data["total"] == PUBLISHED
     assert data["page"] == 1 and data["pageSize"] == 12
     assert len(data["hits"]) == 12 and data["hasMore"] is True
     assert {"course", "score", "matchedFields"} <= set(data["hits"][0])
@@ -46,7 +49,7 @@ def test_related_excludes_itself():
 
 def test_facets():
     f = client.get("/v1/catalog/facets").json()
-    assert f["total"] == 19 and f["providers"] > 5
+    assert f["total"] == PUBLISHED and f["providers"] > 5
 
 
 def test_agents_are_never_presented_as_production_by_default():

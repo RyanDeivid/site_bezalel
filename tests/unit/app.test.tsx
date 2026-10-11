@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import { PreferencesProvider } from '@/app/PreferencesProvider';
 import { routes } from '@/app/router';
 import { ToastProvider } from '@/components/ui/Toast';
+import { curatedCourses } from '@/data/catalog/courses';
 import { createLocalServices } from '@/services/local';
 import { ServicesProvider } from '@/services/ServicesProvider';
 
@@ -58,7 +59,7 @@ describe('catálogo', () => {
     const { router } = renderAt('/explore');
     const heading = await screen.findByRole('heading', { name: /oportunidades/, level: 2 }, { timeout: 12000 });
     const total = Number(heading.textContent?.match(/\d+/)?.[0]);
-    expect(total).toBe(19);
+    expect(total).toBe(curatedCourses.length);
 
     const aside = screen.getByRole('complementary', { name: 'Filtros' });
     await user.click(within(aside).getByRole('button', { name: /Certificação/ }));

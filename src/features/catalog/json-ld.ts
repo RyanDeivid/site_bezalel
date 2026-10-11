@@ -1,4 +1,4 @@
-import { skillDefinitions } from '../../data/catalog/taxonomy.ts';
+import { skillName } from '../../data/catalog/store.ts';
 import type { Course } from '../../types/domain.ts';
 
 /**
@@ -29,7 +29,7 @@ export function buildCourseJsonLd(course: Course): Record<string, unknown> | nul
   if (course.priceType === 'paid' && course.priceAmount !== undefined && course.currency) {
     data.offers = { '@type': 'Offer', price: course.priceAmount, priceCurrency: course.currency, category: 'Paid' };
   }
-  if (course.skills.length) data.teaches = course.skills.map((id) => skillDefinitions.find((d) => d.id === id)?.name['pt-BR'] ?? id);
+  if (course.skills.length) data.teaches = course.skills.map((id) => skillName(id, 'pt-BR'));
   if (course.prerequisites?.length) data.coursePrerequisites = course.prerequisites;
   return data;
 }
