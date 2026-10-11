@@ -82,7 +82,7 @@ export function HomePage() {
           </Reveal>
         </div>
       </Deferred>
-      <MobileActionBar watchId="hero-search-form" />
+      <MobileActionBar watchId="forja" />
     </>
   );
 }

@@ -56,8 +56,12 @@ server/           backend de referência (FastAPI) + deploy Oracle Cloud
 | **Tailwind CSS 4 com tokens em CSS** | Tokens semânticos em `styles/tokens.css` (`--bg`, `--accent`, `--ok`…), mapeados com `@theme inline`: troca de tema em runtime sem recompilar. |
 | **three.js + React Three Fiber, sem drei** | Laboratório declarativo; helpers próprios (texturas em canvas, câmera) evitam dependências e downloads extras de fontes. |
 | **Sem pós-processamento (bloom)** — revisada na v2 | Na v1, brilho só com materiais emissivos e sprites aditivos. Na v2 o bloom foi aprovado **apenas em aparelhos fortes** (Fase 3 — laboratório), em meia resolução, desligado em celular e em qualidade reduzida. |
-| **Canvas 2D próprio na home** (rede de partículas e icosaedro projetado à mão) | Experiência visual forte sem baixar three.js na página de entrada. Na v2 a rede de partículas roda num **Web Worker com OffscreenCanvas** (`components/visual/particles/`), com traços agrupados por opacidade e 30 fps em celular; sem suporte, o mesmo motor roda na página. |
+| **Canvas 2D próprio** (rede de partículas; usada nas aberturas de páginas internas e no 404) | Experiência visual leve sem three.js. Na v1 também havia um icosaedro projetado à mão no hero, substituído pela Forja na Fase 1. Na v2 a rede de partículas roda num **Web Worker com OffscreenCanvas** (`components/visual/particles/`), com traços agrupados por opacidade e 30 fps em celular; sem suporte, o mesmo motor roda na página. |
 | **Animações decorativas só no compositor** (v2 · Fase 0) | Medido num celular médio simulado (CPU 4× mais lenta), traços SVG com `stroke-dashoffset` e SMIL ocupavam ~98% da thread principal mesmo com a página parada. Regra: efeito contínuo usa só `transform`/`opacity` em elementos HTML; SVG fica estático. `useAnimationGate` pausa CSS e SMIL fora da tela e respeita "reduzir movimento" (o SMIL ignorava). |
+| **A Forja: three.js puro na home** (v2 · Fase 1) | A abertura da home é uma construção em 3D dirigida pela rolagem (`features/home/forja/`): faísca → partículas por área chegando → triagem com braços robóticos (aprovadas viram estrutura, reprovadas caem) → arestas e o grafo real curso↔competência → placas encaixando até a pose exata do símbolo da marca → mergulho no núcleo. Sem React/R3F na cena (controle fino do laço de renderização); partículas movidas só por shader. O palco fica preso à tela (`position: sticky` num trilho que é **elemento**, não padding — sticky só prende na área de conteúdo do pai) e o hero rola por cima. |
+| **Dois modos da Forja, decididos antes da pintura** | O script do `index.html` grava `data-forja="full"` (3D com rolagem conduzida) ou deixa o padrão — história em cartões — para sem JavaScript, movimento reduzido, economia de dados ou aparelho fraco. A marcação pré-renderizada é a mesma nos dois; só o CSS muda, então não há salto de layout nem divergência de hidratação. |
+| **3D só quando vale a pena** | Ocioso: só pré-carrega o módulo. A cena é montada na primeira interação; no primeiro ato ela "dorme" (pôster em CSS). Em repouso o desktop segue a 20–24 quadros/s e o celular congela no último quadro. Sem placa de vídeo (WebGL por software, ex.: SwiftShader/llvmpipe) a cena não roda — fica o pôster e o texto dos atos. Braços desenhados por instâncias (11 chamadas de desenho em vez de 56) e shaders compilados em paralelo na montagem (`compileAsync`), para não travar a estreia de cada ato. |
+| **Robôs feitos em código** | `robot-arm.ts`: braço industrial (base, torre, ombro, braço, cotovelo, antebraço, punho, garra) com cinemática inversa analítica de dois segmentos (testada pela cinemática direta). Reaproveitável no laboratório (Fase 3). |
 | **Sem `backdrop-filter` em telas de toque nem sobre canvas animado** | O desfoque é refeito a cada quadro de rolagem; em `pointer: coarse` as superfícies ficam quase opacas. |
 | **Recharts só na rota /insights** | Chunk carregado sob demanda. Paleta categórica validada (contraste e daltonismo) com o validador da skill de dataviz; toda visualização tem visão em tabela. |
 | **i18n próprio (objetos tipados)** | Português e inglês com garantia estrutural: o tipo `Widen<typeof ptBR>` obriga o inglês a ter as mesmas chaves; um teste compara as formas. Sem dependência extra. |
@@ -80,6 +84,20 @@ Mesmas condições para antes e depois: build servido localmente com gzip (como 
 | Thread principal com seções do meio da home na tela | ~98% | **1–21%** (validação: 40% enquanto visível) |
 | Tarefas longas ao rolar a home | 27–57 | **13** |
 
+### Medição da Fase 1 (Forja), 11/10/2026
+
+Mesmas condições (servidor gzip local, CPU 4× mais lenta em viewport de celular para os traços; Lighthouse celular, mediana de 3).
+
+| Métrica (home) | Fase 0 | Fase 1 |
+|---|---|---|
+| Lighthouse Performance | 85–93 | 90–92 |
+| Total Blocking Time | 72–368 ms | 160–221 ms |
+| CLS | 0 | 0 |
+| Thread principal no topo, parada | 3–6% | 7% |
+| Thread principal rolando | 81% · 13 tarefas longas | 84% · 17 tarefas longas |
+| Parada no meio da história (celular) | — | 5–22% (cena congelada) |
+| Parada no meio da história (desktop) | — | 7–8% (ambiente a 24 quadros/s) |
+
 ### Orçamento (CI — `scripts/check-budget.ts`)
 
 | Recurso (gzip) | Teto | Hoje |
@@ -87,7 +105,9 @@ Mesmas condições para antes e depois: build servido localmente com gzip (como 
 | HTML da home (pré-renderizado) | 40 kB | ~19 kB |
 | CSS de entrada | 20 kB | ~16 kB |
 | JS de entrada da home | 195 kB | ~185 kB |
-| `LabScene` (sob demanda) | 300 kB | ~240 kB |
+| `three.module` (sob demanda, compartilhado: Forja + laboratório) | 200 kB | ~181 kB |
+| `scene` — Forja (sob demanda, na 1ª interação) | 30 kB | ~13 kB |
+| `LabScene` (sob demanda, além do three) | 100 kB | ~60 kB |
 | `InsightsPage` (sob demanda) | 130 kB | ~111 kB |
 
 ### Técnicas em uso

@@ -1,5 +1,5 @@
 import { ArrowDown, ArrowRight, Box, Check, X } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FocusEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type FocusEvent, type MouseEvent } from 'react';
 import { usePreferences } from '@/app/preferences-context';
 import { ButtonLink } from '@/components/ui/Button';
 import { categories, skillDefinitions } from '@/data/catalog/taxonomy';
@@ -80,6 +80,11 @@ export function ForjaSection() {
   const sceneRef = useRef<ForjaScene | null>(null);
   const progressRef = useRef(0);
   const [ready, setReady] = useState(false);
+  // Primeiro ato: a cena "dorme" (o pôster em CSS mostra a faísca, quase sem
+  // custo) e acorda quando o visitante começa a rolar para dentro da história.
+  const [awake, setAwake] = useState(false);
+  const awakeRef = useRef(false);
+  const syncRef = useRef<(() => void) | null>(null);
   const [interests, setInterests] = useState<CategoryId[]>([]);
 
   // Escolhas anteriores do visitante (só no navegador, depois da hidratação).
@@ -114,7 +119,8 @@ export function ForjaSection() {
     if (!section || !hero) return null;
     const vh = window.innerHeight;
     const total = Math.max(1, section.offsetHeight - vh);
-    const heroOut = Math.min(total * 0.5, Math.max(1, hero.offsetHeight - vh * 0.3));
+    // O primeiro ato termina quando o hero quase saiu da tela (sem sobras dele sobre o ato 1).
+    const heroOut = Math.min(total * 0.5, Math.max(1, hero.offsetHeight - vh * 0.06));
     return { section, total, heroOut };
   }, []);
 
@@ -123,6 +129,7 @@ export function ForjaSection() {
     if (!section || !isFullMode()) return;
     let raf = 0;
     let lastAct = -1;
+    let lastPct = -1;
     const measure = () => {
       raf = 0;
       const g = geometry();
@@ -134,6 +141,12 @@ export function ForjaSection() {
           : ACT_START.discover + clamp01((scrolled - g.heroOut) / Math.max(1, g.total - g.heroOut)) * (1 - ACT_START.discover);
       progressRef.current = p;
       sceneRef.current?.setProgress(p);
+      const wake = awakeRef.current ? p > 0.02 : p > 0.035;
+      if (wake !== awakeRef.current) {
+        awakeRef.current = wake;
+        setAwake(wake);
+        syncRef.current?.();
+      }
       const act = actAt(p);
       if (act !== lastAct) {
         lastAct = act;
@@ -143,7 +156,11 @@ export function ForjaSection() {
       const build = clamp01((p - ACT_START.discover) / (ACT_START.enter - ACT_START.discover));
       const mobile = window.innerWidth < 768;
       if (fillRef.current) fillRef.current.style.transform = mobile ? `scaleX(${build})` : `scaleY(${build})`;
-      if (pctRef.current) pctRef.current.textContent = f.progress(Math.round(build * 100));
+      const pct = Math.round(build * 100);
+      if (pct !== lastPct && pctRef.current) {
+        lastPct = pct;
+        pctRef.current.textContent = f.progress(pct);
+      }
       if (fadeRef.current) fadeRef.current.style.opacity = String(phasesAt(p).enter * 0.92);
     };
     const onScroll = () => {
@@ -168,6 +185,15 @@ export function ForjaSection() {
     window.scrollTo({ top, behavior: reducedMotion ? 'auto' : 'smooth' });
   };
 
+  // "Pular": vai direto ao fim da Forja (o href continua valendo sem JavaScript).
+  const skip = (e: MouseEvent<HTMLAnchorElement>) => {
+    const section = sectionRef.current;
+    if (!section) return;
+    e.preventDefault();
+    const header = Number.parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--header-h')) || 64;
+    window.scrollTo({ top: section.getBoundingClientRect().bottom + window.scrollY - header, behavior: 'auto' });
+  };
+
   // Teclado/leitor de tela: focar algo num ato invisível rola até ele.
   const onFocusAct = (e: FocusEvent<HTMLElement>) => {
     const index = Number(e.currentTarget.dataset.act);
@@ -186,7 +212,7 @@ export function ForjaSection() {
     let disposed = false;
     let scene: ForjaScene | null = null;
     let visible = true;
-    const sync = () => scene?.setActive(visible && !document.hidden);
+    const sync = () => scene?.setActive(visible && !document.hidden && awakeRef.current);
     const framing = () => {
       const w = window.innerWidth;
       if (w >= 1024) scene?.setFraming(0.2, 0.02);
@@ -203,6 +229,7 @@ export function ForjaSection() {
           canvas,
           quality,
           data: sceneData,
+          allowSoftware: new URLSearchParams(window.location.search).has('forja3d'),
           onLock: () => {
             navigator.vibrate?.(22);
             section.dataset.locked = '';
@@ -211,9 +238,12 @@ export function ForjaSection() {
           onContextLost: () => setReady(false),
         });
       } catch {
-        return; // sem WebGL: o pôster continua (a história segue nos textos)
+        // Sem WebGL ou só por software: o pôster continua e a história segue nos textos.
+        section.dataset.no3d = '';
+        return;
       }
       sceneRef.current = scene;
+      syncRef.current = sync;
       framing();
       const rect = canvas.getBoundingClientRect();
       scene.resize(rect.width, rect.height);
@@ -223,15 +253,20 @@ export function ForjaSection() {
       setReady(true);
     };
 
-    // Carrega na primeira interação ou quando a página fica ociosa — nunca
-    // disputando o carregamento inicial.
+    // Ocioso: só baixa e prepara o módulo (barato). A cena — partículas,
+    // braços, ambiente, shaders — só é montada na primeira interação: o
+    // primeiro ato (hero) não usa 3D, e quem não rola não paga por ele.
     const events = ['scroll', 'pointerdown', 'touchstart', 'keydown', 'wheel'] as const;
     const trigger = () => {
       events.forEach((ev) => window.removeEventListener(ev, trigger));
       void load();
     };
     events.forEach((ev) => window.addEventListener(ev, trigger, { passive: true, once: true }));
-    const idle = window.setTimeout(trigger, 3500);
+    const prefetch = () => void import('./scene').catch(() => undefined);
+    const idle =
+      typeof window.requestIdleCallback === 'function'
+        ? window.requestIdleCallback(prefetch, { timeout: 5000 })
+        : window.setTimeout(prefetch, 4000);
 
     const ro = new ResizeObserver(() => {
       framing();
@@ -248,13 +283,15 @@ export function ForjaSection() {
 
     return () => {
       disposed = true;
-      clearTimeout(idle);
+      if (typeof window.cancelIdleCallback === 'function') window.cancelIdleCallback(idle);
+      else clearTimeout(idle);
       events.forEach((ev) => window.removeEventListener(ev, trigger));
       ro.disconnect();
       io.disconnect();
       document.removeEventListener('visibilitychange', sync);
       scene?.dispose();
       sceneRef.current = null;
+      syncRef.current = null;
     };
   }, [sceneData, quality]);
 
@@ -280,7 +317,7 @@ export function ForjaSection() {
       {/* Palco: cena 3D, pôster enquanto carrega, atos, trilho. */}
       <div className="bz-forja-stage">
         <div aria-hidden className="bz-forja-poster" />
-        <canvas ref={canvasRef} aria-hidden className="bz-forja-canvas" data-ready={ready ? '' : undefined} />
+        <canvas ref={canvasRef} aria-hidden className="bz-forja-canvas" data-ready={ready && awake ? '' : undefined} data-loaded={ready ? '' : undefined} />
         <div aria-hidden className="bz-forja-scrim" />
         <div ref={fadeRef} aria-hidden className="bz-forja-fade" />
 
@@ -419,7 +456,7 @@ export function ForjaSection() {
           </ol>
         </nav>
 
-        <a href="#depois-da-forja" className="bz-forja-skip items-center gap-1.5 rounded-full border border-line-strong bg-bg-abyss/80 px-3 py-1.5 text-xs text-fg-muted hover:text-fg">
+        <a href="#depois-da-forja" onClick={skip} className="bz-forja-skip items-center gap-1.5 rounded-full border border-line-strong bg-bg-abyss/80 px-3 py-1.5 text-xs text-fg-muted hover:text-fg">
           {f.skipShort} <ArrowDown aria-hidden className="size-3.5" />
         </a>
       </div>
@@ -428,6 +465,8 @@ export function ForjaSection() {
       <div ref={heroRef} className="bz-forja-hero">
         <HeroIntro />
       </div>
+
+      <div aria-hidden className="bz-forja-track" />
 
       {/* Fim da Forja (alvo do "pular"). */}
       <span id="depois-da-forja" aria-hidden className="absolute bottom-0 left-0 h-px w-px" />

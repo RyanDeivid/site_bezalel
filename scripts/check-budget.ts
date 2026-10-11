@@ -19,7 +19,9 @@ const BUDGET = {
   html: 40, // HTML pré-renderizado da home
   css: 20,
   js: 195, // JS de entrada da home (React, roteador, home, dados do catálogo)
-  lazy: { LabScene: 300, InsightsPage: 130 },
+  // Sob demanda. three.js fica num chunk compartilhado pela Forja (home) e
+  // pelo laboratório; cada um soma só o próprio código por cima dele.
+  lazy: { 'three.module': 200, scene: 30, LabScene: 100, InsightsPage: 130 },
 };
 
 const gz = async (file: string) => gzipSync(await readFile(file)).length / KB;

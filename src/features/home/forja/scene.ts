@@ -4,7 +4,7 @@ import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { createArmKit, RobotArm } from './robot-arm';
+import { ArmFleet, RobotArm } from './robot-arm';
 import { areaColor, clamp01, LOCK_AT, phasesAt, smooth, type Phases } from './timeline';
 
 /**
@@ -34,6 +34,8 @@ export interface ForjaData {
 
 export interface ForjaOptions {
   canvas: HTMLCanvasElement;
+  /** Aceita WebGL por software (sem placa de vídeo) — só para testes. */
+  allowSoftware?: boolean;
   quality: ForjaQuality;
   data: ForjaData;
   onLock?: () => void;
@@ -56,10 +58,15 @@ const FLOOR_Y = -2.75;
 const GOLD = new THREE.Color('#c7a86a');
 const MAX_AREAS = 32;
 
-const SETTINGS: Record<ForjaQuality, { particles: number; dpr: number; fps: number; bloom: boolean; env: boolean; sparks: number }> = {
-  high: { particles: 14000, dpr: 1.75, fps: 60, bloom: true, env: true, sparks: 220 },
-  medium: { particles: 7000, dpr: 1.5, fps: 60, bloom: false, env: true, sparks: 140 },
-  mobile: { particles: 4200, dpr: 1.5, fps: 30, bloom: false, env: true, sparks: 90 },
+/**
+ * `idleFps`: ritmo quando o visitante parou de rolar — o ambiente segue vivo,
+ * mais barato. No celular é 0: a cena congela no último quadro (bateria) e
+ * volta na hora em que a rolagem recomeça.
+ */
+const SETTINGS: Record<ForjaQuality, { particles: number; dpr: number; fps: number; idleFps: number; bloom: boolean; env: boolean; sparks: number }> = {
+  high: { particles: 14000, dpr: 1.75, fps: 60, idleFps: 24, bloom: true, env: true, sparks: 220 },
+  medium: { particles: 7000, dpr: 1.5, fps: 60, idleFps: 20, bloom: false, env: true, sparks: 140 },
+  mobile: { particles: 4200, dpr: 1.5, fps: 30, idleFps: 0, bloom: false, env: true, sparks: 90 },
 };
 
 /** Gerador com semente: a composição é a mesma em toda visita. */
@@ -121,14 +128,14 @@ const PARTICLE_VERT = /* glsl */ `
     pos = mix(pos, dest, s);
 
     float hi = mix(1.0, uHi[int(aArea)], uAnyHi);
-    vColor = mix(aColor, vec3(1.0, 0.36, 0.3), reject * smoothstep(0.0, 0.25, s));
+    vColor = mix(aColor, vec3(1.0, 0.28, 0.22) * 1.4, reject * smoothstep(0.0, 0.2, s));
     float appear = smoothstep(0.0, 0.12, uGather - aRand.x * 0.45);
     float fade = 1.0 - reject * smoothstep(0.35, 0.95, s);
     float absorbed = 1.0 - 0.85 * uBuild * (1.0 - reject);
     vAlpha = appear * fade * absorbed * mix(0.22, 1.0, hi) * (1.0 - uEnter);
 
     vec4 mv = modelViewMatrix * vec4(pos, 1.0);
-    float size = uSize * (0.55 + aRand.z * 0.9) * mix(0.75, 1.35, hi) * (1.0 - 0.55 * uBuild);
+    float size = uSize * (0.55 + aRand.z * 0.9) * mix(0.75, 1.35, hi) * (1.0 - 0.55 * uBuild) * (1.0 + reject * s * (1.0 - s) * 2.4);
     gl_PointSize = size / -mv.z;
     gl_Position = projectionMatrix * mv;
   }
@@ -220,13 +227,36 @@ function glowTexture(): THREE.Texture {
   return t;
 }
 
-export function createForjaScene({ canvas, quality, data, onLock, onContextLost }: ForjaOptions): ForjaScene {
+/** Sem aceleração de vídeo a cena roda na CPU e trava a página: melhor o pôster estático. */
+export class SoftwareRendererError extends Error {
+  constructor(renderer: string) {
+    super(`WebGL por software (${renderer}): cena 3D desativada`);
+    this.name = 'SoftwareRendererError';
+  }
+}
+
+function softwareRenderer(gl: WebGL2RenderingContext | WebGLRenderingContext): string | null {
+  const info = gl.getExtension('WEBGL_debug_renderer_info');
+  const name = String(info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER));
+  return /swiftshader|llvmpipe|softpipe|software|basic render driver/i.test(name) ? name : null;
+}
+
+export function createForjaScene({ canvas, quality, data, onLock, onContextLost, allowSoftware = false }: ForjaOptions): ForjaScene {
   const cfg = SETTINGS[quality];
   const rand = rng(20261011);
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: quality !== 'mobile', alpha: false, powerPreference: 'high-performance' });
+  const software = softwareRenderer(renderer.getContext());
+  if (software && !allowSoftware) {
+    renderer.dispose();
+    renderer.forceContextLoss();
+    throw new SoftwareRendererError(software);
+  }
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, cfg.dpr));
+  // Em produção não esperar o log de cada shader (getProgramInfoLog bloqueia
+  // até a compilação terminar, travando a rolagem na estreia de cada ato).
+  renderer.debug.checkShaderErrors = import.meta.env.DEV;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.05;
+  renderer.toneMappingExposure = 0.95;
   renderer.setClearColor('#070d17', 1);
 
   const scene = new THREE.Scene();
@@ -246,7 +276,7 @@ export function createForjaScene({ canvas, quality, data, onLock, onContextLost 
 
   // ---- Luz ---------------------------------------------------------------
   scene.add(new THREE.HemisphereLight('#9fb8e0', '#0a1220', 0.55));
-  const key = new THREE.DirectionalLight('#f2e8d5', 1.6);
+  const key = new THREE.DirectionalLight('#f2e8d5', 1.25);
   key.position.set(5, 9, 7);
   const rim = new THREE.DirectionalLight('#6f9be8', 1.1);
   rim.position.set(-7, 4, -6);
@@ -462,20 +492,21 @@ export function createForjaScene({ canvas, quality, data, onLock, onContextLost 
   world.add(courseNodes);
 
   // ---- Braços robóticos -----------------------------------------------------------
-  const kit = createArmKit(envMap);
   const ARM_SPOTS: Array<[number, number, string]> = [
-    [-4.1, 1.5, '#5cc8a1'],
-    [4.0, 1.2, '#73a7e0'],
+    [-4.5, 0.4, '#5cc8a1'],
+    [4.4, 0.2, '#73a7e0'],
     [-3.0, -3.2, '#b49ae8'],
     [3.2, -3.0, '#e3b35a'],
   ];
   const arms = ARM_SPOTS.map(([x, z, color]) => {
-    const arm = new RobotArm(kit, color);
+    const arm = new RobotArm(color);
     arm.root.position.set(x, FLOOR_Y, z);
     arm.root.scale.setScalar(0.0001);
-    world.add(arm.root);
+    world.add(arm.root); // só o esqueleto; a frota instanciada desenha
     return arm;
   });
+  const fleet = new ArmFleet(arms, envMap);
+  scene.add(fleet.group);
   const beamGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
   const beams = ARM_SPOTS.map(([, , color]) => {
     const line = new THREE.Line(beamGeo.clone(), new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
@@ -496,12 +527,14 @@ export function createForjaScene({ canvas, quality, data, onLock, onContextLost 
   sparks.frustumCulled = false;
   world.add(sparks);
   let sparkCursor = 0;
+  let sparksAlive = 0;
   const emit = (at: THREE.Vector3, n: number) => {
     for (let k = 0; k < n; k++) {
       const i = sparkCursor++ % sparkCount;
       sPos.set([at.x, at.y, at.z], i * 3);
       sVel.set([(Math.random() - 0.5) * 3, Math.random() * 2.4, (Math.random() - 0.5) * 3], i * 3);
       sLife[i] = 0.5 + Math.random() * 0.5;
+      sparksAlive = sparkCount;
     }
   };
 
@@ -511,7 +544,7 @@ export function createForjaScene({ canvas, quality, data, onLock, onContextLost 
   if (cfg.bloom) {
     composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
-    bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.7, 0.55, 0.82);
+    bloom = new UnrealBloomPass(new THREE.Vector2(256, 256), 0.45, 0.5, 0.92);
     composer.addPass(bloom);
     composer.addPass(new OutputPass());
   }
@@ -527,8 +560,14 @@ export function createForjaScene({ canvas, quality, data, onLock, onContextLost 
   let height = 1;
   let frameX = 0;
   let frameY = 0;
+  /** Afasta a câmera em telas em pé (celular) para o bloco caber na largura. */
+  let fit = 1;
   let locked = false;
   let flash = 0;
+  let lastBuild = -1;
+  let armsShown = true;
+  /** Último momento em que a rolagem mudou o alvo (para baixar o ritmo em repouso). */
+  let lastInput = 0;
   const tmpQ = new THREE.Quaternion();
   const tmpM = new THREE.Matrix4();
   const inv = new THREE.Matrix4();
@@ -550,6 +589,7 @@ export function createForjaScene({ canvas, quality, data, onLock, onContextLost 
   }
 
   function update(dt: number) {
+    const moving = Math.abs(target - progress) > 2e-4;
     progress += (target - progress) * (1 - Math.exp(-dt * 7));
     if (Math.abs(target - progress) < 1e-4) progress = target;
     time += dt;
@@ -566,13 +606,16 @@ export function createForjaScene({ canvas, quality, data, onLock, onContextLost 
     flash = Math.max(0, flash - dt * 1.6);
 
     // Câmera: aproxima ao longo da história e mergulha no nó no fim.
-    world.rotation.y = -0.55 + progress * 0.95 + Math.sin(time * 0.15) * 0.04;
+    // Gira durante a história e termina, no encaixe, exatamente na pose do
+    // símbolo da marca: o nó de frente para a câmera, silhueta hexagonal.
+    const settle = smooth(0.0, LOCK_AT, progress);
+    world.rotation.y = -0.75 * (1 - settle) + Math.sin(time * 0.15) * 0.04 * (1 - settle);
     world.updateMatrixWorld();
     inv.copy(world.matrixWorld).invert();
     nodeNow.copy(nodeWorld).applyMatrix4(world.matrixWorld);
-    const dist = 13.5 - smooth(0.06, 0.88, progress) * 3.4;
-    camera.position.set(0, 1.6 - progress * 0.6, dist);
-    lookAt.set(0, 0.1, 0);
+    const dist = (13.5 - smooth(0.06, 0.88, progress) * 3.4) * fit;
+    camera.position.set(0, 1.6 * (1 - smooth(0.5, LOCK_AT, progress)), dist);
+    lookAt.set(0, 0, 0);
     if (ph.enter > 0) {
       const e = ph.enter * ph.enter;
       camera.position.lerp(tmpV2.copy(nodeNow).add(diveOffset), e);
@@ -590,7 +633,7 @@ export function createForjaScene({ canvas, quality, data, onLock, onContextLost 
     const sparkScale = 0.9 + pulse * 0.35 + ph.gather * 0.6 + ph.build * 1.6 + flash * 3.5 + ph.enter * 6;
     spark.scale.setScalar(sparkScale);
     spark.material.opacity = 0.65 + pulse * 0.25;
-    coreLight.intensity = 3 + ph.build * 18 + flash * 40;
+    coreLight.intensity = 1.5 + ph.build * 6 + flash * 14;
     nodeCore.scale.setScalar(0.6 + pulse * 0.25 + ph.build * 0.8);
 
     floorMat.uniforms.uReveal!.value = smooth(0.1, 0.4, progress);
@@ -607,14 +650,24 @@ export function createForjaScene({ canvas, quality, data, onLock, onContextLost 
     edgeMeshes.forEach((mesh) => {
       const { length, order } = mesh.userData as { length: number; order: number };
       const g = clamp01((ph.connect - order * 0.55) / 0.45);
+      mesh.visible = g > 0.001;
       mesh.scale.set(1, Math.max(0.0001, g * length), 1);
     });
+    // O que está fora de cena não é desenhado (cada chamada de desenho custa).
+    points.visible = ph.gather > 0 && ph.enter < 1;
+    floor.visible = progress > 0.08;
+    tileMeshes.forEach((m) => (m.visible = ph.build > 0));
+    fleet.group.visible = ph.arms > 0.001;
     edgeMat.opacity = 0.35 + ph.build * 0.65;
     lUniforms.uGrow.value = ph.connect;
     lUniforms.uOpacity.value = 0.55 * (1 - ph.build * 0.75) * (1 - ph.enter);
     nodesMat.opacity = smooth(0.5, 0.62, progress) * (1 - ph.build * 0.6) * (1 - ph.enter);
+    graph.visible = ph.connect > 0 && lUniforms.uOpacity.value > 0.001;
+    courseNodes.visible = nodesMat.opacity > 0.005;
 
-    // Placas.
+    // Placas: só recalcula enquanto a fase de construção muda.
+    if (ph.build !== lastBuild) {
+    lastBuild = ph.build;
     for (const t of tiles) {
       const tp = clamp01((ph.build - t.delay) / 0.3);
       const e = 1 - Math.pow(1 - tp, 3);
@@ -628,9 +681,10 @@ export function createForjaScene({ canvas, quality, data, onLock, onContextLost 
       tileMeshes[t.face]!.setMatrixAt(t.index, tmpM);
     }
     tileMeshes.forEach((m) => (m.instanceMatrix.needsUpdate = true));
+    }
 
     // Braços: emergem na triagem, varrem a nuvem, soldam as placas, recolhem.
-    arms.forEach((arm, i) => {
+    if (ph.arms > 0 || armsShown) arms.forEach((arm, i) => {
       arm.root.scale.setScalar(Math.max(0.0001, ph.arms));
       const beam = beams[i]!;
       const beamMat = beam.material as THREE.LineBasicMaterial;
@@ -651,7 +705,8 @@ export function createForjaScene({ canvas, quality, data, onLock, onContextLost 
         else tmpV2.copy(FACES[i % 3]!.n).multiplyScalar(HALF);
         tmpV2.applyMatrix4(block.matrix).applyMatrix4(world.matrixWorld);
         arm.reach(tmpV2, Math.min(1, dt * 6), 0.9);
-        if (best && Math.random() < dt * 30) emit(arm.tipWorld(tmpV).applyMatrix4(inv), 3);
+        // Solda (faíscas) só enquanto a construção avança — parado, nada se mexe.
+        if (best && moving && Math.random() < dt * 30) emit(arm.tipWorld(tmpV).applyMatrix4(inv), 3);
         beamMat.opacity = 0;
       } else if (ph.sort > 0.01 && ph.connect < 0.5) {
         // Varredura: o feixe percorre a nuvem de partículas.
@@ -671,8 +726,13 @@ export function createForjaScene({ canvas, quality, data, onLock, onContextLost 
       }
     });
 
-    // Faíscas: física simples (gravidade).
-    for (let i = 0; i < sparkCount; i++) {
+    armsShown = ph.arms > 0;
+    if (fleet.group.visible) fleet.sync();
+    beams.forEach((b) => (b.visible = (b.material as THREE.LineBasicMaterial).opacity > 0.01));
+
+    // Faíscas: física simples (gravidade) — só enquanto houver faísca viva.
+    if (sparksAlive > 0) sparksAlive--;
+    if (sparksAlive > 0) for (let i = 0; i < sparkCount; i++) {
       if (sLife[i]! <= 0) {
         sPos[i * 3 + 1] = -100;
         continue;
@@ -683,22 +743,52 @@ export function createForjaScene({ canvas, quality, data, onLock, onContextLost 
       sPos[i * 3 + 1]! += sVel[i * 3 + 1]! * dt;
       sPos[i * 3 + 2]! += sVel[i * 3 + 2]! * dt;
     }
-    (sGeo.getAttribute('position') as THREE.BufferAttribute).needsUpdate = true;
+    if (sparksAlive > 0) (sGeo.getAttribute('position') as THREE.BufferAttribute).needsUpdate = true;
+    sparks.visible = sparksAlive > 0;
 
-    if (bloom) bloom.strength = 0.55 + ph.build * 0.35 + flash * 0.9;
+    if (bloom) bloom.strength = 0.4 + ph.build * 0.2 + flash * 0.6;
   }
 
+  let sleeping = false;
   function frame(now: number) {
     if (!active) return;
+    // Em repouso (sem rolagem há 1,5 s e tudo assentado) o ambiente segue vivo num ritmo menor.
+    const resting = now - lastInput > 1500 && Math.abs(target - progress) < 1e-3 && flash <= 0 && sparksAlive === 0;
+    if (resting && cfg.idleFps === 0) {
+      sleeping = true; // congela no último quadro; setProgress acorda
+      last = 0;
+      return;
+    }
     raf = requestAnimationFrame(frame);
-    const interval = 1000 / cfg.fps;
+    const interval = 1000 / (resting ? cfg.idleFps : cfg.fps);
     if (last && now - last < interval - 2) return;
     const dt = last ? Math.min(0.05, (now - last) / 1000) : 1 / cfg.fps;
     last = now;
     update(dt);
     if (composer) composer.render();
     else renderer.render(scene, camera);
+    stats.frames++;
+    stats.calls = renderer.info.render.calls;
   }
+
+  // Compila todos os shaders já, em paralelo (KHR_parallel_shader_compile),
+  // com tudo visível por um instante — senão cada ato compilaria os seus na
+  // hora em que aparece, no meio da rolagem.
+  const hidden: THREE.Object3D[] = [];
+  scene.traverse((o) => {
+    if (!o.visible) {
+      hidden.push(o);
+      o.visible = true;
+    }
+  });
+  fleet.group.visible = true;
+  void renderer.compileAsync(scene, camera).catch(() => undefined);
+  hidden.forEach((o) => (o.visible = false));
+
+  // Diagnóstico leve (lido pelos testes de desempenho): quadros desenhados e
+  // chamadas de desenho do último quadro.
+  const stats = { frames: 0, calls: 0 };
+  (canvas as HTMLCanvasElement & { bzStats?: typeof stats }).bzStats = stats;
 
   const lost = (e: Event) => {
     e.preventDefault();
@@ -710,7 +800,15 @@ export function createForjaScene({ canvas, quality, data, onLock, onContextLost 
 
   return {
     setProgress(p) {
-      target = clamp01(p);
+      const next = clamp01(p);
+      if (next !== target) {
+        lastInput = performance.now();
+        if (sleeping && active) {
+          sleeping = false;
+          raf = requestAnimationFrame(frame);
+        }
+      }
+      target = next;
     },
     setInterests(areas) {
       const hi = pUniforms.uHi.value;
@@ -725,7 +823,11 @@ export function createForjaScene({ canvas, quality, data, onLock, onContextLost 
       active = next;
       cancelAnimationFrame(raf);
       last = 0;
-      if (active) raf = requestAnimationFrame(frame);
+      sleeping = false;
+      if (active) {
+        lastInput = performance.now();
+        raf = requestAnimationFrame(frame);
+      }
     },
     resize(w, h) {
       width = Math.max(1, w);
@@ -734,6 +836,7 @@ export function createForjaScene({ canvas, quality, data, onLock, onContextLost 
       composer?.setSize(width, height);
       bloom?.resolution.set(width / 2, height / 2);
       camera.aspect = width / height;
+      fit = camera.aspect < 1 ? Math.min(1.85, 0.8 / camera.aspect) : 1;
       pUniforms.uSize.value = 52 * renderer.getPixelRatio() * (height / 900);
       applyFraming(0);
       camera.updateProjectionMatrix();
@@ -758,7 +861,7 @@ export function createForjaScene({ canvas, quality, data, onLock, onContextLost 
         if (Array.isArray(mat)) mat.forEach((m) => m.dispose());
         else mat?.dispose();
       });
-      kit.dispose();
+      fleet.dispose();
       glowTex.dispose();
       envMap?.dispose();
       pmrem?.dispose();

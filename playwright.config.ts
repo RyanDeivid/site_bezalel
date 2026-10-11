@@ -15,6 +15,9 @@ const port = 4173;
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
+  // A home tem cena 3D e páginas pesadas: mais navegadores em paralelo só
+  // disputam CPU (sem placa de vídeo, o WebGL do teste roda em software).
+  workers: process.env.CI ? 2 : 4,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [['github'], ['html', { open: 'never' }]] : 'list',

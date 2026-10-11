@@ -10,7 +10,7 @@ Plataforma de inteligência educacional que conecta pessoas a cursos, certifica�
 
 | Rota | Conteúdo |
 |---|---|
-| `/` | Hero cinematográfico, busca, destaques, categorias, competências, agentes, prévia do laboratório, indicadores e validação |
+| `/` | A Forja (abertura em 3D conduzida pela rolagem, personalizável pelos interesses), busca, destaques, categorias, competências, agentes, prévia do laboratório, indicadores e validação |
 | `/explore` | Catálogo com busca, filtros (categoria, preço, nível, modalidade, tipo, certificado), ordenação, "carregar mais" e visualização rápida |
 | `/course/:slug` | Detalhe com fonte oficial, estado de verificação, "Não informado" para campos ausentes e relacionados |
 | `/insights` | Competências por número de cursos, categorias, grafo competência→curso, série temporal **demonstrativa** e painel de vagas indisponível |

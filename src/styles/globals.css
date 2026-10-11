@@ -807,7 +807,17 @@ span.bz-hero-in {
 
 :root[data-forja='full'] .bz-forja {
   display: block;
-  padding-bottom: var(--forja-track, 430svh);
+}
+
+/* Trilho de rolagem que conduz os atos. É um elemento (não padding): um
+   elemento sticky só fica preso dentro da área de CONTEÚDO do pai. */
+:root[data-forja='full'] .bz-forja-track {
+  display: block;
+  height: var(--forja-track, 430svh);
+}
+
+.bz-forja-track {
+  display: none;
 }
 
 :root[data-forja='full'] .bz-forja-stage {
@@ -894,6 +904,7 @@ span.bz-hero-in {
   display: flex;
   align-items: center;
   padding-top: var(--header-h);
+  padding-inline: clamp(1rem, 4vw, 2rem);
   opacity: 0;
   transform: translate3d(0, 28px, 0);
   transition:
@@ -995,8 +1006,15 @@ span.bz-hero-in {
   animation: bz-lock 900ms var(--ease-out);
 }
 
+/* No primeiro ato o "pular" fica só como link de teclado (não cobre o hero). */
+.bz-forja[data-act='0'] .bz-forja-skip {
+  opacity: 0;
+  pointer-events: none;
+}
+
 :root[data-forja='full'] .bz-forja-skip {
   display: inline-flex;
+  transition: opacity 400ms var(--ease-out);
   position: absolute;
   z-index: 5;
   right: clamp(1rem, 3vw, 2.5rem);

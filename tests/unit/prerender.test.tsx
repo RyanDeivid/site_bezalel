@@ -59,6 +59,9 @@ describe('pré-renderização (entry-server)', () => {
     expect(t).toContain('Inteligência para descobrir o que vale aprender');
     expect(html).toContain('role="search"');
     expect(t).toContain('Explore por área');
+    // A história da Forja também está no HTML (leitores de tela, busca, sem JS).
+    expect(t).toContain('Tudo começa espalhado.');
+    expect(t).toContain('Só o que é confirmado vira estrutura.');
     // Dados do catálogo já presentes (não um esqueleto de carregamento).
     expect(t).toMatch(/\d+ registros?/);
   });
