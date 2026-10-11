@@ -49,6 +49,8 @@ export interface ForjaScene {
   resize(width: number, height: number): void;
   /** Desloca o bloco na tela (fração da largura/altura): texto de um lado, estrutura do outro. */
   setFraming(x: number, y: number): void;
+  /** Ponto da tela (fração) onde está a faísca do pôster: o núcleo começa ali. */
+  setAnchor(x: number, y: number): void;
   dispose(): void;
 }
 
@@ -560,6 +562,8 @@ export function createForjaScene({ canvas, quality, data, onLock, onContextLost,
   let height = 1;
   let frameX = 0;
   let frameY = 0;
+  /** Faísca do pôster em CSS (fração da tela): onde o núcleo começa. */
+  let anchor: { x: number; y: number } | null = null;
   /** Afasta a câmera em telas em pé (celular) para o bloco caber na largura. */
   let fit = 1;
   let locked = false;
@@ -580,12 +584,32 @@ export function createForjaScene({ canvas, quality, data, onLock, onContextLost,
   const diveOffset = new THREE.Vector3(0, 0.05, 0.9);
   const lookAt = new THREE.Vector3();
 
-  function applyFraming(enter: number) {
-    // Desloca o "centro" da projeção: o bloco fica ao lado do texto; no
-    // mergulho final volta ao centro.
-    // x > 0 empurra o bloco para a direita; y > 0, para cima.
+  /**
+   * Desloca o "centro" da projeção (setViewOffset). Três enquadramentos,
+   * misturados pela rolagem sem saltos:
+   * - início: o núcleo fica EXATAMENTE onde está a faísca do pôster em CSS
+   *   (âncora), para a troca pôster → 3D ser invisível;
+   * - história: o bloco ao lado do texto (frameX/frameY; x > 0 → direita,
+   *   y > 0 → para cima);
+   * - mergulho final: centro.
+   */
+  function applyFraming(progress: number, enter: number, node: THREE.Vector3) {
+    let ox = -frameX * width;
+    let oy = frameY * height;
+    const anchored = anchor ? 1 - smooth(0.03, 0.3, progress) : 0;
+    if (anchor && anchored > 0) {
+      camera.clearViewOffset();
+      camera.updateProjectionMatrix();
+      camera.updateMatrixWorld(); // project() usa a inversa da matriz da câmera
+      const ndc = tmpV2.copy(node).project(camera);
+      // Pixel onde o núcleo cairia sem deslocamento → deslocamento que o leva à âncora.
+      const ax = ((ndc.x + 1) / 2) * width - anchor.x * width;
+      const ay = ((1 - ndc.y) / 2) * height - anchor.y * height;
+      ox += (ax - ox) * anchored;
+      oy += (ay - oy) * anchored;
+    }
     const k = 1 - enter;
-    camera.setViewOffset(width, height, -frameX * width * k, frameY * height * k, width, height);
+    camera.setViewOffset(width, height, ox * k, oy * k, width, height);
   }
 
   function update(dt: number) {
@@ -625,12 +649,14 @@ export function createForjaScene({ canvas, quality, data, onLock, onContextLost,
       camera.fov = 34;
     }
     camera.lookAt(lookAt);
-    applyFraming(ph.enter);
+    camera.updateProjectionMatrix();
+    applyFraming(progress, ph.enter, nodeNow);
     camera.updateProjectionMatrix();
 
     // Faísca → núcleo.
     const pulse = 0.5 + Math.sin(time * 2.4) * 0.5;
-    const sparkScale = 0.9 + pulse * 0.35 + ph.gather * 0.6 + ph.build * 1.6 + flash * 3.5 + ph.enter * 6;
+    // No começo a faísca tem o mesmo tamanho da do pôster (troca invisível).
+    const sparkScale = 0.55 + pulse * 0.2 + ph.gather * 0.95 + ph.build * 1.6 + flash * 3.5 + ph.enter * 6;
     spark.scale.setScalar(sparkScale);
     spark.material.opacity = 0.65 + pulse * 0.25;
     coreLight.intensity = 1.5 + ph.build * 6 + flash * 14;
@@ -837,9 +863,8 @@ export function createForjaScene({ canvas, quality, data, onLock, onContextLost,
       bloom?.resolution.set(width / 2, height / 2);
       camera.aspect = width / height;
       fit = camera.aspect < 1 ? Math.min(1.85, 0.8 / camera.aspect) : 1;
+      world.updateMatrixWorld();
       pUniforms.uSize.value = 52 * renderer.getPixelRatio() * (height / 900);
-      applyFraming(0);
-      camera.updateProjectionMatrix();
       if (!active) {
         update(0);
         if (composer) composer.render();
@@ -849,6 +874,9 @@ export function createForjaScene({ canvas, quality, data, onLock, onContextLost,
     setFraming(x, y) {
       frameX = x;
       frameY = y;
+    },
+    setAnchor(x, y) {
+      anchor = { x, y };
     },
     dispose() {
       active = false;

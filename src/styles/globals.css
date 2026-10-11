@@ -848,9 +848,13 @@ span.bz-hero-in {
   opacity: 1;
 }
 
+/* Posição da faísca: compartilhada com a cena 3D (ForjaSection lê estas
+   variáveis), para o núcleo 3D nascer exatamente no mesmo ponto. */
 .bz-forja-poster {
+  --spark-x: 68%;
+  --spark-y: 46%;
   background:
-    radial-gradient(circle at 68% 46%, rgb(199 168 106 / 0.22), transparent 26%),
+    radial-gradient(circle at var(--spark-x) var(--spark-y), rgb(199 168 106 / 0.22), transparent 26%),
     radial-gradient(ellipse at 60% 60%, rgb(38 59 84 / 0.55), transparent 62%),
     var(--bg-abyss);
 }
@@ -858,8 +862,8 @@ span.bz-hero-in {
 .bz-forja-poster::after {
   content: '';
   position: absolute;
-  left: 68%;
-  top: 46%;
+  left: var(--spark-x);
+  top: var(--spark-y);
   width: 14px;
   height: 14px;
   margin: -7px 0 0 -7px;
@@ -1030,9 +1034,9 @@ span.bz-hero-in {
     background: linear-gradient(0deg, rgb(7 13 23 / 0.95) 0%, rgb(7 13 23 / 0.82) 42%, transparent 70%);
   }
 
-  .bz-forja-poster::after {
-    left: 50%;
-    top: 34%;
+  .bz-forja-poster {
+    --spark-x: 50%;
+    --spark-y: 34%;
   }
 
   :root[data-forja='full'] .bz-act {

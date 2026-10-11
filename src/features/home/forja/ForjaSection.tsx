@@ -213,11 +213,19 @@ export function ForjaSection() {
     let scene: ForjaScene | null = null;
     let visible = true;
     const sync = () => scene?.setActive(visible && !document.hidden && awakeRef.current);
+    const poster = section.querySelector<HTMLElement>('.bz-forja-poster');
     const framing = () => {
       const w = window.innerWidth;
       if (w >= 1024) scene?.setFraming(0.2, 0.02);
       else if (w >= 768) scene?.setFraming(0.14, 0.04);
       else scene?.setFraming(0, 0.17);
+      // O núcleo 3D nasce exatamente sobre a faísca do pôster (mesma fonte: o CSS).
+      if (poster) {
+        const css = getComputedStyle(poster);
+        const x = Number.parseFloat(css.getPropertyValue('--spark-x')) / 100;
+        const y = Number.parseFloat(css.getPropertyValue('--spark-y')) / 100;
+        if (Number.isFinite(x) && Number.isFinite(y)) scene?.setAnchor(x, y);
+      }
     };
 
     const load = async () => {
