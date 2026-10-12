@@ -71,6 +71,8 @@ export const STATION_LINKS: Array<[AgentId, AgentId]> = [
 
 /** Posição inicial do visitante: logo depois da entrada, olhando para a Central. */
 export const SPAWN = { x: 0, z: 13.5 };
+/** Onde o robô-guia espera o visitante quando não há tour. */
+export const GUIDE_POST = { x: 2.2, z: 10.6 };
 
 // ---- Obstáculos (colisão simples por círculos) ------------------------------------
 
@@ -120,6 +122,26 @@ export interface LabRuntime {
   target: { x: number; z: number } | null;
   camera: { yaw: number; pitch: number; distance: number };
   near: AgentId | null;
+  /** Guia em ação (tour ou "seguir um curso"): a cena o move e o visitante o acompanha. */
+  guide: GuideRuntime | null;
+}
+
+export interface GuideRuntime {
+  /** Caminho até a próxima parada. */
+  path: Point2[];
+  dist: number;
+  /** Posição atual do guia (atualizada pela cena a cada quadro). */
+  x: number;
+  z: number;
+  heading: number;
+  /** Para onde o guia se vira e de onde a câmera olha ao chegar. */
+  stopHeading: number;
+  viewYaw: number;
+  /** Leva uma caixa (o registro seguido) nas mãos? */
+  carrying: boolean;
+  arrived: boolean;
+  /** Na parada, a câmera já se alinhou (e passa a obedecer só ao visitante). */
+  cameraSettled?: boolean;
 }
 
 /** Onde o visitante começa: na entrada ou, com `?setor=`, de frente para um setor. */
@@ -141,6 +163,7 @@ export function createLabRuntime(at?: AgentId | null): LabRuntime {
     target: null,
     camera: pose.camera,
     near: null,
+    guide: null,
   };
 }
 
@@ -205,13 +228,13 @@ export function dockOf(id: AgentId): Point2 {
 }
 
 /** Borda da praça da Central na direção de um ângulo. */
-function hubPort(angle: number): Point2 {
+export function hubPort(angle: number): Point2 {
   const r = PLAZA_RADIUS - 0.6;
   return { x: Math.cos(angle) * r, z: Math.sin(angle) * r };
 }
 
 /** Balcão de entrega dentro do setor (na frente do console). */
-function counterOf(id: AgentId): Point2 {
+export function counterOf(id: AgentId): Point2 {
   return sectorPoint(stationById(id), 4.1);
 }
 

@@ -25,6 +25,7 @@ import {
   type Place,
   type Point2,
 } from '@/features/lab/layout';
+import { COURSE_STOPS, courseFacts, guideTo, journeyStops, stopPose, TOUR_STOPS } from '@/features/lab/journey';
 import { Humanoid, restPose } from '@/features/lab/scene/robots/humanoid';
 
 const angleGap = (a: number, b: number) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
@@ -221,5 +222,67 @@ describe('robôs humanoides articulados', () => {
     const [a, b] = world(robot, 'foot');
     // Um pé à frente, o outro atrás.
     expect(Math.sign(a!.z)).toBe(-Math.sign(b!.z));
+  });
+});
+
+describe('jornadas guiadas (tour e "seguir um curso")', () => {
+  const NOW = new Date('2026-10-12T12:00:00Z');
+
+  it('as duas jornadas passam pela Central e pelos seis setores, uma vez cada', () => {
+    for (const kind of ['tour', 'course'] as const) {
+      const stops = journeyStops(kind);
+      expect([...stops].sort()).toEqual(['hub', ...AGENT_IDS].sort());
+    }
+    expect(TOUR_STOPS[0]).toBe('hub');
+    expect(COURSE_STOPS[0]).toBe('scout');
+  });
+
+  it('cada parada é piso livre, e o visitante logo atrás do guia fica "no setor"', () => {
+    for (const place of TOUR_STOPS) {
+      const p = stopPose(place);
+      expect(constrainToFloor(p.x, p.z)).toEqual({ x: p.x, z: p.z });
+      if (place === 'hub') continue;
+      const behind = { x: p.x - Math.sin(p.heading) * 1.6, z: p.z - Math.cos(p.heading) * 1.6 };
+      expect(nearestStation(behind.x, behind.z)).toMatchObject({ id: place });
+      expect(nearestStation(behind.x, behind.z).distance).toBeLessThan(INTERACT_DISTANCE);
+    }
+  });
+
+  it('o guia anda de parada em parada sem atravessar equipamentos nem a Central', () => {
+    for (const stops of [TOUR_STOPS, COURSE_STOPS]) {
+      let from: Point2 = SPAWN;
+      for (const place of stops) {
+        const guide = guideTo(from, place, false);
+        const pts = sample(guide.path);
+        expect(Math.min(...pts.map((p) => Math.hypot(p.x, p.z)))).toBeGreaterThan(HUB_RADIUS + 1.5);
+        expect(Math.min(...pts.map(clearance))).toBeGreaterThan(0.3);
+        from = stopPose(place);
+      }
+    }
+  });
+
+  it('os fatos de um curso real saem dos campos dele e do catálogo publicado', () => {
+    const course = curatedCourses.find((c) => c.slug === 'harvard-cs50x')!;
+    const facts = courseFacts(course, curatedCourses, NOW);
+    expect(facts.source).toMatchObject({ provider: course.provider.name, host: 'cs50.harvard.edu' });
+    // Todo campo está em exatamente uma lista: confirmado, inferido ou não informado.
+    const all = [...facts.verify.stated, ...facts.verify.inferred, ...facts.verify.missing].sort();
+    expect(all).toEqual(['certificate', 'duration', 'level', 'prerequisites', 'price']);
+    expect(facts.skills.map((s) => s.id).sort()).toEqual([...course.skills].sort());
+    for (let i = 1; i < facts.skills.length; i++) expect(facts.skills[i - 1]!.courses).toBeGreaterThanOrEqual(facts.skills[i]!.courses);
+    const python = facts.skills.find((s) => s.id === 'python')!;
+    expect(python.courses).toBe(curatedCourses.filter((c) => c.publicationStatus === 'published' && c.skills.includes('python')).length);
+    const checked = course.sourceVerifiedAt ?? course.lastCheckedAt;
+    expect(Date.parse(facts.recheck.dueAt) - Date.parse(checked)).toBe(MAX_RECORD_AGE_DAYS * 86_400_000);
+    expect(facts.recheck.daysLeft).toBeGreaterThan(170);
+    expect(facts.ask.query).toBe(course.title);
+  });
+
+  it('campo ausente na fonte vai para "não informado"; nível inferido é sinalizado', () => {
+    const base = curatedCourses[0]!;
+    const facts = courseFacts({ ...base, priceType: 'unknown', certificateType: undefined, level: 'beginner', levelSource: 'inferred' }, curatedCourses, NOW);
+    expect(facts.verify.missing).toEqual(expect.arrayContaining(['price', 'certificate']));
+    expect(facts.verify.inferred).toEqual(['level']);
+    expect(facts.verify.stated).not.toContain('level');
   });
 });

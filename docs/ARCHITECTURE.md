@@ -68,6 +68,7 @@ server/           backend de referência (FastAPI) + deploy Oracle Cloud
 | **Campus do laboratório em funções puras** (v2 · Fase 3) | `features/lab/layout.ts` é a única fonte de posições para a cena 3D, a planta 2D e o minimapa: raio 16 → 28 m (~3× a área), seis setores a 17 m da Central (o Vigia ao lado do Verifier, para quem devolve os vencidos), entrada ao sul, anel de circulação a 10,6 m. Colisão por círculos de equipamento (console, máquina, monitores) com passadas repetidas para empurrões em cadeia. As rotas dos carregadores (`routePath`, `travelPath`) vão do balcão à doca, pelo anel no sentido mais curto, e são testadas contra todos os equipamentos. `deliveryFor` diz que entrega cada evento representa (descoberta: Scout → Verifier; publicado: Verifier → Central; vencido: Vigia → Verifier…). |
 | **Humanoides articulados por instâncias** (v2 · Fase 3) | `scene/robots/humanoid.ts`: quadril, tronco, cabeça com visor, pernas (quadril/joelho/tornozelo), braços (ombro/cotovelo/punho) e mãos com três dedos e polegar — a pose sai de poucos números (passada, carga, digitação, olhar). Como os braços da Forja, cada robô é só um esqueleto; a frota inteira (6 operadores + 6 carregadores, 3 em qualidade reduzida) é desenhada com uma malha instanciada por tipo de peça (~16 chamadas de desenho). |
 | **PBR e bloom no laboratório** (v2 · Fase 3) | Reflexos por um mapa de ambiente pré-filtrado (PMREM) gerado uma vez de uma sala procedural (`RoomEnvironment`) — nada de imagem baixada. O bloom (`scene/post/`) só monta em aparelho forte, com qualidade alta e efeitos ligados; o módulo de pós-processamento é um chunk à parte, baixado nessa hora. As telas dos setores são canvas redesenhados só quando o conteúdo serializado muda (o relógio do feed recria as métricas a cada segundo). |
+| **Jornadas guiadas: tour e "seguir um curso"** (v2 · Fase 3) | `features/lab/journey.ts` (puro e testado): as paradas, onde o guia para (no balcão do setor, de frente para ele) e os fatos de um curso real em cada etapa — fonte, campos confirmados/inferidos/não informados, área, competências e quantos cursos as compartilham, prazo da próxima reconferência. Na cena, um robô-guia anda pelo anel até a parada; o visitante vai logo atrás e a câmera acompanha (com efeitos pausados ou movimento reduzido, corte direto). A página só diz *para onde* o guia vai (`guideTarget`); quem mexe no estado da cena é o laço de quadros, como o resto do runtime — a regra de imutabilidade do React Compiler proíbe a página de mutar esse objeto num efeito. A mesma jornada funciona na planta 2D (o setor da parada fica em destaque) e é navegável por teclado (← → Esc). Textos em `journey-content.ts`, no chunk da página — fora do i18n global. |
 | **Sem `backdrop-filter` em telas de toque nem sobre canvas animado** | O desfoque é refeito a cada quadro de rolagem; em `pointer: coarse` as superfícies ficam quase opacas. |
 | **Recharts só na rota /insights** | Chunk carregado sob demanda. Paleta categórica validada (contraste e daltonismo) com o validador da skill de dataviz; toda visualização tem visão em tabela. |
 | **i18n próprio (objetos tipados)** | Português e inglês com garantia estrutural: o tipo `Widen<typeof ptBR>` obriga o inglês a ter as mesmas chaves; um teste compara as formas. Sem dependência extra. |
@@ -129,6 +130,19 @@ Pareada com a `main` anterior (servidor gzip local, mediana de 3). Custo da thre
 | Thread principal girando, celular (CPU 4×) | — | 45% |
 | Thread principal parada, desktop | — | 2% (tremeluzir a 24 quadros/s) |
 | JS inicial | 185,3 kB | 185,3 kB |
+
+### Medição da Fase 3 (Laboratório 2.0), 12/10/2026
+
+Comparação pareada com a `main` anterior (8d16363), mesmas condições: servidor gzip local, Lighthouse 12 em modo celular, mediana de 3 rodadas intercaladas.
+
+| Métrica | Home antes | Home Fase 3 | /lab antes | /lab Fase 3 |
+|---|---|---|---|---|
+| Lighthouse Performance | 87 | 88 | 69 | 70 |
+| LCP | 3,21 s | 3,20 s | 3,40 s | 3,54 s |
+| Total Blocking Time | 204 ms | 163 ms | 865 ms | 741 ms |
+| CLS / Acessibilidade | 0 / 100 | 0 / 100 | 0,012 / 100 | 0,008 / 100 |
+
+O campus 3D, os robôs e as jornadas só são baixados quando o visitante escolhe o modo 3D (`LabScene` ~66 kB além do three.js; bloom em chunk próprio), então a primeira carga não muda. Ponto conhecido, anterior a esta fase: no `/lab` a simulação de eventos começa na montagem e roda o pipeline de demonstração inteiro numa tarefa longa (~0,7 s no celular simulado); na home ela já começa ociosa. Fica para a Fase 6 (qualidade): começar ociosa também no laboratório e dividir a execução do roteiro.
 
 ### Orçamento (CI — `scripts/check-budget.ts`)
 

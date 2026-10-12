@@ -1,4 +1,4 @@
-import { Box, Check, CircleAlert, Gauge, Map as MapIcon, Pause, Play, Sparkles, TriangleAlert } from 'lucide-react';
+import { Box, Check, CircleAlert, Compass, Footprints, Gauge, Map as MapIcon, Pause, Play, Sparkles, TriangleAlert } from 'lucide-react';
 import { Component, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router';
 import { usePreferences } from '@/app/preferences-context';
@@ -22,6 +22,9 @@ import { cn } from '@/lib/cn';
 import { useServices } from '@/services/context';
 import type { AgentId } from '@/types/domain';
 import { Joystick } from './hud/Joystick';
+import { courseFacts, journeyStops, type JourneyKind } from './journey';
+import { journeyContent } from './journey-content';
+import { CoursePicker, JourneyPanel, type LiveMetric } from './JourneyPanel';
 import { Minimap } from './hud/Minimap';
 import { LabFloorPlan } from './LabFloorPlan';
 import { createLabRuntime, STATION_ORDER } from './layout';
@@ -85,6 +88,57 @@ export default function LabPage() {
   const startAt = STATION_ORDER.find((id) => id === params.get('setor')) ?? null;
   // Objeto mutável compartilhado com a cena e o HUD (muda a cada quadro, fora do estado do React).
   const [runtime] = useState(() => createLabRuntime(startAt));
+  const published = useMemo(() => curated().filter((c) => c.publicationStatus === 'published'), []);
+  const jc = journeyContent[locale];
+
+  // ---- Jornadas guiadas: tour pelo campus e "seguir um curso" ------------------------
+  // `?curso=<slug>` (link da página do curso) já abre seguindo aquele registro.
+  const [journey, setJourney] = useState<{ id: number; kind: JourneyKind; step: number; courseId?: string } | null>(() => {
+    const course = published.find((c) => c.slug === params.get('curso'));
+    return course ? { id: 1, kind: 'course', step: 0, courseId: course.id } : null;
+  });
+  const [arrivedKey, setArrivedKey] = useState('');
+  const [playing, setPlaying] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const journeyKey = journey ? `${journey.id}:${journey.step}` : '';
+  const journeyKeyRef = useRef(journeyKey);
+  useEffect(() => {
+    journeyKeyRef.current = journeyKey;
+  }, [journeyKey]);
+  const stops = journey ? journeyStops(journey.kind) : [];
+  const place = journey ? stops[journey.step]! : null;
+  const course = journey?.kind === 'course' ? published.find((c) => c.id === journey.courseId) : undefined;
+  // Sem o guia 3D (planta 2D), cada parada é "chegada" na hora.
+  const arrived = !!journey && (mode !== '3d' || arrivedKey === journeyKey);
+
+  const startJourney = (kind: JourneyKind, courseId?: string) => {
+    setOpen(null);
+    setPickerOpen(false);
+    setPlaying(false);
+    setJourney((j) => ({ id: (j?.id ?? 1) + 1, kind, step: 0, courseId }));
+  };
+  const goStep = useCallback((delta: number) => {
+    setJourney((j) => {
+      if (!j) return j;
+      const next = j.step + delta;
+      if (next >= journeyStops(j.kind).length) return null;
+      return { ...j, step: Math.max(0, next) };
+    });
+  }, []);
+  const exitJourney = useCallback(() => {
+    setJourney(null);
+    setPlaying(false);
+  }, []);
+  const onGuideArrive = useCallback(() => setArrivedKey(journeyKeyRef.current), []);
+
+  // O palco 3D ocupa a tela abaixo do cabeçalho fixo: ao entrar, rola até que a
+  // faixa de demonstração (acima do cabeçalho) saia de vista e nada fique cortado.
+  const stageRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (mode !== '3d') return;
+    const id = requestAnimationFrame(() => stageRef.current?.scrollIntoView?.({ block: 'end' }));
+    return () => cancelAnimationFrame(id);
+  }, [mode]);
   useDocumentMeta({ title: m.meta.lab.title, description: m.meta.lab.description, path: '/lab' });
 
   const feed = useEventFeed();
@@ -108,7 +162,8 @@ export default function LabPage() {
   // Prazos de reconferência calculados com as datas reais do catálogo verificado (agente Vigia).
   // (recalculado uma vez por dia: o relógio do feed bate a cada segundo).
   const today = Math.floor(feed.now.getTime() / 86_400_000);
-  const freshness = useMemo(() => assessFreshness(curated().filter((c) => c.publicationStatus === 'published'), new Date(today * 86_400_000)), [today]);
+  const freshness = useMemo(() => assessFreshness(published, new Date(today * 86_400_000)), [published, today]);
+  const facts = useMemo(() => (course ? courseFacts(course, published, new Date(today * 86_400_000)) : undefined), [course, published, today]);
   const statuses = feed.agents;
   const screens = useMemo(
     () => buildScreens({ events: feed.events, metrics: feed.metrics, statuses, topSkills, names, freshness, m }),
@@ -146,6 +201,71 @@ export default function LabPage() {
     }
   }, [lastEvent, mode, notify, m, l.simulationBadge]);
 
+  // Para onde o guia 3D deve ir (a cena o move; o visitante o acompanha).
+  const guideTarget = useMemo(() => (journey && place ? { key: journeyKey, place, carrying: journey.kind === 'course' } : null), [journey, place, journeyKey]);
+
+  // "Avançar sozinho": lê a parada por alguns segundos depois de chegar e segue.
+  useEffect(() => {
+    if (!playing || !journey || !arrived) return;
+    const last = journey.step === journeyStops(journey.kind).length - 1;
+    const t = setTimeout(() => (last ? setPlaying(false) : goStep(1)), 7000);
+    return () => clearTimeout(t);
+  }, [playing, journey, arrived, goStep]);
+
+  // Teclado durante a jornada: ← → navegam, Esc sai.
+  useEffect(() => {
+    if (!journey) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (open || pickerOpen || (e.target as HTMLElement | null)?.closest('input, textarea, select, dialog')) return;
+      if (e.key === 'ArrowRight' || e.key === 'PageDown') {
+        e.preventDefault();
+        goStep(1);
+      } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+        e.preventDefault();
+        goStep(-1);
+      } else if (e.key === 'Escape') exitJourney();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [journey, open, pickerOpen, goStep, exitJourney]);
+
+  const live: LiveMetric | null =
+    journey?.kind === 'tour' && place
+      ? place === 'hub'
+        ? { label: l.ops.metrics.completed, value: String(feed.metrics.completedUpdates), detail: l.simulationBadge }
+        : sideScreens[place].metric
+      : null;
+
+  const journeyPanel = journey && place && (
+    <JourneyPanel
+      kind={journey.kind}
+      step={journey.step}
+      total={stops.length}
+      place={place}
+      arrived={arrived}
+      playing={playing}
+      course={course}
+      facts={facts}
+      live={live}
+      onPrev={() => goStep(-1)}
+      onNext={() => goStep(1)}
+      onExit={exitJourney}
+      onTogglePlay={() => setPlaying((v) => !v)}
+      onOpenStation={(id) => setOpen(id)}
+    />
+  );
+
+  const journeyButtons = (className?: string) => (
+    <div className={cn('flex flex-wrap gap-1.5', className)}>
+      <Button variant="secondary" size="sm" className="glass" onClick={() => startJourney('tour')} iconLeft={<Compass className="size-4" />}>
+        {jc.tour.start}
+      </Button>
+      <Button variant="secondary" size="sm" className="glass" onClick={() => setPickerOpen(true)} iconLeft={<Footprints className="size-4" />}>
+        {jc.follow.start}
+      </Button>
+    </div>
+  );
+
   // Tecla E abre a estação próxima (modo 3D).
   useEffect(() => {
     if (mode !== '3d') return;
@@ -180,6 +300,11 @@ export default function LabPage() {
         <p className="eyebrow">{l.eyebrow}</p>
         <h1 className="text-title mt-3">{l.title}</h1>
         <p className="mt-2 text-fg-muted">{l.lead}</p>
+        {mode === 'launcher' && course && (
+          <p className="mt-3 inline-flex items-center gap-2 rounded-full border border-accent/40 bg-accent-soft px-3 py-1 text-sm">
+            <Footprints aria-hidden className="size-4 text-accent-text" /> {jc.follow.eyebrow}: {course.title}
+          </p>
+        )}
       </div>
       <div className="flex max-w-sm items-start gap-3 rounded-xl border border-demo/30 p-3 text-xs text-fg-muted hatch-demo">
         <Badge tone="demo">{l.simulationBadge}</Badge>
@@ -238,7 +363,7 @@ export default function LabPage() {
       )}
 
       {mode === '3d' && (
-        <section aria-label={l.title} className="relative h-[calc(100dvh-var(--header-h))] min-h-[560px] overflow-hidden bg-bg-abyss">
+        <section ref={stageRef} aria-label={l.title} className="relative h-[calc(100dvh-var(--header-h))] min-h-[560px] overflow-hidden bg-bg-abyss">
           <SceneBoundary
             onError={() => {
               notify({ tone: 'error', message: l.hud.webglLost });
@@ -272,6 +397,8 @@ export default function LabPage() {
                 onSelectStation={(id) => setOpen(id)}
                 onSelectHub={() => setOpsOpen(true)}
                 onNearChange={setNear}
+                guideTarget={guideTarget}
+                onGuideArrive={onGuideArrive}
                 onLowPerformance={() => {
                   setQuality('low');
                   notify({ tone: 'info', message: l.hud.fps });
@@ -286,12 +413,15 @@ export default function LabPage() {
 
           {/* HUD superior */}
           <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-3 md:p-4">
-            <div className="glass pointer-events-auto flex items-center gap-3 rounded-xl px-3 py-2">
-              <BezalelMark className="size-6 text-fg" />
-              <div className="leading-tight">
-                <p className="text-sm font-semibold">{l.title}</p>
-                <p className="font-mono text-[0.68rem] uppercase tracking-wider text-demo">{l.simulationBadge}</p>
+            <div className="flex flex-col items-start gap-2">
+              <div className="glass pointer-events-auto flex items-center gap-3 rounded-xl px-3 py-2">
+                <BezalelMark className="size-6 text-fg" />
+                <div className="leading-tight">
+                  <p className="text-sm font-semibold">{l.title}</p>
+                  <p className="font-mono text-[0.68rem] uppercase tracking-wider text-demo">{l.simulationBadge}</p>
+                </div>
               </div>
+              {!journey && journeyButtons('pointer-events-auto')}
             </div>
             <div className="pointer-events-auto flex flex-wrap justify-end gap-1.5">
               <div className="glass flex gap-1 rounded-xl p-1">
@@ -326,12 +456,15 @@ export default function LabPage() {
           )}
 
           {/* Minimapa */}
-          <div className="pointer-events-none absolute left-4 top-20 hidden md:block">
+          <div className="pointer-events-none absolute left-4 top-36 hidden md:block">
             <Minimap runtime={runtime} />
           </div>
 
-          {/* Prompt de proximidade */}
-          {near && !open && (
+          {/* Jornada guiada (tour / seguir um curso) */}
+          {journeyPanel && <div className="absolute inset-x-3 bottom-3 z-10 md:left-4 md:right-auto md:w-[27rem]">{journeyPanel}</div>}
+
+          {/* Prompt de proximidade (na jornada, o painel já oferece abrir a estação) */}
+          {near && !open && !journey && (
             <div className="absolute bottom-24 left-1/2 -translate-x-1/2 md:bottom-28">
               <button
                 type="button"
@@ -347,7 +480,7 @@ export default function LabPage() {
           )}
 
           {/* Controles */}
-          <div className="absolute bottom-4 left-4 flex items-end gap-3">
+          <div className={cn('absolute bottom-4 left-4 flex items-end gap-3', journey && 'hidden')}>
             {device.coarse ? (
               <Joystick runtime={runtime} />
             ) : (
@@ -363,10 +496,12 @@ export default function LabPage() {
               </div>
             )}
           </div>
-          {device.coarse && <p className="glass absolute bottom-36 left-4 max-w-[14rem] rounded-lg px-3 py-2 text-xs text-fg-muted md:hidden">{l.hud.touchHint}</p>}
-          <Button variant="secondary" size="sm" className="glass absolute bottom-4 right-4 lg:hidden" onClick={() => setOpen('hub')}>
-            {l.ops.title}
-          </Button>
+          {device.coarse && !journey && <p className="glass absolute bottom-36 left-4 max-w-[14rem] rounded-lg px-3 py-2 text-xs text-fg-muted md:hidden">{l.hud.touchHint}</p>}
+          {!journey && (
+            <Button variant="secondary" size="sm" className="glass absolute bottom-4 right-4 lg:hidden" onClick={() => setOpen('hub')}>
+              {l.ops.title}
+            </Button>
+          )}
 
           {/* Acesso por teclado/leitor de tela às estações */}
           <nav aria-label={l.stationsList} className="sr-only focus-within:not-sr-only focus-within:absolute focus-within:left-4 focus-within:top-56 focus-within:z-10 focus-within:rounded-xl focus-within:bg-bg focus-within:p-3">
@@ -399,14 +534,22 @@ export default function LabPage() {
                   </Button>
                 )}
               </div>
+              {journeyPanel ? <div className="mt-6">{journeyPanel}</div> : journeyButtons('mt-4')}
               <div className="mt-6 rounded-2xl border border-line bg-bg-deep p-4">
-                <LabFloorPlan agents={agents.data ?? []} statuses={statuses} pulseAgent={lastEvent?.agentId ?? null} onSelect={(id) => setOpen(id)} />
+                <LabFloorPlan
+                  agents={agents.data ?? []}
+                  statuses={statuses}
+                  pulseAgent={place && place !== 'hub' ? place : (lastEvent?.agentId ?? null)}
+                  onSelect={(id) => setOpen(id)}
+                />
               </div>
             </div>
             <div className="panel p-5 lg:col-span-5">{opsPanel}</div>
           </section>
         </>
       )}
+
+      <CoursePicker open={pickerOpen} courses={published} onClose={() => setPickerOpen(false)} onPick={(c) => startJourney('course', c.id)} />
 
       <Dialog
         open={open !== null}

@@ -173,6 +173,64 @@ test('laboratório 3D: ?setor=vigia começa de frente para o setor do Vigia', as
   expect(errors.filter((e) => !/GPU|WebGL|GL_/.test(e))).toEqual([]);
 });
 
+test('laboratório 2D: o tour guiado percorre a Central e os setores (botões e teclado)', async ({ page }) => {
+  await gotoReady(page, 'lab/');
+  await page.getByRole('button', { name: 'Abrir versão 2D' }).click();
+  await page.getByRole('button', { name: 'Tour guiado' }).click();
+  const tour = page.getByRole('region', { name: 'Tour guiado pelo campus' });
+  await expect(tour.getByRole('heading', { name: 'A Central de Operações' })).toBeVisible();
+  await expect(tour.getByText('Parada 1 de 7')).toBeVisible();
+  await tour.getByRole('button', { name: 'Próxima parada' }).click();
+  await expect(tour.getByRole('heading', { name: 'Scout descobre' })).toBeVisible();
+  // Número ao vivo do setor (simulação) junto da explicação.
+  await expect(tour.getByText(/Oportunidades descobertas: \d+/)).toBeVisible();
+  await page.keyboard.press('ArrowRight');
+  await expect(tour.getByRole('heading', { name: 'Verifier valida' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(tour).toHaveCount(0);
+});
+
+test('seguir um curso: da página do curso ao laboratório, com os dados reais em cada parada', async ({ page }) => {
+  await gotoReady(page, 'course/harvard-cs50x/');
+  await page.getByRole('link', { name: 'Seguir no laboratório' }).click();
+  await expect(page).toHaveURL(/\/lab\/?\?curso=harvard-cs50x$/);
+  await expect(page.getByText(/Seguindo um curso: CS50/)).toBeVisible();
+  await page.getByRole('button', { name: 'Abrir versão 2D' }).click();
+  const panel = page.getByRole('region', { name: 'Seguindo um curso pelo pipeline' });
+  await expect(panel.getByRole('heading', { name: 'Descoberto na fonte' })).toBeVisible();
+  await expect(panel.getByText(/cs50\.harvard\.edu/)).toBeVisible();
+  await panel.getByRole('button', { name: 'Próxima parada' }).click();
+  await expect(panel.getByRole('heading', { name: 'Validado' })).toBeVisible();
+  await expect(panel.getByText(/^Verificado em /)).toBeVisible();
+  // Escolha pelo seletor também funciona.
+  await panel.getByRole('button', { name: 'Sair' }).click();
+  await page.getByRole('button', { name: 'Seguir um curso' }).click();
+  const picker = page.getByRole('dialog', { name: 'Escolha um curso para seguir' });
+  await picker.getByLabel('Buscar no catálogo verificado').fill('cs50 python');
+  await picker.getByRole('button', { name: /CS50's Introduction to Programming with Python/ }).click();
+  await expect(page.getByRole('region', { name: 'Seguindo um curso pelo pipeline' }).getByText("CS50's Introduction to Programming with Python")).toBeVisible();
+});
+
+test('laboratório 3D: o guia leva o visitante até o setor (efeitos pausados = corte direto)', async ({ page, isMobile }) => {
+  test.skip(isMobile, 'Coberto no desktop.');
+  const errors = trackErrors(page);
+  await gotoReady(page, 'lab/');
+  const enter = page.getByRole('button', { name: 'Entrar no laboratório 3D' });
+  test.skip(await enter.isDisabled(), 'WebGL indisponível neste navegador de teste.');
+  await enter.click();
+  await expect(page.locator('section canvas:not([role])')).toBeVisible({ timeout: 20_000 });
+  // Sem animação o guia (e o visitante atrás dele) chega na hora.
+  await page.getByRole('button', { name: 'Pausar efeitos' }).click();
+  await page.getByRole('button', { name: 'Tour guiado' }).click();
+  await page.keyboard.press('ArrowRight');
+  const tour = page.getByRole('region', { name: 'Tour guiado pelo campus' });
+  await expect(tour.getByRole('heading', { name: 'Scout descobre' })).toBeVisible();
+  await expect(tour.getByText('A caminho…')).toHaveCount(0, { timeout: 10_000 });
+  await page.keyboard.press('e');
+  await expect(page.getByRole('heading', { name: 'Estação Scout' })).toBeVisible();
+  expect(errors.filter((e) => !/GPU|WebGL|GL_/.test(e))).toEqual([]);
+});
+
 test('Agentes: o Vigia está entre os seis agentes e leva ao seu setor no laboratório', async ({ page }) => {
   await gotoReady(page, 'agents/');
   await expect(page.getByRole('heading', { level: 3, name: 'Vigia' })).toBeVisible();

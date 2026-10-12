@@ -3,7 +3,8 @@ import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { AGENT_HEX } from '@/components/agents/AgentGlyph';
 import type { AgentId, AgentStatus } from '@/types/domain';
-import { deliveryFor, parkingSpot, pathLength, pointAlong, routePath, SECTOR_SPOTS, sectorPoint, STATIONS, travelPath, type LabPulse, type LabRuntime, type Point2 } from '../layout';
+import { deliveryFor, GUIDE_POST, parkingSpot, pathLength, pointAlong, routePath, SECTOR_SPOTS, sectorPoint, SPAWN, STATIONS, travelPath, type LabPulse, type LabRuntime, type Point2 } from '../layout';
+import { guideTo, type GuideTarget } from '../journey';
 import { Humanoid, HumanoidFleet, restPose, type HumanoidPose } from './robots/humanoid';
 
 const SPEED = 2.3; // m/s
@@ -11,6 +12,8 @@ const STRIDE = Math.PI / 0.72; // rad de passada por metro (meia passada ≈ 0,7
 const HANDOFF_S = 0.75; // pegar/soltar a caixa
 const MAX_QUEUE = 4;
 const CARRIER_COLOR = '#ead9b2';
+const GUIDE_COLOR = '#c7a86a';
+const GUIDE_SPEED = 2.7; // m/s
 
 interface Leg {
   path: Point2[];
@@ -65,6 +68,8 @@ export function Robots({
   pulse,
   effects,
   carriers: carrierCount,
+  guideTarget,
+  onGuideArrive,
 }: {
   runtime: LabRuntime;
   statuses: Record<AgentId, AgentStatus>;
@@ -72,7 +77,19 @@ export function Robots({
   pulse: LabPulse | null;
   effects: boolean;
   carriers: number;
+  /** Parada pedida pela página (tour ou "seguir um curso"), ou nenhuma. */
+  guideTarget?: GuideTarget | null;
+  /** O guia chegou à parada. */
+  onGuideArrive?: () => void;
 }) {
+  const arriveRef = useRef(onGuideArrive);
+  const targetRef = useRef(guideTarget ?? null);
+  useEffect(() => {
+    arriveRef.current = onGuideArrive;
+    targetRef.current = guideTarget ?? null;
+  }, [onGuideArrive, guideTarget]);
+  // `undefined` = ainda não aplicado nesta montagem da cena.
+  const appliedKey = useRef<string | null | undefined>(undefined);
   const statusRef = useRef(statuses);
   const nearRef = useRef(near);
   useEffect(() => {
@@ -80,7 +97,7 @@ export function Robots({
     nearRef.current = near;
   }, [statuses, near]);
 
-  const { fleet, operators, carriers } = useMemo(() => {
+  const { fleet, operators, carriers, guide } = useMemo(() => {
     const operators: Operator[] = STATIONS.map((s) => {
       const robot = new Humanoid(AGENT_HEX[s.id]);
       const p = sectorPoint(s, SECTOR_SPOTS.operator);
@@ -98,8 +115,13 @@ export function Robots({
       robot.root.rotation.y = heading;
       return { robot, pose: { ...restPose(), time: i }, home, x: home.x, z: home.z, heading, legs: [], leg: 0, dist: 0, hold: 0 };
     });
-    const fleet = new HumanoidFleet([...operators.map((o) => o.robot), ...carriers.map((c) => c.robot)]);
-    return { fleet, operators, carriers };
+    // O guia espera na entrada, virado para quem chega.
+    const guide = { robot: new Humanoid(GUIDE_COLOR), pose: { ...restPose(), time: 0.5 }, postHeading: Math.atan2(SPAWN.x - GUIDE_POST.x, SPAWN.z - GUIDE_POST.z) };
+    guide.robot.root.position.set(GUIDE_POST.x, 0, GUIDE_POST.z);
+    guide.robot.root.rotation.y = guide.postHeading;
+    const fleet = new HumanoidFleet([...operators.map((o) => o.robot), ...carriers.map((c) => c.robot), guide.robot]);
+    fleet.setCrateColor(guide.robot, '#e6c27a');
+    return { fleet, operators, carriers, guide };
   }, [carrierCount]);
 
   useEffect(() => () => fleet.dispose(), [fleet]);
@@ -108,8 +130,9 @@ export function Robots({
   useEffect(() => {
     operators.forEach((o) => o.robot.apply(o.pose));
     carriers.forEach((c) => c.robot.apply(c.pose));
+    guide.robot.apply(guide.pose);
     fleet.sync();
-  }, [fleet, operators, carriers]);
+  }, [fleet, operators, carriers, guide]);
 
   // Novo evento com entrega → um carregador livre vai buscar o registro.
   const queue = useRef<LabPulse[]>([]);
@@ -119,10 +142,68 @@ export function Robots({
   }, [pulse]);
 
   const tmp = useMemo(() => new THREE.Vector3(), []);
+  const hadGuide = useRef(false);
 
   useFrame((_, rawDt) => {
-    if (!effects) return;
     const dt = Math.min(0.05, rawDt);
+
+    // Nova parada pedida: o guia parte de onde está (ou de onde o visitante está).
+    const target = targetRef.current;
+    if ((target?.key ?? null) !== appliedKey.current) {
+      appliedKey.current = target?.key ?? null;
+      if (!target) runtime.guide = null;
+      else {
+        const from = runtime.guide ?? { x: runtime.player.x, z: runtime.player.z, heading: runtime.player.heading };
+        runtime.guide = guideTo(from, target.place, target.carrying);
+        runtime.camera.distance = Math.min(runtime.camera.distance, 11);
+      }
+    }
+
+    // Guia (tour / "seguir um curso"). Com efeitos pausados ou movimento
+    // reduzido, ele pula direto para a parada e a câmera corta.
+    const g = runtime.guide;
+    const gp = guide.pose;
+    if (g) {
+      const total = pathLength(g.path);
+      g.dist = effects ? Math.min(total, g.dist + GUIDE_SPEED * dt) : total;
+      const p = pointAlong(g.path, g.dist);
+      g.x = p.x;
+      g.z = p.z;
+      const walking = g.dist < total - 1e-3;
+      const turn = effects ? Math.min(1, dt * (walking ? 8 : 4)) : 1;
+      g.heading += wrap((walking ? p.heading : g.stopHeading) - g.heading) * turn;
+      if (!walking && !g.arrived) {
+        g.arrived = true;
+        arriveRef.current?.();
+      }
+      // A câmera vai atrás do guia e, na parada, olha o setor do lado da Central —
+      // depois de alinhada, fica livre para o visitante girar.
+      if (walking || !g.cameraSettled) {
+        const yaw = walking ? g.heading + Math.PI : g.viewYaw;
+        const off = wrap(yaw - runtime.camera.yaw);
+        runtime.camera.yaw += off * (effects ? Math.min(1, dt * 1.6) : 1);
+        if (!walking && (Math.abs(off) < 0.02 || !effects)) g.cameraSettled = true;
+      }
+      if (walking) gp.phase += GUIDE_SPEED * dt * STRIDE;
+      gp.walk += ((walking ? 1 : 0) - gp.walk) * (effects ? Math.min(1, dt * 7) : 1);
+      gp.carry += ((g.carrying ? 1 : 0) - gp.carry) * (effects ? Math.min(1, dt * 5) : 1);
+      guide.robot.root.position.set(g.x, 0, g.z);
+      guide.robot.root.rotation.y = g.heading;
+    } else {
+      gp.walk = 0;
+      gp.carry = 0;
+      guide.robot.root.position.set(GUIDE_POST.x, 0, GUIDE_POST.z);
+      guide.robot.root.rotation.y = guide.postHeading;
+    }
+    if (effects) gp.time += dt;
+    guide.robot.apply(gp);
+    const guideMoved = !!g || hadGuide.current;
+    hadGuide.current = !!g;
+
+    if (!effects) {
+      if (guideMoved) fleet.sync();
+      return;
+    }
 
     // Despacho: o carregador livre mais próximo do ponto de coleta.
     while (queue.current.length) {

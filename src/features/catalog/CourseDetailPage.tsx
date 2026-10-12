@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowUpRight, Award, Building, Clock, Copy, FlaskConical, MessageCircle, TriangleAlert } from 'lucide-react';
+import { ArrowLeft, ArrowUpRight, Award, Building, Clock, Copy, FlaskConical, Footprints, MessageCircle, TriangleAlert } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link, useParams } from 'react-router';
 import { usePreferences } from '@/app/preferences-context';
@@ -144,6 +144,12 @@ export default function CourseDetailPage() {
             <ButtonLink to={`/assistant?q=${encodeURIComponent(course.title)}`} variant="ghost" size="lg" iconLeft={<MessageCircle className="size-4" />}>
               {c.askSol}
             </ButtonLink>
+            {/* Registros reais publicados podem ser seguidos pelo pipeline no laboratório. */}
+            {!isDemo && course.publicationStatus === 'published' && (
+              <ButtonLink to={`/lab?curso=${encodeURIComponent(course.slug)}`} variant="ghost" size="lg" iconLeft={<Footprints className="size-4" />}>
+                {c.followInLab}
+              </ButtonLink>
+            )}
           </div>
         </div>
       </header>

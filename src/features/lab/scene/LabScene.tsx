@@ -2,6 +2,7 @@ import { Canvas, useThree } from '@react-three/fiber';
 import { useEffect } from 'react';
 import { AGENT_HEX } from '@/components/agents/AgentGlyph';
 import type { AgentId, AgentStatus } from '@/types/domain';
+import type { GuideTarget } from '../journey';
 import { STATIONS, type LabPulse, type LabRuntime } from '../layout';
 import { Environment } from './Environment';
 import { Flows } from './Flows';
@@ -33,6 +34,10 @@ export interface LabSceneProps {
   onNearChange: (id: AgentId | null) => void;
   onLowPerformance: () => void;
   onContextLost: () => void;
+  /** Parada atual da jornada guiada (tour / seguir um curso), ou nenhuma. */
+  guideTarget: GuideTarget | null;
+  /** O guia chegou à parada. */
+  onGuideArrive: () => void;
 }
 
 /**
@@ -91,7 +96,7 @@ export default function LabScene(props: LabSceneProps) {
           onSelect={() => props.onSelectStation(s.id)}
         />
       ))}
-      <Robots runtime={runtime} statuses={statuses} near={near} pulse={pulse} effects={effects} carriers={quality === 'high' ? 6 : 3} />
+      <Robots runtime={runtime} statuses={statuses} near={near} pulse={pulse} effects={effects} carriers={quality === 'high' ? 6 : 3} guideTarget={props.guideTarget} onGuideArrive={props.onGuideArrive} />
       <Flows key={quality} effects={effects} quality={quality} pulse={pulse} />
       <Player runtime={runtime} inputEnabled={inputEnabled} effects={effects} onNearChange={props.onNearChange} />
       {quality === 'high' && <PerformanceWatch onLow={props.onLowPerformance} />}

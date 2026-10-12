@@ -142,6 +142,14 @@ export function Player({ runtime, inputEnabled, effects, onNearChange }: PlayerP
     let dx = fx * iz + rx * ix;
     let dz = fz * iz + rz * ix;
 
+    // Com guia (tour / "seguir um curso"), o visitante anda logo atrás dele.
+    const guide = runtime.guide;
+    if (guide) {
+      dx = 0;
+      dz = 0;
+      runtime.target = null;
+    }
+
     if (dx === 0 && dz === 0 && runtime.target && inputEnabled) {
       const tx = runtime.target.x - runtime.player.x;
       const tz = runtime.target.z - runtime.player.z;
@@ -160,7 +168,15 @@ export function Player({ runtime, inputEnabled, effects, onNearChange }: PlayerP
     const k = 1 - Math.exp(-dt * 10);
     velocity.current.x += (dx * SPEED - velocity.current.x) * k;
     velocity.current.y += (dz * SPEED - velocity.current.y) * k;
-    const next = constrainToFloor(runtime.player.x + velocity.current.x * dt, runtime.player.z + velocity.current.y * dt);
+    let next = constrainToFloor(runtime.player.x + velocity.current.x * dt, runtime.player.z + velocity.current.y * dt);
+    if (guide) {
+      const back = 1.6;
+      const gx = guide.x - Math.sin(guide.heading) * back;
+      const gz = guide.z - Math.cos(guide.heading) * back;
+      const follow = effects ? 1 - Math.exp(-dt * 5) : 1;
+      next = constrainToFloor(runtime.player.x + (gx - runtime.player.x) * follow, runtime.player.z + (gz - runtime.player.z) * follow);
+      velocity.current.set((next.x - runtime.player.x) / Math.max(dt, 1e-3), (next.z - runtime.player.z) / Math.max(dt, 1e-3));
+    }
     runtime.player.x = next.x;
     runtime.player.z = next.z;
     const speed = velocity.current.length();

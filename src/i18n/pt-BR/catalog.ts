@@ -72,5 +72,6 @@ export const catalog = {
     backToCatalog: 'Voltar ao catálogo',
     share: 'Copiar link',
     askSol: 'Perguntar ao Sol sobre este curso',
+    followInLab: 'Seguir no laboratório',
   },
 };

@@ -15,7 +15,7 @@ Plataforma de inteligência educacional que conecta pessoas a cursos, certifica�
 | `/course/:slug` | Detalhe com fonte oficial, estado de verificação, "Não informado" para campos ausentes e relacionados |
 | `/insights` | Competências por número de cursos, categorias, grafo competência→curso, série temporal **demonstrativa** e painel de vagas indisponível |
 | `/agents` | Perfis, estados ao vivo (ativo/ocioso/com falha/demo), fluxo entre agentes e trilha de eventos |
-| `/lab` | Campus 3D explorável (WASD/setas, clique, toque): seis setores com robôs articulados levando registros entre eles, Central de Operações e versão 2D completa; `?setor=vigia` abre de frente para um setor |
+| `/lab` | Campus 3D explorável (WASD/setas, clique, toque): seis setores com robôs articulados levando registros entre eles, Central de Operações, **tour guiado** e **"seguir um curso"** (dados reais do registro em cada etapa), e versão 2D completa; `?setor=vigia` abre de frente para um setor e `?curso=<slug>` já segue um curso |
 | `/assistant` | Assistente Sol com regras locais transparentes |
 | `/about` | "A origem": a história de Bezalel construída pelo visitante com uma manivela (7 voltas, 7 capítulos), missão e compromissos |
 | `/methodology`, `/privacy`, `/terms` | Institucional (privacidade e termos são rascunhos preliminares) |
