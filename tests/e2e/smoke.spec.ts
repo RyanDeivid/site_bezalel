@@ -148,6 +148,39 @@ test('laboratório 3D carrega a cena e a Central de Operações', async ({ page,
   expect(errors.filter((e) => !/GPU|WebGL|GL_/.test(e))).toEqual([]);
 });
 
+test('laboratório 2D: o Vigia mostra os prazos reais de reconferência', async ({ page }) => {
+  await gotoReady(page, 'lab/');
+  await page.getByRole('button', { name: 'Abrir versão 2D' }).click();
+  // Seis setores na planta, um por agente.
+  for (const name of ['Scout', 'Verifier', 'Vigia', 'Atlas', 'Trend', 'Sol']) await expect(page.getByRole('button', { name: new RegExp(`Abrir estação ${name}`) })).toBeVisible();
+  await page.getByRole('button', { name: /Abrir estação Vigia/ }).click();
+  await expect(page.getByRole('heading', { name: 'Estação Vigia' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Catálogo verificado' })).toBeVisible();
+  await expect(page.getByText(/Regra: um registro é atual/)).toBeVisible();
+});
+
+test('laboratório 3D: ?setor=vigia começa de frente para o setor do Vigia', async ({ page, isMobile }) => {
+  test.skip(isMobile, 'Coberto no desktop.');
+  const errors = trackErrors(page);
+  await gotoReady(page, 'lab/?setor=vigia');
+  const enter = page.getByRole('button', { name: 'Entrar no laboratório 3D' });
+  test.skip(await enter.isDisabled(), 'WebGL indisponível neste navegador de teste.');
+  await enter.click();
+  // O visitante nasce no setor: o aviso de proximidade aparece sem andar.
+  await expect(page.getByRole('button', { name: /^E\s*Abrir estação Vigia$/ })).toBeVisible({ timeout: 20_000 });
+  await page.keyboard.press('e');
+  await expect(page.getByRole('heading', { name: 'Estação Vigia' })).toBeVisible();
+  expect(errors.filter((e) => !/GPU|WebGL|GL_/.test(e))).toEqual([]);
+});
+
+test('Agentes: o Vigia está entre os seis agentes e leva ao seu setor no laboratório', async ({ page }) => {
+  await gotoReady(page, 'agents/');
+  await expect(page.getByRole('heading', { level: 3, name: 'Vigia' })).toBeVisible();
+  const card = page.getByRole('listitem').filter({ has: page.getByRole('heading', { level: 3, name: 'Vigia' }) });
+  await card.getByRole('button', { name: 'Ver perfil' }).click();
+  await expect(page.getByRole('link', { name: 'Ver estação no laboratório' })).toHaveAttribute('href', /\/lab\?setor=vigia$/);
+});
+
 test('sem rolagem horizontal acidental', async ({ page }) => {
   for (const path of ['', 'explore/', 'insights/', 'agents/', 'lab/', 'methodology/']) {
     await page.goto(path);

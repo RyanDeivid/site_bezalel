@@ -54,7 +54,7 @@ def test_facets():
 
 def test_agents_are_never_presented_as_production_by_default():
     agents = client.get("/v1/agents").json()
-    assert len(agents) == 5
+    assert len(agents) == 6
     assert all(a["mode"] == "demo" for a in agents)
 
 

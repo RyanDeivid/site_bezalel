@@ -2,7 +2,7 @@ export const lab = {
   lab: {
     eyebrow: 'Laboratório 3D',
     title: 'O laboratório dos agentes',
-    lead: 'Caminhe entre as estações de trabalho, aproxime-se de um agente para abrir seu painel e acompanhe a Central de Operações em tempo real.',
+    lead: 'Caminhe pelo campus entre os seis setores, aproxime-se de um agente para abrir seu painel e veja os robôs levando cada registro de um setor a outro, com a Central de Operações acompanhando tudo em tempo real.',
     simulationBadge: 'Simulação local',
     simulationNote: 'Os eventos exibidos são produzidos por uma simulação determinística no seu navegador. Nenhum agente real está em execução.',
     launcher: {

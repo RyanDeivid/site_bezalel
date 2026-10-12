@@ -2,7 +2,7 @@
 
 **Discover. Learn. Build.**
 
-Plataforma de inteligência educacional que conecta pessoas a cursos, certificações e competências — com cada informação ligada à sua fonte oficial, ao estado de verificação e à data da última conferência. Agentes de IA especializados (Scout, Verifier, Atlas, Trend e Sol) descobrem, validam e organizam oportunidades, e um laboratório 3D torna esse trabalho visível.
+Plataforma de inteligência educacional que conecta pessoas a cursos, certificações e competências — com cada informação ligada à sua fonte oficial, ao estado de verificação e à data da última conferência. Agentes de IA especializados (Scout, Verifier, Vigia, Atlas, Trend e Sol) descobrem, validam e organizam oportunidades, e um laboratório 3D torna esse trabalho visível.
 
 > **Versão 1.0 — modo demonstração.** O catálogo traz **105 cursos e certificações reais em 21 áreas** (saúde, educação física, nutrição, saúde mental, educação, idiomas, negócios, finanças, carreira, design, marketing, engenharia, meio ambiente, gestão pública e tecnologia), conferidos manualmente nas páginas oficiais em 10 e 11/10/2026. Os agentes, seus eventos e a série temporal de menções são **simulados localmente** e sempre rotulados como tal. Nenhum agente autônomo está em produção.
 
@@ -15,7 +15,7 @@ Plataforma de inteligência educacional que conecta pessoas a cursos, certifica�
 | `/course/:slug` | Detalhe com fonte oficial, estado de verificação, "Não informado" para campos ausentes e relacionados |
 | `/insights` | Competências por número de cursos, categorias, grafo competência→curso, série temporal **demonstrativa** e painel de vagas indisponível |
 | `/agents` | Perfis, estados ao vivo (ativo/ocioso/com falha/demo), fluxo entre agentes e trilha de eventos |
-| `/lab` | Laboratório 3D explorável (WASD/setas, clique, toque) com Central de Operações, e versão 2D completa |
+| `/lab` | Campus 3D explorável (WASD/setas, clique, toque): seis setores com robôs articulados levando registros entre eles, Central de Operações e versão 2D completa; `?setor=vigia` abre de frente para um setor |
 | `/assistant` | Assistente Sol com regras locais transparentes |
 | `/about` | "A origem": a história de Bezalel construída pelo visitante com uma manivela (7 voltas, 7 capítulos), missão e compromissos |
 | `/methodology`, `/privacy`, `/terms` | Institucional (privacidade e termos são rascunhos preliminares) |

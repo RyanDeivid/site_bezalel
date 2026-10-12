@@ -6,6 +6,7 @@
 |---|---|---|
 | **Scout** | Consulta fontes autorizadas, descobre oportunidades e normaliza registros brutos | Simulado sobre fixtures fictícias |
 | **Verifier** | Deduplica, valida, atribui nota de qualidade, publica ou rejeita | Regras reais (`domain/pipeline`) aplicadas a dados fictícios |
+| **Vigia** (v2 · Fase 3) | Reconferência periódica: calcula a idade de cada conferência, monta a fila dos próximos 30 dias, marca vencidos (> 180 dias) e os devolve ao Verifier | Prazos reais (`domain/pipeline/freshness.ts`) sobre as datas do catálogo curado; a devolução é demonstrada com um registro fictício. Não abre a fonte: a reconferência em si é manual |
 | **Atlas** | Relaciona cursos e competências | Relações reais do catálogo curado; eventos simulados |
 | **Trend** | Analisa competências mais frequentes | Contagens reais do catálogo; nunca apresentadas como demanda |
 | **Sol** | Ajuda a navegar pelo catálogo | Motor de regras local real (`domain/assistant/engine.ts`) |
@@ -53,7 +54,7 @@ Transições fora da tabela lançam `InvalidTransitionError` (testado). Duplicat
 - os eventos do **pipeline real** sobre as fixtures (os resultados — aprovado, duplicado por URL, duplicado por título, sem HTTPS, nota insuficiente, desatualizado, conteúdo inseguro — saem das regras, não de sorteio);
 - consultas de exemplo do Sol com contagem calculada pela **busca real** no catálogo;
 - análises do Trend e do Atlas sobre o **catálogo real**;
-- uma reconferência que marca um registro fictício como desatualizado (regra de 180 dias).
+- a ronda do Vigia com os prazos de reconferência do **catálogo real** e um registro fictício antigo marcado como desatualizado e devolvido ao Verifier (regra de 180 dias).
 
 O roteiro é determinístico; a única variação é programada: nas execuções ímpares a fonte fictícia "Portal Meridiano" falha por timeout, para que a interface mostre o estado "com falha". `DemoEventFeed` reproduz os eventos em ritmo legível (~2,2 s), carimbando `environmentMode: 'demo'`.
 

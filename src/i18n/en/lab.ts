@@ -5,7 +5,7 @@ export const lab: Widen<typeof base> = {
   lab: {
     eyebrow: '3D Lab',
     title: 'The agents’ lab',
-    lead: 'Walk between the workstations, approach an agent to open its panel and follow the Operations Center live.',
+    lead: 'Walk the campus between the six sectors, approach an agent to open its panel and watch robots carry each record from one sector to the next, with the Operations Center following it all live.',
     simulationBadge: 'Local simulation',
     simulationNote: 'The events shown are produced by a deterministic simulation in your browser. No real agent is running.',
     launcher: {
