@@ -21,5 +21,19 @@ export default defineConfig({
     // O laboratório 3D (three + R3F) é carregado sob demanda em um chunk
     // próprio; o aviso padrão de 500 kB dispararia só por ele.
     chunkSizeWarningLimit: 1000,
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          // Tudo o que a primeira carga já importa estaticamente vai num pacote
+          // só. Sem isto, cada módulo pequeno compartilhado com uma página
+          // preguiçosa (preferências, taxonomia, formatação, ícones…) virava um
+          // arquivo de 0,2–3 kB — e, no celular com rede lenta, cada arquivo a
+          // mais na primeira carga custa uma ida e volta (medido: 5 a 11
+          // requisições extras e LCP ~0,3 s pior). Páginas, catálogo e 3D
+          // continuam em chunks próprios, baixados sob demanda.
+          groups: [{ name: 'app', tags: ['$initial'] }],
+        },
+      },
+    },
   },
 });

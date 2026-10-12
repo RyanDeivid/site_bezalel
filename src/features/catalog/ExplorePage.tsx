@@ -1,8 +1,12 @@
-import { ArrowDown, Search, SlidersHorizontal, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Search, SlidersHorizontal, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { usePreferences } from '@/app/preferences-context';
+import { NextStep } from '@/components/layout/NextStep';
 import { PageHero } from '@/components/layout/PageHero';
+import { thumbPrimary, thumbSecondary } from '@/components/layout/thumb';
+import { ThumbBar } from '@/components/layout/ThumbBar';
+import { categoryGroupOf } from '@/data/catalog/taxonomy';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
@@ -76,12 +80,16 @@ export default function ExplorePage() {
   ];
 
   const data = result.data;
+  // Um único tema filtrado? A trilha já começa nele.
+  const themes = [...new Set((query.categories ?? []).map((c) => categoryGroupOf[c]))];
+  const trailLink = themes.length === 1 ? `/trail?tema=${themes[0]}` : '/trail';
   const filterPanel = <FilterPanel query={query} facets={facets.data} onChange={update} />;
 
   return (
     <>
       <PageHero eyebrow={e.eyebrow} title={e.title} lead={e.lead} particles={false}>
         <form
+          id="busca-catalogo"
           role="search"
           onSubmit={(ev) => {
             ev.preventDefault();
@@ -230,6 +238,30 @@ export default function ExplorePage() {
           )}
         </section>
       </div>
+
+      {/* Pico-final: o fim da lista aponta um próximo passo (com o tema, se um só estiver filtrado). */}
+      {data && !data.hasMore && (
+        <NextStep kind="explore" primaryTo={trailLink} secondaryTo="/assistant" className="pt-0" />
+      )}
+
+      {/* Celular: filtros e busca ao alcance do polegar depois que a busca sai da tela. */}
+      <ThumbBar watchId="busca-catalogo" label={e.actions}>
+        <button type="button" onClick={() => setFiltersOpen(true)} className={thumbPrimary}>
+          <SlidersHorizontal aria-hidden className="size-4" />
+          {e.showFilters} {active > 0 && e.filterCount(active)}
+        </button>
+        <button
+          type="button"
+          aria-label={e.backToSearch}
+          onClick={() => {
+            window.scrollTo({ top: 0 });
+            document.getElementById('catalog-search')?.focus({ preventScroll: true });
+          }}
+          className={thumbSecondary}
+        >
+          <ArrowUp aria-hidden className="size-4 text-accent-text" />
+        </button>
+      </ThumbBar>
 
       <Dialog
         open={filtersOpen}

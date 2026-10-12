@@ -65,6 +65,8 @@ describe('catálogo', () => {
     expect(total).toBe(curatedCourses.length);
 
     const aside = screen.getByRole('complementary', { name: 'Filtros' });
+    // Tipo fica em "Mais filtros" (poucas escolhas por vez).
+    await user.click(within(aside).getByText('Mais filtros'));
     await user.click(within(aside).getByRole('button', { name: /Certificação/ }));
     await waitFor(() => expect(router.state.location.search).toContain('type=certification'));
     await waitFor(() => {

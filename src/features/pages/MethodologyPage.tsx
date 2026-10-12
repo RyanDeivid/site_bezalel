@@ -2,6 +2,7 @@ import { CircleAlert, ShieldAlert } from 'lucide-react';
 import { useMemo } from 'react';
 import { usePreferences } from '@/app/preferences-context';
 import { PUBLICATION_TONE } from '@/components/data/DataBadges';
+import { NextStep } from '@/components/layout/NextStep';
 import { PageHero } from '@/components/layout/PageHero';
 import { Badge } from '@/components/ui/Badge';
 import { ExternalLink } from '@/components/ui/ExternalLink';
@@ -278,6 +279,7 @@ export default function MethodologyPage() {
           </section>
         </div>
       </div>
+      <NextStep kind="methodology" primaryTo={'/explore'} secondaryTo={'/trail'} className="pt-0" />
     </>
   );
 }

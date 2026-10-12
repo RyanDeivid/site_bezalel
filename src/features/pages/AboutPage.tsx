@@ -1,6 +1,7 @@
 import { ArrowRight, Check, FlaskConical, ShieldCheck } from 'lucide-react';
 import { useT } from '@/app/preferences-context';
 import { BezalelMark } from '@/components/brand/BezalelMark';
+import { NextStep } from '@/components/layout/NextStep';
 import { PageHero } from '@/components/layout/PageHero';
 import { ButtonLink } from '@/components/ui/Button';
 import { Reveal } from '@/components/visual/Reveal';
@@ -95,6 +96,7 @@ export default function AboutPage() {
           </ButtonLink>
         </aside>
       </div>
+      <NextStep kind="about" primaryTo={'/trail'} secondaryTo={'/explore'} className="pt-0" />
     </>
   );
 }

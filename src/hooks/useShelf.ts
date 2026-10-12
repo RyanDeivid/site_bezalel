@@ -1,4 +1,5 @@
 import { useCallback, useSyncExternalStore } from 'react';
+import { SHELF_KEY as KEY } from '@/domain/tools/keys';
 import { EMPTY_SHELF, parseShelf, serializeShelf, type Shelf } from '@/domain/tools/shelf';
 import { readStorage, writeStorage } from '@/lib/storage';
 
@@ -7,7 +8,6 @@ import { readStorage, writeStorage } from '@/lib/storage';
  * entre abas (evento `storage`). Na pré-renderização e na hidratação vale a
  * estante vazia (o HTML é igual para todos); o React ajusta logo depois.
  */
-const KEY = 'bz-shelf-v1';
 
 let cache: Shelf | null = null;
 const listeners = new Set<() => void>();

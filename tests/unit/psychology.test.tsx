@@ -6,10 +6,13 @@ import { PreferencesProvider } from '@/app/PreferencesProvider';
 import { curatedCourses } from '@/data/catalog/courses';
 import { categories } from '@/data/catalog/taxonomy';
 import { serializeShelf } from '@/domain/tools/shelf';
-import { buildTrail, LAST_TRAIL_KEY, trailQuery, type TrailAnswers } from '@/domain/tools/trail';
+import { LAST_TRAIL_KEY } from '@/domain/tools/keys';
+import { buildTrail, trailQuery, type TrailAnswers } from '@/domain/tools/trail';
 import ContinueSection from '@/features/home/ContinueSection';
 import { ProgressControl } from '@/features/tools/parts';
 import { resetShelfCache } from '@/hooks/useShelf';
+import { peek } from '@/lib/sync-promise';
+import { createLocalServices } from '@/services/local';
 import type { CategoryId } from '@/types/domain';
 
 /** Fase 5 — psicologia aplicada com ética (docs/ETHICS.md). */
@@ -67,5 +70,16 @@ describe('gradiente de meta: "continue de onde parou"', () => {
     expect(screen.getByRole('progressbar', { name: 'Progresso da sua trilha' })).toHaveAttribute('aria-valuenow', '1');
     expect(screen.getByRole('link', { name: 'Voltar à trilha' })).toHaveAttribute('href', `/trail?${trailQuery(answers, [a.slug, b.slug, c.slug])}`);
     expect(screen.getByRole('link', { name: /Minha estante \(1\)/ })).toBeInTheDocument();
+  });
+});
+
+describe('prova social só com números reais', () => {
+  it('os números da home são contagens do catálogo verificado, não estimativas', () => {
+    const services = createLocalServices(new Date('2026-10-12T12:00:00Z'));
+    const facets = peek(services.catalog.getFacets())!.value;
+    const published = curatedCourses.filter((c) => c.publicationStatus === 'published');
+    expect(facets.total).toBe(published.length);
+    expect(facets.providers).toBe(new Set(published.map((c) => c.provider.name)).size);
+    expect(facets.withCertificate).toBe(published.filter((c) => c.certificateType && c.certificateType !== 'none-stated').length);
   });
 });

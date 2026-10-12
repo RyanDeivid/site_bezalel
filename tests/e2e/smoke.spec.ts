@@ -586,3 +586,49 @@ test('polegar: no celular, as ações do curso voltam ao rodapé depois que o to
   await bar.getByRole('button', { name: /^Salvar na estante: / }).click();
   await expect(bar.getByRole('button', { name: /^Remover da estante: / })).toBeVisible();
 });
+
+
+test('poucas escolhas por vez: filtros mostram 7 temas e as áreas abrem sob demanda', async ({ page, isMobile }) => {
+  test.skip(isMobile, 'No celular os mesmos filtros ficam na gaveta (coberto abaixo).');
+  await gotoReady(page, 'explore/');
+  const aside = page.getByRole('complementary', { name: 'Filtros' });
+  const area = aside.getByRole('button', { name: /^IA e Machine Learning/ });
+  await expect(area).toBeHidden();
+  await aside.getByText('Tecnologia', { exact: true }).click();
+  await area.click();
+  await expect(page).toHaveURL(/cat=ai-ml/);
+  await expect(aside.getByText('Tecnologia (1)')).toBeVisible();
+  // Filtros menos decisivos ficam em "Mais filtros".
+  await expect(aside.getByRole('button', { name: /^Iniciante/ })).toBeHidden();
+  await aside.getByText('Mais filtros').click();
+  await expect(aside.getByRole('button', { name: /^Iniciante/ })).toBeVisible();
+});
+
+test('pico-final no catálogo: o fim da lista leva à trilha já no tema filtrado', async ({ page }) => {
+  await gotoReady(page, 'explore/?cat=ai-ml');
+  const next = page.getByRole('region', { name: 'Não sabe por onde começar?' });
+  await expect(next.getByRole('link', { name: 'Descobrir minha trilha' })).toHaveAttribute('href', /\/trail\?tema=tech$/);
+  await next.getByRole('link', { name: 'Descobrir minha trilha' }).click();
+  // A pergunta do tema já está respondida.
+  await expect(page.getByText('Pergunta 2 de 4')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Qual é o seu objetivo agora?' })).toBeVisible();
+});
+
+test('pico-final no curso: montar trilha no tema ou comparar com os relacionados', async ({ page }) => {
+  await gotoReady(page, 'course/harvard-cs50x/');
+  const next = page.getByRole('region', { name: 'Siga em Tecnologia' });
+  await expect(next.getByRole('link', { name: 'Montar trilha em Tecnologia' })).toHaveAttribute('href', /\/trail\?tema=tech$/);
+  await next.getByRole('link', { name: 'Comparar com os relacionados' }).click();
+  await expect(page.getByRole('columnheader')).toHaveCount(4);
+});
+
+test('polegar no catálogo: no celular, "Filtros" fica ao alcance depois da busca', async ({ page, isMobile }) => {
+  test.skip(!isMobile, 'A barra só existe no celular.');
+  await gotoReady(page, 'explore/');
+  const bar = page.getByRole('navigation', { name: 'Ações do catálogo' });
+  await expect(bar).toBeHidden();
+  await page.mouse.wheel(0, 1200);
+  await expect(bar).toBeVisible();
+  await bar.getByRole('button', { name: /^Filtros/ }).click();
+  await expect(page.getByRole('dialog', { name: 'Filtros' })).toBeVisible();
+});

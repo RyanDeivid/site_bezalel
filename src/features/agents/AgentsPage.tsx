@@ -5,6 +5,7 @@ import { AgentPanel } from '@/components/agents/AgentPanel';
 import { AGENT_COLOR, AgentGlyph } from '@/components/agents/AgentGlyph';
 import { AgentStatusBadges } from '@/components/agents/AgentStatus';
 import { EventFeed } from '@/components/agents/EventFeed';
+import { NextStep } from '@/components/layout/NextStep';
 import { PageHero, SectionHeader } from '@/components/layout/PageHero';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -229,6 +230,7 @@ export default function AgentsPage() {
           </div>
         </section>
       </div>
+      <NextStep kind="agents" primaryTo={'/lab'} secondaryTo={'/methodology'} className="pt-0" />
 
       <Dialog open={!!selected} onClose={() => setOpen(null)} variant="drawer" title={selected?.name ?? ''} accent={selected ? AGENT_COLOR[selected.id] : undefined}>
         {selected && (

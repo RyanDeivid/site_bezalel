@@ -2,6 +2,7 @@ import { ArrowRight, CircleOff, FlaskConical, ShieldCheck } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { usePreferences } from '@/app/preferences-context';
 import { ChartFrame } from '@/components/charts/ChartFrame';
+import { NextStep } from '@/components/layout/NextStep';
 import { PageHero, SectionHeader } from '@/components/layout/PageHero';
 import { Badge } from '@/components/ui/Badge';
 import { ButtonLink } from '@/components/ui/Button';
@@ -279,6 +280,7 @@ export default function InsightsPage() {
           </ButtonLink>
         </Reveal>
       </div>
+      <NextStep kind="insights" primaryTo={'/trail'} secondaryTo={'/explore'} className="pt-0" />
     </>
   );
 }

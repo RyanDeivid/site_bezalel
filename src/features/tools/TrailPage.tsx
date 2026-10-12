@@ -10,8 +10,9 @@ import { SaveButton } from '@/components/tools/SaveButton';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/toast-context';
 import { categoryGroups } from '@/data/catalog/taxonomy';
+import { LAST_TRAIL_KEY } from '@/domain/tools/keys';
 import { progressSummary, saveAll } from '@/domain/tools/shelf';
-import { buildTrail, LAST_TRAIL_KEY, summarize, TRAIL_GOALS, TRAIL_PACES, TRAIL_SIZE, trailCandidates, trailFromParams, trailQuery, type TrailAnswers, type TrailGoal, type TrailPace } from '@/domain/tools/trail';
+import { buildTrail, summarize, TRAIL_GOALS, TRAIL_PACES, TRAIL_SIZE, trailCandidates, trailFromParams, trailQuery, type TrailAnswers, type TrailGoal, type TrailPace } from '@/domain/tools/trail';
 import { useDocumentMeta } from '@/hooks/useDocumentMeta';
 import { useShelf } from '@/hooks/useShelf';
 import { cn } from '@/lib/cn';
@@ -42,11 +43,12 @@ function OptionButton({ selected, onClick, title, hint }: { selected: boolean; o
 }
 
 /** Uma pergunta por tela, avanço automático ao escolher (menos decisões de cada vez). */
-function TrailQuiz({ onDone, notice }: { onDone: (answers: TrailAnswers) => void; notice?: string }) {
+function TrailQuiz({ onDone, notice, initialGroup }: { onDone: (answers: TrailAnswers) => void; notice?: string; initialGroup?: CategoryGroupId }) {
   const { locale } = usePreferences();
   const t = toolsContent[locale].trail;
-  const [step, setStep] = useState(0);
-  const [group, setGroup] = useState<CategoryGroupId | 'any' | null>(null);
+  // Vindo de um curso ou do catálogo filtrado (`?tema=`), a pergunta do tema já está respondida.
+  const [step, setStep] = useState(initialGroup ? 1 : 0);
+  const [group, setGroup] = useState<CategoryGroupId | 'any' | null>(initialGroup ?? null);
   const [goal, setGoal] = useState<TrailGoal | null>(null);
   const [pace, setPace] = useState<TrailPace | null>(null);
   const [flags, setFlags] = useState({ freeOnly: false, certificate: false, portugueseOnly: false });
@@ -421,7 +423,7 @@ export default function TrailPage() {
       {shared ? (
         <TrailResult answers={shared.answers} slugs={shared.slugs} onRedo={() => setParams({})} />
       ) : (
-        <TrailQuiz onDone={build} notice={empty ? toolsContent[locale].result.few(0) : undefined} />
+        <TrailQuiz onDone={build} notice={empty ? toolsContent[locale].result.few(0) : undefined} initialGroup={categoryGroups.find((g) => g.id === params.get('tema'))?.id} />
       )}
     </>
   );

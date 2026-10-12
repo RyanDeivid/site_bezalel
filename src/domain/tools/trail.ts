@@ -168,9 +168,6 @@ export function summarize(courses: Course[], answers: Pick<TrailAnswers, 'group'
 
 // ---- Trilha no endereço (compartilhável) ---------------------------------------------
 
-/** Chave da última trilha vista (só no navegador): a home oferece "continue de onde parou". */
-export const LAST_TRAIL_KEY = 'bz-last-trail';
-
 const GROUPS: Array<CategoryGroupId | 'any'> = ['any', 'tech', 'health', 'learning', 'business', 'creative', 'production', 'public'];
 
 /**

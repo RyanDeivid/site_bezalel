@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { nextStepContent } from '@/components/layout/next-step-content';
 import { originContent } from '@/features/about/origem/content';
 import { continueText } from '@/features/home/continue-content';
 import { journeyContent } from '@/features/lab/journey-content';
@@ -56,6 +57,7 @@ const sources: Record<string, unknown> = {
   journeys: journeyContent,
   origem: originContent,
   continue: continueText,
+  nextStep: nextStepContent,
 };
 
 describe('guarda ética dos textos', () => {

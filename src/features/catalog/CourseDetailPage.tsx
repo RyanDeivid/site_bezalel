@@ -6,6 +6,8 @@ import { FieldValue, OriginBadge, PublicationBadge, VerificationBadge } from '@/
 import { Badge } from '@/components/ui/Badge';
 import { thumbPrimary, thumbSecondary } from '@/components/layout/thumb';
 import { ThumbBar } from '@/components/layout/ThumbBar';
+import { NextStep } from '@/components/layout/NextStep';
+import { categoryGroupOf, categoryGroups } from '@/data/catalog/taxonomy';
 import { SaveButton } from '@/components/tools/SaveButton';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import { ExternalLink, isSafeExternalUrl } from '@/components/ui/ExternalLink';
@@ -91,6 +93,8 @@ export default function CourseDetailPage() {
 
   const skillName = (id: string) => skillLabel(id, locale);
   const isDemo = course.origin === 'demo';
+  const theme = categoryGroupOf[course.category];
+  const themeName = categoryGroups.find((g) => g.id === theme)?.name[locale] ?? '';
   const outdated = course.verificationStatus === 'outdated' || course.publicationStatus === 'outdated';
 
   async function copyLink() {
@@ -334,6 +338,15 @@ export default function CourseDetailPage() {
           related.status === 'success' && <p className="mt-6 text-fg-muted">{c.noRelated}</p>
         )}
       </section>
+      {!isDemo && (
+        <NextStep
+          kind="course"
+          theme={themeName}
+          primaryTo={`/trail?tema=${theme}`}
+          secondaryTo={related.data?.length ? `/compare?c=${[course, ...related.data.slice(0, 2)].map((x) => x.slug).join(',')}` : undefined}
+          className="pt-0"
+        />
+      )}
     </article>
   );
 }
