@@ -221,3 +221,179 @@ export function makeGlowTexture(color: string) {
   texture.needsUpdate = true;
   return texture;
 }
+
+export interface LogContent {
+  title: string;
+  color: string;
+  lines: Array<{ time: string; text: string; tone: 'ok' | 'warn' | 'danger' | 'info' }>;
+  empty: string;
+  footer: string;
+}
+
+const TONE: Record<LogContent['lines'][number]['tone'], string> = { ok: '#5cc8a1', warn: '#e3b35a', danger: '#e57465', info: '#a9b1bd' };
+
+/** Monitor lateral: últimos eventos do agente, como um terminal. */
+export function drawLog(ctx: CanvasRenderingContext2D, w: number, h: number, c: LogContent) {
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = 'rgba(6,11,20,0.97)';
+  roundRect(ctx, 0, 0, w, h, 14);
+  ctx.fill();
+  ctx.strokeStyle = c.color;
+  ctx.globalAlpha = 0.55;
+  ctx.lineWidth = 3;
+  roundRect(ctx, 1.5, 1.5, w - 3, h - 3, 13);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = 'rgba(242,232,213,0.025)';
+  for (let y = 0; y < h; y += 4) ctx.fillRect(0, y, w, 1);
+  ctx.fillStyle = c.color;
+  ctx.font = `500 22px ${MONO}`;
+  ctx.fillText(c.title.toUpperCase(), 26, 44);
+  if (!c.lines.length) {
+    ctx.fillStyle = '#7d8899';
+    ctx.font = `400 22px ${FONT}`;
+    ctx.fillText(fitText(ctx, c.empty, w - 52), 26, 96);
+  }
+  let y = 92;
+  for (const line of c.lines.slice(0, 5)) {
+    ctx.fillStyle = TONE[line.tone];
+    ctx.beginPath();
+    ctx.arc(32, y - 7, 5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.font = `500 18px ${MONO}`;
+    ctx.fillStyle = '#7d8899';
+    ctx.fillText(line.time, 48, y);
+    ctx.font = `400 21px ${FONT}`;
+    ctx.fillStyle = '#d3d7dd';
+    ctx.fillText(fitText(ctx, line.text, w - 150), 138, y);
+    y += 40;
+  }
+  ctx.font = `500 15px ${MONO}`;
+  ctx.fillStyle = '#b49ae8';
+  ctx.fillText(c.footer.toUpperCase(), 26, h - 20);
+}
+
+export interface MetricContent {
+  label: string;
+  value: string;
+  detail: string;
+  color: string;
+  footer: string;
+}
+
+/** Monitor lateral: um número grande com rótulo (o indicador principal do agente). */
+export function drawMetric(ctx: CanvasRenderingContext2D, w: number, h: number, c: MetricContent) {
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = 'rgba(6,11,20,0.97)';
+  roundRect(ctx, 0, 0, w, h, 14);
+  ctx.fill();
+  ctx.strokeStyle = c.color;
+  ctx.globalAlpha = 0.55;
+  ctx.lineWidth = 3;
+  roundRect(ctx, 1.5, 1.5, w - 3, h - 3, 13);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = '#a9b1bd';
+  ctx.font = `500 22px ${MONO}`;
+  ctx.fillText(fitText(ctx, c.label.toUpperCase(), w - 52), 26, 46);
+  ctx.fillStyle = c.color;
+  ctx.font = `600 104px ${MONO}`;
+  ctx.fillText(fitText(ctx, c.value, w - 52), 24, 170);
+  ctx.fillStyle = '#c9ccd2';
+  ctx.font = `400 22px ${FONT}`;
+  ctx.fillText(fitText(ctx, c.detail, w - 52), 26, 214);
+  ctx.font = `500 15px ${MONO}`;
+  ctx.fillStyle = '#b49ae8';
+  ctx.fillText(c.footer.toUpperCase(), 26, h - 20);
+}
+
+/** Piso do campus: praça, anel de circulação, caminhos dos setores e da entrada. */
+export function drawCampusFloor(
+  ctx: CanvasRenderingContext2D,
+  size: number,
+  opts: { radius: number; plaza: number; ring: number; sectors: Array<{ angle: number; color: string }>; sectorRadius: number; sectorSize: number; entrance: number },
+) {
+  const c = size / 2;
+  const k = (size / 2) / opts.radius; // px por metro
+  ctx.fillStyle = '#16243b';
+  ctx.fillRect(0, 0, size, size);
+  const g = ctx.createRadialGradient(c, c, 0, c, c, c);
+  g.addColorStop(0, 'rgba(199,168,106,0.14)');
+  g.addColorStop(0.4, 'rgba(38,59,84,0.22)');
+  g.addColorStop(1, 'rgba(8,14,24,0.35)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, size, size);
+
+  // Grade de 2 m.
+  ctx.strokeStyle = 'rgba(242,232,213,0.06)';
+  ctx.lineWidth = 1;
+  const step = 2 * k;
+  for (let x = c % step; x < size; x += step) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, size);
+    ctx.stroke();
+  }
+  for (let y = c % step; y < size; y += step) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(size, y);
+    ctx.stroke();
+  }
+
+  const path = (angle: number, from: number, to: number, width: number, color: string) => {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width * k;
+    ctx.beginPath();
+    ctx.moveTo(c + Math.cos(angle) * from * k, c + Math.sin(angle) * from * k);
+    ctx.lineTo(c + Math.cos(angle) * to * k, c + Math.sin(angle) * to * k);
+    ctx.stroke();
+  };
+  ctx.lineCap = 'butt';
+  // Caminhos: entrada e setores (pedra mais clara), com filete na cor do agente.
+  path(opts.entrance, opts.plaza, opts.radius, 3.2, 'rgba(242,232,213,0.07)');
+  for (const s of opts.sectors) {
+    path(s.angle, opts.plaza, opts.sectorRadius - opts.sectorSize * 0.8, 2.4, 'rgba(242,232,213,0.07)');
+    path(s.angle, opts.plaza + 0.4, opts.sectorRadius - opts.sectorSize * 0.8, 0.12, s.color);
+  }
+  // Anel de circulação.
+  ctx.strokeStyle = 'rgba(242,232,213,0.08)';
+  ctx.lineWidth = 2.4 * k;
+  ctx.beginPath();
+  ctx.arc(c, c, opts.ring * k, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(199,168,106,0.35)';
+  ctx.lineWidth = 0.08 * k;
+  for (const r of [opts.ring - 1.2, opts.ring + 1.2]) {
+    ctx.beginPath();
+    ctx.arc(c, c, r * k, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  // Praça da Central.
+  const pg = ctx.createRadialGradient(c, c, 0, c, c, opts.plaza * k);
+  pg.addColorStop(0, 'rgba(234,217,178,0.2)');
+  pg.addColorStop(1, 'rgba(234,217,178,0.08)');
+  ctx.fillStyle = pg;
+  ctx.beginPath();
+  ctx.arc(c, c, opts.plaza * k, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(199,168,106,0.55)';
+  ctx.lineWidth = 0.1 * k;
+  ctx.stroke();
+  // Raios dourados sutis da praça.
+  ctx.strokeStyle = 'rgba(199,168,106,0.12)';
+  ctx.lineWidth = 1.2;
+  for (let i = 0; i < 24; i++) {
+    const a = (i / 24) * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(c + Math.cos(a) * 3.6 * k, c + Math.sin(a) * 3.6 * k);
+    ctx.lineTo(c + Math.cos(a) * opts.plaza * k, c + Math.sin(a) * opts.plaza * k);
+    ctx.stroke();
+  }
+  // Borda do campus.
+  ctx.strokeStyle = 'rgba(199,168,106,0.4)';
+  ctx.lineWidth = 0.12 * k;
+  ctx.beginPath();
+  ctx.arc(c, c, (opts.radius - 0.4) * k, 0, Math.PI * 2);
+  ctx.stroke();
+}

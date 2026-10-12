@@ -5,6 +5,7 @@ import { demoSources } from '@/data/demo/pipeline-fixtures';
 import { answerQuestion } from '@/domain/assistant/engine';
 import { searchCatalog } from '@/domain/catalog/search';
 import { computeInsights } from '@/domain/insights';
+import { assessFreshness } from '@/domain/pipeline';
 import { messages } from '@/i18n';
 import { formatDate } from '@/lib/format';
 import { resolved } from '@/lib/sync-promise';
@@ -41,6 +42,7 @@ export function createLocalServices(now: Date = new Date(), curatedCourses: Cour
         countResults: (q) => searchCatalog(curatedCourses, { q }, searchVocabulary()).total,
         topSkills: baseInsights.skills.slice(0, 6).map((s) => ({ skillId: s.skillId, label: skillLabel(s.skillId), count: s.courseCount })),
         skillLinks: published.reduce((n, c) => n + c.skills.length, 0),
+        freshness: assessFreshness(published, at),
       }),
   });
 

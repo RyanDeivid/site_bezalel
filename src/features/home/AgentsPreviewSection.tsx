@@ -10,19 +10,21 @@ import { demoAgents } from '@/data/demo/agents';
 import { cn } from '@/lib/cn';
 import type { AgentId } from '@/types/domain';
 
-/** Posições da constelação (pentágono ao redor do núcleo), em coordenadas do viewBox 400×400. */
+/** Posições da constelação (hexágono ao redor do núcleo), em coordenadas do viewBox 400×400. */
 const NODES: Record<AgentId, { x: number; y: number }> = {
   scout: { x: 200, y: 52 },
-  verifier: { x: 341, y: 154 },
-  atlas: { x: 287, y: 320 },
-  trend: { x: 113, y: 320 },
-  sol: { x: 59, y: 154 },
+  verifier: { x: 328, y: 126 },
+  vigia: { x: 328, y: 274 },
+  atlas: { x: 200, y: 348 },
+  trend: { x: 72, y: 274 },
+  sol: { x: 72, y: 126 },
 };
 
 /** Conexões do fluxo de dados entre agentes. */
 const LINKS: Array<[AgentId, AgentId]> = [
   ['scout', 'verifier'],
-  ['verifier', 'atlas'],
+  ['verifier', 'vigia'],
+  ['vigia', 'atlas'],
   ['atlas', 'trend'],
   ['trend', 'sol'],
   ['sol', 'scout'],

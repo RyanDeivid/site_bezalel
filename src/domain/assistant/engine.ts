@@ -230,7 +230,7 @@ export function answerQuestion(question: string, ctx: EngineContext): EngineRepl
   if (has(t, /\b(verifica\w*|verified|valida\w*|confiavel|confiaveis|trust\w*)\b/) && !findMentionedCourse(question, ctx.courses)) {
     return reply({ kind: 'help', rule: 'platform', paragraphs: s.platform.verification, suggestions: [{ label: s.suggestions.methodology, to: '/methodology' }] });
   }
-  if (has(t, /\b(agente\w*|agents?|scout|verifier|atlas|trend)\b/)) {
+  if (has(t, /\b(agente\w*|agents?|scout|verifier|vigia|atlas|trend)\b/)) {
     return reply({ kind: 'help', rule: 'platform', paragraphs: s.platform.agents, suggestions: [{ label: s.suggestions.agents, to: '/agents' }] });
   }
   if (has(t, /\b(laboratorio|lab|3d)\b/)) {

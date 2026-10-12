@@ -22,7 +22,8 @@ const BUDGET = {
   catalog: 120, // dados do catálogo curado (chunk próprio, pré-carregado em paralelo)
   // Sob demanda. three.js fica num chunk compartilhado pela Forja (home) e
   // pelo laboratório; cada um soma só o próprio código por cima dele.
-  lazy: { 'three.module': 200, scene: 30, LabScene: 100, InsightsPage: 130 },
+  three: 200,
+  lazy: { scene: 30, LabScene: 100, InsightsPage: 130 },
 };
 
 const gz = async (file: string) => gzipSync(await readFile(file)).length / KB;
@@ -43,12 +44,24 @@ async function main() {
     ['Dados do catálogo', (await Promise.all(catalogFiles.map((f) => gz(join(dist, 'assets', f))))).reduce((a, b) => a + b, 0), BUDGET.catalog],
   ];
   const assets = await readdir(join(dist, 'assets'));
+  const missing: string[] = [];
+  // O chunk compartilhado do three.js leva o nome de quem o Rollup juntar com
+  // ele (ex.: "robot-arm", usado pela Forja e pelo laboratório) — então é
+  // achado pelo conteúdo, não pelo nome.
+  let threeFile: string | undefined;
+  for (const f of assets.filter((x) => x.endsWith('.js'))) {
+    if ((await readFile(join(dist, 'assets', f), 'utf8')).includes('THREE.WebGLRenderer')) threeFile = f;
+  }
+  if (threeFile) results.push([`three.js (${threeFile.replace(/-[\w-]{8}\.js$/, '')})`, await gz(join(dist, 'assets', threeFile)), BUDGET.three]);
+  else missing.push('three.js');
   for (const [name, limit] of Object.entries(BUDGET.lazy)) {
     const file = assets.find((f) => f.startsWith(`${name}-`) && f.endsWith('.js'));
     if (file) results.push([`${name} (sob demanda)`, await gz(join(dist, 'assets', file)), limit]);
+    else missing.push(name);
   }
 
-  let failed = false;
+  let failed = missing.length > 0;
+  if (missing.length) console.error(`✗ Chunks orçados não encontrados: ${missing.join(', ')} (renomeados ou fundidos?)`);
   for (const [label, size, limit] of results) {
     const ok = size <= limit;
     failed ||= !ok;

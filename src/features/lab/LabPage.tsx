@@ -1,5 +1,6 @@
 import { Box, Check, CircleAlert, Gauge, Map as MapIcon, Pause, Play, Sparkles, TriangleAlert } from 'lucide-react';
 import { Component, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useSearchParams } from 'react-router';
 import { usePreferences } from '@/app/preferences-context';
 import { AgentPanel } from '@/components/agents/AgentPanel';
 import { AGENT_COLOR } from '@/components/agents/AgentGlyph';
@@ -9,7 +10,8 @@ import { Button, IconButton } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
 import { ProcessingIndicator } from '@/components/ui/StateView';
 import { useToast } from '@/components/ui/toast-context';
-import { skillName } from '@/data/catalog/store';
+import { curated, skillName } from '@/data/catalog/store';
+import { assessFreshness } from '@/domain/pipeline/freshness';
 import { useAsync } from '@/hooks/useAsync';
 import { detectWebGL, useDeviceProfile } from '@/hooks/useDeviceProfile';
 import { useDocumentMeta } from '@/hooks/useDocumentMeta';
@@ -24,7 +26,7 @@ import { Minimap } from './hud/Minimap';
 import { LabFloorPlan } from './LabFloorPlan';
 import { createLabRuntime, STATION_ORDER } from './layout';
 import { OpsCenter } from './OpsCenter';
-import { buildHub, buildScreens } from './screen-content';
+import { buildHub, buildScreens, buildSideScreens } from './screen-content';
 import { StationDetails } from './StationDetails';
 
 // three.js + R3F só são baixados quando o modo 3D é escolhido.
@@ -78,8 +80,11 @@ export default function LabPage() {
   const [near, setNear] = useState<AgentId | null>(null);
   const [open, setOpen] = useState<AgentId | 'hub' | null>(null);
   const [opsOpen, setOpsOpen] = useState(true);
+  // `?setor=vigia` (link do painel de cada agente): o visitante começa de frente para o setor.
+  const [params] = useSearchParams();
+  const startAt = STATION_ORDER.find((id) => id === params.get('setor')) ?? null;
   // Objeto mutável compartilhado com a cena e o HUD (muda a cada quadro, fora do estado do React).
-  const [runtime] = useState(createLabRuntime);
+  const [runtime] = useState(() => createLabRuntime(startAt));
   useDocumentMeta({ title: m.meta.lab.title, description: m.meta.lab.description, path: '/lab' });
 
   const feed = useEventFeed();
@@ -100,15 +105,29 @@ export default function LabPage() {
     () => (insights.data?.skills ?? []).slice(0, 6).map((s) => ({ label: skillName(s.skillId, locale), count: s.courseCount })),
     [insights.data, locale],
   );
+  // Prazos de reconferência calculados com as datas reais do catálogo verificado (agente Vigia).
+  // (recalculado uma vez por dia: o relógio do feed bate a cada segundo).
+  const today = Math.floor(feed.now.getTime() / 86_400_000);
+  const freshness = useMemo(() => assessFreshness(curated().filter((c) => c.publicationStatus === 'published'), new Date(today * 86_400_000)), [today]);
   const statuses = feed.agents;
   const screens = useMemo(
-    () => buildScreens({ events: feed.events, metrics: feed.metrics, statuses, topSkills, names, m }),
-    [feed.events, feed.metrics, statuses, topSkills, names, m],
+    () => buildScreens({ events: feed.events, metrics: feed.metrics, statuses, topSkills, names, freshness, m }),
+    [feed.events, feed.metrics, statuses, topSkills, names, freshness, m],
   );
+  const sideScreens = useMemo(
+    () => buildSideScreens({ events: feed.events, metrics: feed.metrics, topSkills, freshness, m, locale }),
+    [feed.events, feed.metrics, topSkills, freshness, m, locale],
+  );
+  const trendBars = useMemo(() => {
+    const max = topSkills[0]?.count ?? 1;
+    return topSkills.map((s) => s.count / max);
+  }, [topSkills]);
   const hub = useMemo(() => buildHub(feed.metrics, m), [feed.metrics, m]);
   const statusMap = useMemo(() => Object.fromEntries(STATION_ORDER.map((id) => [id, statuses[id].status])) as Record<AgentId, (typeof statuses)['scout']['status']>, [statuses]);
   const lastEvent = feed.events.at(-1);
-  const pulse = useMemo(() => (lastEvent ? { id: lastEvent.id, agent: lastEvent.agentId } : null), [lastEvent]);
+  const pulse = useMemo(() => (lastEvent ? { id: lastEvent.id, agentId: lastEvent.agentId, type: lastEvent.type, entityLabel: lastEvent.entityLabel } : null), [lastEvent]);
+  // Bloom só em aparelho forte, com qualidade alta e efeitos ligados.
+  const bloom = quality === 'high' && effects && device.tier === 'high' && !device.coarse;
 
   // Notificações discretas para publicações e falhas (simulação).
   const lastNotified = useRef<string | null>(null);
@@ -240,8 +259,11 @@ export default function LabPage() {
                 runtime={runtime}
                 quality={quality}
                 effects={effects}
+                bloom={bloom}
                 inputEnabled={!open}
                 screens={screens}
+                sideScreens={sideScreens}
+                trendBars={trendBars}
                 hub={hub}
                 statuses={statusMap}
                 names={names}
@@ -403,7 +425,7 @@ export default function LabPage() {
             taskCount={statuses[selected.id].taskCount}
             events={feed.events}
             now={feed.now}
-            station={<StationDetails agent={selected.id} events={feed.events} metrics={feed.metrics} sources={sources.data ?? []} topSkills={topSkills} />}
+            station={<StationDetails agent={selected.id} events={feed.events} metrics={feed.metrics} sources={sources.data ?? []} topSkills={topSkills} freshness={freshness} />}
           />
         )}
       </Dialog>

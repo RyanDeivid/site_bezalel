@@ -246,7 +246,7 @@ export const common: Widen<typeof base> = {
     },
     agents: {
       title: 'Agent ecosystem',
-      description: 'Meet Scout, Trend, Atlas, Sol and Verifier: roles, states, limitations and recent events (demonstration mode).',
+      description: 'Meet Scout, Verifier, Vigia, Atlas, Trend and Sol: roles, states, limitations and recent events (demonstration mode).',
     },
     lab: {
       title: '3D Lab',

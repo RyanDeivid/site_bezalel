@@ -119,7 +119,7 @@ export const home: Widen<typeof base> = {
     },
     agents: {
       eyebrow: 'Agent ecosystem',
-      title: 'Five agents, one auditable trail',
+      title: 'Six agents, one auditable trail',
       lead: 'Each agent has a clear role and declared limits. In this version, all of them run in demonstration mode, with events simulated locally.',
       cta: 'Meet the agents',
       demo: 'Demonstration mode',
@@ -127,7 +127,7 @@ export const home: Widen<typeof base> = {
     lab: {
       eyebrow: '3D Lab',
       title: 'Walk through the lab where the agents work',
-      lead: 'An explorable 3D environment with the Scout, Trend, Atlas, Verifier and Sol workstations, connected to an Operations Center that follows every event.',
+      lead: 'An explorable 3D environment with the Scout, Verifier, Vigia, Atlas, Trend and Sol sectors, connected to an Operations Center that follows every event.',
       features: ['Move with the keyboard (WASD/arrows), click or touch', 'Each agent’s panel and a live event feed', 'A complete 2D version for any device'],
       cta: 'Enter the lab',
     },

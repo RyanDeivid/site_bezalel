@@ -5,6 +5,7 @@ import { skillDefinitions } from '@/data/catalog/skills';
 import { categoryIds } from '@/data/catalog/taxonomy';
 import { demoAgents } from '@/data/demo/agents';
 import { demoSources } from '@/data/demo/pipeline-fixtures';
+import { AGENT_IDS } from '@/domain/operations';
 import { buildCourseJsonLd } from '@/features/catalog/json-ld';
 import { messages } from '@/i18n';
 import { buildDemoRegistry } from '@/services/catalog/demo-registry';
@@ -48,7 +49,8 @@ describe('dados de demonstração', () => {
   });
 
   it('todos os agentes estão em modo demonstração', () => {
-    expect(demoAgents).toHaveLength(5);
+    // Seis agentes (v2 · Fase 3: entra o Vigia), os mesmos que a Central de Operações acompanha.
+    expect(demoAgents.map((a) => a.id).sort()).toEqual([...AGENT_IDS].sort());
     expect(demoAgents.every((a) => a.mode === 'demo')).toBe(true);
     expect(demoAgents.every((a) => a.limitations.length > 0)).toBe(true);
   });

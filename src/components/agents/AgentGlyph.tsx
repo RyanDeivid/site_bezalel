@@ -8,6 +8,7 @@ export const AGENT_COLOR: Record<AgentId, string> = {
   atlas: 'var(--agent-atlas)',
   sol: 'var(--agent-sol)',
   verifier: 'var(--agent-verifier)',
+  vigia: 'var(--agent-vigia)',
 };
 
 /** Valores em hex para contextos sem CSS (canvas/WebGL). */
@@ -17,6 +18,7 @@ export const AGENT_HEX: Record<AgentId, string> = {
   atlas: '#7fa6f5',
   sol: '#ee9a73',
   verifier: '#5fc4a0',
+  vigia: '#b9d06a',
 };
 
 /**
@@ -77,6 +79,14 @@ export function AgentGlyph({
         <g {...common}>
           <path d="M12 2.8 L19.8 7.3 V16.7 L12 21.2 L4.2 16.7 V7.3 Z" />
           <path d="M8.3 12.2 L10.9 14.8 L15.9 9.6" />
+        </g>
+      )}
+      {agent === 'vigia' && (
+        // Olho de vigia com ponteiros de relógio: atenção ao tempo (o prazo de 180 dias).
+        <g {...common}>
+          <path d="M2.8 12 C6.2 6.2 17.8 6.2 21.2 12 C17.8 17.8 6.2 17.8 2.8 12 Z" opacity="0.45" />
+          <circle cx="12" cy="12" r="4.4" />
+          <path d="M12 9.6 V12 L13.8 13.2" />
         </g>
       )}
     </svg>

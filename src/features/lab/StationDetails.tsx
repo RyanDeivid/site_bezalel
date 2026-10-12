@@ -6,6 +6,8 @@ import { PublicationBadge } from '@/components/data/DataBadges';
 import { skillName } from '@/data/catalog/store';
 import { Badge } from '@/components/ui/Badge';
 import type { OpsMetrics } from '@/domain/operations';
+import type { FreshnessReport } from '@/domain/pipeline/freshness';
+import { formatDate } from '@/lib/format';
 import { cn } from '@/lib/cn';
 import type { AgentEvent, AgentId, Source } from '@/types/domain';
 
@@ -15,6 +17,8 @@ interface Props {
   metrics: OpsMetrics;
   sources: Source[];
   topSkills: Array<{ label: string; count: number }>;
+  /** Prazos de reconferência do catálogo verificado (datas reais). */
+  freshness: FreshnessReport;
 }
 
 function Block({ title, children }: { title: string; children: ReactNode }) {
@@ -27,7 +31,7 @@ function Block({ title, children }: { title: string; children: ReactNode }) {
 }
 
 /** Dados ao vivo da estação de cada agente (simulação), exibidos no painel lateral. */
-export function StationDetails({ agent, events, metrics, sources, topSkills }: Props) {
+export function StationDetails({ agent, events, metrics, sources, topSkills, freshness }: Props) {
   const { m, locale } = usePreferences();
   const st = m.lab.stations;
   const sc = m.lab.screen;
@@ -106,6 +110,62 @@ export function StationDetails({ agent, events, metrics, sources, topSkills }: P
           <p className="text-sm text-fg-subtle">{st.verifier.none}</p>
         )}
       </Block>
+    );
+  }
+
+  if (agent === 'vigia') {
+    const vg = st.vigia;
+    const returned = rev.filter((e) => e.type === 'record.outdated').slice(0, 4);
+    const next = [...freshness.overdue, ...freshness.dueSoon].slice(0, 5);
+    return (
+      <div className="space-y-4">
+        {/* Dado real: idade de cada conferência do catálogo verificado. */}
+        <section className="rounded-xl border border-ok/30 bg-ok-soft p-4">
+          <h3 className="font-mono text-[0.7rem] uppercase tracking-[0.16em] text-fg-subtle">{vg.catalog}</h3>
+          <dl className="mt-3 grid grid-cols-3 gap-2 text-center">
+            {(
+              [
+                [vg.overdue, freshness.overdue.length],
+                [vg.dueSoon(freshness.windowDays), freshness.dueSoon.length],
+                [vg.oldest, vg.days(freshness.oldestAge)],
+              ] as const
+            ).map(([l, v]) => (
+              <div key={l} className="rounded-lg border border-line bg-bg/50 p-2">
+                <dd className="font-mono text-lg">{v}</dd>
+                <dt className="text-[0.7rem] text-fg-subtle">{l}</dt>
+              </div>
+            ))}
+          </dl>
+          <p className="mt-4 font-mono text-[0.7rem] uppercase tracking-[0.16em] text-fg-subtle">{vg.queue}</p>
+          {next.length ? (
+            <ul className="mt-2 space-y-1.5 text-sm">
+              {next.map((item) => (
+                <li key={item.id} className="flex items-center justify-between gap-3">
+                  <span className="truncate text-fg-muted">{item.title}</span>
+                  <span className={cn('shrink-0 font-mono text-xs', item.daysLeft < 0 ? 'text-danger' : 'text-warn')}>{formatDate(item.checkedAt, locale)}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-2 text-sm text-fg-muted">{vg.queueEmpty(freshness.windowDays)}</p>
+          )}
+          <p className="mt-3 text-xs text-fg-muted">{vg.rule}</p>
+        </section>
+        <Block title={vg.returned}>
+          {returned.length ? (
+            <ul className="space-y-2">
+              {returned.map((e) => (
+                <li key={e.id} className="flex items-center justify-between gap-3 text-sm">
+                  <span className="truncate text-fg-muted">{e.entityLabel}</span>
+                  {e.recordStatus && <PublicationBadge status={e.recordStatus} />}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-fg-subtle">{sc.noData}</p>
+          )}
+        </Block>
+      </div>
     );
   }
 

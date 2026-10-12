@@ -2,13 +2,13 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import type { AgentId } from '@/types/domain';
-import { constrainToFloor, INTERACT_DISTANCE, LAB_RADIUS, nearestStation, STATIONS, type LabRuntime } from '../layout';
+import { constrainToFloor, INTERACT_DISTANCE, LAB_RADIUS, nearestStation, SECTOR_SIZE, STATIONS, type LabRuntime } from '../layout';
 
-const SPEED = 5.2;
+const SPEED = 6;
 const PITCH_MIN = 0.38;
 const PITCH_MAX = 1.25;
 const DIST_MIN = 5;
-const DIST_MAX = 24;
+const DIST_MAX = 34;
 
 const FORWARD = new Set(['w', 'arrowup']);
 const BACK = new Set(['s', 'arrowdown']);
@@ -199,10 +199,11 @@ export function Player({ runtime, inputEnabled, effects, onNearChange }: PlayerP
     const camX = focus.x + Math.sin(cs.yaw) * hd;
     const camZ = focus.z + Math.cos(cs.yaw) * hd;
     let camY = focus.y + Math.sin(cs.pitch) * cs.distance;
-    // Perto de uma estação, a câmera sobe para não atravessar a tela e o robô.
+    // Sobre um pavilhão, a câmera sobe para não atravessar os monitores e o robô.
+    const over = SECTOR_SIZE + 0.6;
     for (const s of STATIONS) {
       const d = Math.hypot(camX - s.x, camZ - s.z);
-      if (d < 3.4) camY = Math.max(camY, 4.6 + (3.4 - d) * 0.8);
+      if (d < over) camY = Math.max(camY, 4.8 + (over - d) * 0.5);
     }
     camera.position.set(camX, camY, camZ);
     camera.lookAt(focus);

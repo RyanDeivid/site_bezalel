@@ -124,6 +124,7 @@ export const intelligence: Widen<typeof base> = {
       'record.published': 'Published',
       'record.rejected': 'Rejected',
       'record.outdated': 'Outdated',
+      'freshness.checked': 'Re-check round',
       'trend.analyzed': 'Trend analysis',
       'graph.linked': 'Relationships mapped',
       'assistant.query': 'Assistant query',
@@ -147,7 +148,9 @@ export const intelligence: Widen<typeof base> = {
       'quality.scored': (label: string, meta: Meta) => `Quality score ${meta.score}/100: ${label}.`,
       'record.published': (label: string) => `Published to the demonstration catalog: ${label}.`,
       'record.rejected': (label: string) => `Rejected: ${label}.`,
-      'record.outdated': (label: string, meta: Meta) => `Re-check: “${label}” not confirmed for over ${meta.days} days — outdated.`,
+      'record.outdated': (label: string, meta: Meta) => `Re-check: “${label}” not confirmed for over ${meta.days} days — outdated and handed back to Verifier.`,
+      'freshness.checked': (_label: string, meta: Meta) =>
+        `Re-check round: ${meta.count} verified catalog records; ${meta.overdue} overdue and ${meta.due} reaching ${meta.days} days within the next ${meta.window}.`,
       'trend.analyzed': (label: string, meta: Meta) => `“${label}” appears in ${meta.count} verified catalog course(s) (course count, not demand).`,
       'graph.linked': (label: string, meta: Meta) =>
         label === 'skill-graph' ? `Skills map recomputed: ${meta.count} skill→course relationships.` : `${meta.count} skill(s) linked to ${label}.`,

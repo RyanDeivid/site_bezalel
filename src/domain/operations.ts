@@ -26,7 +26,7 @@ export const ACTIVE_WINDOW_MS = 9_000;
 /** Por quanto tempo uma falha mantém o agente no estado "com falha". */
 export const FAILURE_WINDOW_MS = 25_000;
 
-export const AGENT_IDS: AgentId[] = ['scout', 'verifier', 'atlas', 'trend', 'sol'];
+export const AGENT_IDS: AgentId[] = ['scout', 'verifier', 'vigia', 'atlas', 'trend', 'sol'];
 
 export function deriveAgentStatuses(events: AgentEvent[], now: Date): Record<AgentId, { status: AgentStatus; lastEvent?: AgentEvent; taskCount: number }> {
   const result = Object.fromEntries(AGENT_IDS.map((id) => [id, { status: 'idle' as AgentStatus, taskCount: 0 }])) as Record<

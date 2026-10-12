@@ -1,5 +1,6 @@
 export * from './contracts';
 export * from './dedupe';
+export * from './freshness';
 export * from './normalize';
 export * from './publication';
 export * from './quality';

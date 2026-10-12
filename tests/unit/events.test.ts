@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { curatedCourses } from '@/data/catalog/courses';
 import { searchCatalog } from '@/domain/catalog/search';
 import { ACTIVE_WINDOW_MS, deriveAgentStatuses, deriveOpsMetrics, FAILURE_WINDOW_MS } from '@/domain/operations';
+import { assessFreshness } from '@/domain/pipeline';
 import { searchVocabulary } from '@/services/catalog/vocabulary';
 import { DemoEventFeed } from '@/services/events/demo-feed';
 import { buildDemoScenario, type ScenarioDeps } from '@/services/events/scenario';
@@ -12,6 +13,7 @@ const deps: ScenarioDeps = {
   countResults: (q) => searchCatalog(curatedCourses, { q }, searchVocabulary()).total,
   topSkills: [{ skillId: 'python', label: 'Python', count: 8 }],
   skillLinks: 69,
+  freshness: assessFreshness(curatedCourses, NOW),
 };
 
 const ev = (patch: Partial<AgentEvent>): AgentEvent => ({
@@ -39,6 +41,16 @@ describe('roteiro de demonstração', () => {
     const q = buildDemoScenario(0, NOW, deps).events.find((e) => e.type === 'assistant.query');
     expect(q).toBeDefined();
     expect(q?.meta?.count).toBe(deps.countResults(String(q?.meta?.query)));
+  });
+
+  it('a ronda do Vigia traz os prazos reais do catálogo e o vencido fictício é dele', () => {
+    const events = buildDemoScenario(0, NOW, deps).events;
+    const round = events.find((e) => e.type === 'freshness.checked');
+    expect(round?.agentId).toBe('vigia');
+    expect(round?.meta).toMatchObject({ count: deps.freshness.total, overdue: deps.freshness.overdue.length, due: deps.freshness.dueSoon.length, days: 180 });
+    const outdated = events.find((e) => e.type === 'record.outdated');
+    expect(outdated).toMatchObject({ agentId: 'vigia', recordStatus: 'outdated' });
+    expect(outdated?.entityLabel).toMatch(/fictício/);
   });
 
   it('o Trend nunca apresenta contagem de cursos como demanda', () => {

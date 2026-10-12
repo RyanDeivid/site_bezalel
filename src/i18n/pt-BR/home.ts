@@ -117,7 +117,7 @@ export const home = {
     },
     agents: {
       eyebrow: 'Ecossistema de agentes',
-      title: 'Cinco agentes, uma trilha auditável',
+      title: 'Seis agentes, uma trilha auditável',
       lead: 'Cada agente tem uma função clara e limites declarados. Nesta versão, todos operam em modo demonstração, com eventos simulados localmente.',
       cta: 'Conhecer os agentes',
       demo: 'Modo demonstração',
@@ -125,7 +125,7 @@ export const home = {
     lab: {
       eyebrow: 'Laboratório 3D',
       title: 'Caminhe pelo laboratório onde os agentes trabalham',
-      lead: 'Um ambiente 3D explorável com as estações de Scout, Trend, Atlas, Verifier e Sol, conectadas a uma Central de Operações que acompanha cada evento.',
+      lead: 'Um ambiente 3D explorável com os setores de Scout, Verifier, Vigia, Atlas, Trend e Sol, conectadas a uma Central de Operações que acompanha cada evento.',
       features: ['Movimento por teclado (WASD/setas), clique ou toque', 'Painel de cada agente e feed de eventos ao vivo', 'Versão 2D completa para qualquer dispositivo'],
       cta: 'Entrar no laboratório',
     },

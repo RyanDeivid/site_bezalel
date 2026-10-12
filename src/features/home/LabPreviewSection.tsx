@@ -11,12 +11,14 @@ const pct = (v: number, total: number) => `${(v / total) * 100}%`;
 /** Projeção isométrica simples: (x, y) do plano → tela. */
 const iso = (x: number, y: number, z = 0) => ({ x: 300 + (x - y) * 0.866 * 26, y: 210 + (x + y) * 0.5 * 26 - z * 26 });
 
+/** Os seis setores em hexágono (mesma ordem do campus do laboratório). */
 const STATIONS: Array<{ id: AgentId; x: number; y: number }> = [
-  { id: 'scout', x: 0, y: -6 },
-  { id: 'verifier', x: 5.7, y: -1.9 },
-  { id: 'atlas', x: 3.5, y: 4.9 },
-  { id: 'trend', x: -3.5, y: 4.9 },
-  { id: 'sol', x: -5.7, y: -1.9 },
+  { id: 'scout', x: 0, y: -6.2 },
+  { id: 'verifier', x: 5.4, y: -3.1 },
+  { id: 'vigia', x: 5.4, y: 3.1 },
+  { id: 'atlas', x: 0, y: 6.2 },
+  { id: 'trend', x: -5.4, y: 3.1 },
+  { id: 'sol', x: -5.4, y: -3.1 },
 ];
 
 function Prism({ x, y, w, d, h, top, side, front }: { x: number; y: number; w: number; d: number; h: number; top: string; side: string; front: string }) {

@@ -121,6 +121,7 @@ export const intelligence = {
       'record.published': 'Publicado',
       'record.rejected': 'Rejeitado',
       'record.outdated': 'Desatualizado',
+      'freshness.checked': 'Ronda de reconferência',
       'trend.analyzed': 'Análise de tendência',
       'graph.linked': 'Relações mapeadas',
       'assistant.query': 'Consulta ao assistente',
@@ -144,7 +145,9 @@ export const intelligence = {
       'quality.scored': (label: string, meta: Meta) => `Nota de qualidade ${meta.score}/100: ${label}.`,
       'record.published': (label: string) => `Publicado no catálogo de demonstração: ${label}.`,
       'record.rejected': (label: string) => `Rejeitado: ${label}.`,
-      'record.outdated': (label: string, meta: Meta) => `Reconferência: “${label}” sem confirmação há mais de ${meta.days} dias — desatualizado.`,
+      'record.outdated': (label: string, meta: Meta) => `Reconferência: “${label}” sem confirmação há mais de ${meta.days} dias — desatualizado e devolvido ao Verifier.`,
+      'freshness.checked': (_label: string, meta: Meta) =>
+        `Ronda de reconferência: ${meta.count} registros do catálogo verificado; ${meta.overdue} vencido(s) e ${meta.due} chegando a ${meta.days} dias nos próximos ${meta.window}.`,
       'trend.analyzed': (label: string, meta: Meta) => `“${label}” aparece em ${meta.count} curso(s) do catálogo verificado (contagem de cursos, não demanda).`,
       'graph.linked': (label: string, meta: Meta) =>
         label === 'skill-graph' ? `Mapa de competências recalculado: ${meta.count} relações competência→curso.` : `${meta.count} competência(s) relacionada(s) a ${label}.`,

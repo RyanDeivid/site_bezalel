@@ -74,7 +74,7 @@ export function AgentPanel({ agent, status, lastEvent, taskCount, events, now, s
         <EventFeed events={own} limit={6} compact className="mt-2" emptyText={a.noEvents} />
       </section>
       {showLabLink && (
-        <ButtonLink to="/lab" variant="secondary" iconLeft={<Box className="size-4" />}>
+        <ButtonLink to={`/lab?setor=${agent.id}`} variant="secondary" iconLeft={<Box className="size-4" />}>
           {a.openInLab}
         </ButtonLink>
       )}

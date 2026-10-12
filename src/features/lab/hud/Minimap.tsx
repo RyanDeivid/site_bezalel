@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useT } from '@/app/preferences-context';
 import { AGENT_HEX } from '@/components/agents/AgentGlyph';
-import { HUB_RADIUS, LAB_RADIUS, STATIONS, type LabRuntime } from '../layout';
+import { ENTRANCE_ANGLE, LAB_RADIUS, PLAZA_RADIUS, RING_RADIUS, SECTOR_SIZE, STATIONS, type LabRuntime } from '../layout';
 
 const SIZE = 148;
 
@@ -30,15 +30,37 @@ export function Minimap({ runtime }: { runtime: LabRuntime }) {
       ctx.strokeStyle = 'rgba(199,168,106,0.6)';
       ctx.lineWidth = 1;
       ctx.stroke();
+      // Anel de circulação, entrada e praça da Central.
+      ctx.strokeStyle = 'rgba(242,232,213,0.16)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(c, c, RING_RADIUS * scale, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(c + Math.cos(ENTRANCE_ANGLE) * PLAZA_RADIUS * scale, c + Math.sin(ENTRANCE_ANGLE) * PLAZA_RADIUS * scale);
+      ctx.lineTo(c + Math.cos(ENTRANCE_ANGLE) * LAB_RADIUS * scale, c + Math.sin(ENTRANCE_ANGLE) * LAB_RADIUS * scale);
+      ctx.stroke();
       ctx.fillStyle = 'rgba(199,168,106,0.35)';
       ctx.beginPath();
-      ctx.arc(c, c, HUB_RADIUS * scale, 0, Math.PI * 2);
+      ctx.arc(c, c, PLAZA_RADIUS * scale * 0.6, 0, Math.PI * 2);
       ctx.fill();
+      // Setores: hexágonos na cor do agente (cheios quando o visitante está neles).
       for (const s of STATIONS) {
+        const on = runtime.near === s.id;
+        ctx.strokeStyle = AGENT_HEX[s.id];
         ctx.fillStyle = AGENT_HEX[s.id];
-        ctx.globalAlpha = runtime.near === s.id ? 1 : 0.75;
+        ctx.globalAlpha = on ? 0.9 : 0.6;
         ctx.beginPath();
-        ctx.arc(c + s.x * scale, c + s.z * scale, runtime.near === s.id ? 6 : 4.5, 0, Math.PI * 2);
+        for (let k = 0; k <= 6; k++) {
+          const a = s.angle + Math.PI / 6 + (k / 6) * Math.PI * 2;
+          const x = c + s.x * scale + Math.cos(a) * SECTOR_SIZE * scale;
+          const y = c + s.z * scale + Math.sin(a) * SECTOR_SIZE * scale;
+          if (k === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.lineWidth = 1.2;
+        ctx.stroke();
+        ctx.globalAlpha = on ? 0.45 : 0.16;
         ctx.fill();
       }
       ctx.globalAlpha = 1;

@@ -3,7 +3,7 @@ import { AGENT_COLOR, AGENT_HEX, AgentGlyph } from '@/components/agents/AgentGly
 import { BezalelMark } from '@/components/brand/BezalelMark';
 import { cn } from '@/lib/cn';
 import type { Agent, AgentId, AgentStatus } from '@/types/domain';
-import { HUB_RADIUS, LAB_RADIUS, STATION_LINKS, STATIONS, stationById } from './layout';
+import { HUB_RADIUS, STATION_LINKS, STATIONS, stationById } from './layout';
 import { useAnimationGate } from '@/hooks/useAnimationGate';
 
 interface Props {
@@ -13,7 +13,8 @@ interface Props {
   onSelect: (id: AgentId) => void;
 }
 
-const VIEW = 40; // metros visíveis (diâmetro + margem)
+/** Planta esquemática (não em escala): unidades do viewBox, com o campus de raio ~19. */
+const VIEW = 40;
 /** Raio (fração da largura) em que os cartões das estações ficam: espaçado o bastante para não se sobreporem no celular. */
 const CARD_RADIUS = 0.36;
 const planPos = (angle: number) => ({ x: Math.cos(angle) * CARD_RADIUS * VIEW, z: Math.sin(angle) * CARD_RADIUS * VIEW });
@@ -30,7 +31,7 @@ export function LabFloorPlan({ agents, statuses, pulseAgent, onSelect }: Props) 
   return (
     <div ref={gate} className="relative mx-auto aspect-square w-full max-w-[620px]">
       <svg viewBox={`${-VIEW / 2} ${-VIEW / 2} ${VIEW} ${VIEW}`} className="absolute inset-0 size-full" aria-hidden>
-        <circle r={LAB_RADIUS + 0.6} fill="var(--surface)" stroke="var(--accent)" strokeOpacity="0.5" strokeWidth="0.12" />
+        <circle r={VIEW / 2 - 0.8} fill="var(--surface)" stroke="var(--accent)" strokeOpacity="0.5" strokeWidth="0.12" />
         {[4, 8, 12].map((r) => (
           <circle key={r} r={r} fill="none" stroke="var(--fg)" strokeOpacity="0.06" strokeWidth="0.08" />
         ))}

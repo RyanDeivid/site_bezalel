@@ -61,6 +61,31 @@ export const demoAgents: Agent[] = [
     ],
   },
   {
+    id: 'vigia',
+    name: 'Vigia',
+    role: { 'pt-BR': 'Reconferência periódica', en: 'Periodic re-checking' },
+    description: {
+      'pt-BR':
+        'Acompanha a idade de cada conferência: avisa quando um registro se aproxima de 180 dias sem confirmação na fonte, marca como desatualizado quando o prazo passa e o devolve ao Verifier para nova validação.',
+      en: 'Tracks the age of every check: warns when a record nears 180 days without confirmation at the source, marks it outdated once the deadline passes and hands it back to Verifier for revalidation.',
+    },
+    status: 'idle',
+    mode: 'demo',
+    taskTypes: [
+      { 'pt-BR': 'Calcular a idade de cada conferência', en: 'Compute the age of every check' },
+      { 'pt-BR': 'Montar a fila dos próximos 30 dias', en: 'Build the next-30-days queue' },
+      { 'pt-BR': 'Marcar desatualizados e devolver à validação', en: 'Mark outdated records and send them back to validation' },
+    ],
+    dataSources: [
+      { 'pt-BR': 'Datas de conferência do catálogo curado (dado real)', en: 'Check dates of the curated catalog (real data)' },
+      { 'pt-BR': 'Registros fictícios do pipeline (demonstração)', en: 'Fictional pipeline records (demonstration)' },
+    ],
+    limitations: [
+      { 'pt-BR': 'Não abre a página da fonte: só calcula prazos a partir das datas registradas.', en: 'Does not open the source page: it only computes deadlines from the recorded dates.' },
+      { 'pt-BR': 'A reconferência em si continua manual nesta versão.', en: 'The re-check itself is still manual in this version.' },
+    ],
+  },
+  {
     id: 'atlas',
     name: 'Atlas',
     role: { 'pt-BR': 'Mapa de competências', en: 'Skills map' },

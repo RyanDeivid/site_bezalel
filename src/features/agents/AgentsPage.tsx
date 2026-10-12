@@ -25,12 +25,13 @@ function AgentFlow() {
   const { m } = usePreferences();
   const gate = useAnimationGate<HTMLDivElement>();
   const nodes: Array<{ id: AgentId | 'catalog'; x: number; y: number }> = [
-    { id: 'scout', x: 90, y: 90 },
-    { id: 'verifier', x: 300, y: 90 },
-    { id: 'catalog', x: 510, y: 90 },
-    { id: 'atlas', x: 300, y: 230 },
-    { id: 'trend', x: 510, y: 230 },
-    { id: 'sol', x: 720, y: 160 },
+    { id: 'scout', x: 90, y: 160 },
+    { id: 'verifier', x: 300, y: 160 },
+    { id: 'catalog', x: 510, y: 160 },
+    { id: 'vigia', x: 405, y: 52 },
+    { id: 'atlas', x: 300, y: 300 },
+    { id: 'trend', x: 510, y: 300 },
+    { id: 'sol', x: 720, y: 230 },
   ];
   const pos = Object.fromEntries(nodes.map((n) => [n.id, n])) as Record<string, { x: number; y: number }>;
   const edges: Array<[string, string]> = [
@@ -41,10 +42,13 @@ function AgentFlow() {
     ['catalog', 'trend'],
     ['catalog', 'sol'],
     ['trend', 'sol'],
+    // Reconferência: o Vigia acompanha o catálogo e devolve vencidos ao Verifier.
+    ['catalog', 'vigia'],
+    ['vigia', 'verifier'],
   ];
   return (
     <div ref={gate} className="overflow-x-auto rounded-2xl border border-line bg-bg-deep p-4">
-      <svg viewBox="0 0 810 320" className="min-w-[640px]" role="img" aria-label={m.agentsPage.flowLead}>
+      <svg viewBox="0 0 810 390" className="min-w-[640px]" role="img" aria-label={m.agentsPage.flowLead}>
         {edges.map(([a, b], i) => {
           const p = pos[a]!;
           const q = pos[b]!;

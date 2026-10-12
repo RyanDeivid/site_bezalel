@@ -160,7 +160,7 @@ export interface Course {
 // Agentes e eventos
 // ---------------------------------------------------------------------------
 
-export type AgentId = 'scout' | 'trend' | 'atlas' | 'sol' | 'verifier';
+export type AgentId = 'scout' | 'trend' | 'atlas' | 'sol' | 'verifier' | 'vigia';
 
 /** Estado operacional de um agente. */
 export type AgentStatus = 'active' | 'idle' | 'failed' | 'offline';
@@ -192,6 +192,7 @@ export type AgentEventType =
   | 'record.published'
   | 'record.rejected'
   | 'record.outdated'
+  | 'freshness.checked'
   | 'trend.analyzed'
   | 'graph.linked'
   | 'assistant.query'

@@ -247,7 +247,7 @@ export const common = {
     },
     agents: {
       title: 'Ecossistema de agentes',
-      description: 'Conheça Scout, Trend, Atlas, Sol e Verifier: funções, estados, limitações e eventos recentes (modo demonstração).',
+      description: 'Conheça Scout, Verifier, Vigia, Atlas, Trend e Sol: funções, estados, limitações e eventos recentes (modo demonstração).',
     },
     lab: {
       title: 'Laboratório 3D',

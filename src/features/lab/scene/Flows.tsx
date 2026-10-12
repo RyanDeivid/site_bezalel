@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import type { AgentId } from '@/types/domain';
 import { AGENT_HEX } from '@/components/agents/AgentGlyph';
-import { STATION_LINKS, STATIONS, stationById } from '../layout';
+import { dockOf, SECTOR_SPOTS, sectorPoint, STATION_LINKS, STATIONS, type LabPulse } from '../layout';
 
 interface FlowDef {
   key: string;
@@ -18,20 +18,24 @@ const MAX_PULSES = 10;
  * pipeline. Partículas discretas circulam continuamente; cada evento novo
  * dispara um pulso brilhante no arco do agente que o produziu.
  */
-export function Flows({ effects, quality, pulse }: { effects: boolean; quality: 'high' | 'low'; pulse: { id: string; agent: AgentId } | null }) {
+export function Flows({ effects, quality, pulse }: { effects: boolean; quality: 'high' | 'low'; pulse: LabPulse | null }) {
   const flows = useMemo<FlowDef[]>(() => {
+    // Do topo do console de cada setor até o núcleo da Central, em arco alto.
     const toHub = STATIONS.map((s) => {
-      const start = new THREE.Vector3(s.x * 0.86, 1.1, s.z * 0.86);
-      const end = new THREE.Vector3(0, 1.4, 0);
-      const mid = start.clone().lerp(end, 0.5).setY(4.6);
+      const p = sectorPoint(s, SECTOR_SPOTS.console);
+      const start = new THREE.Vector3(p.x, 1.4, p.z);
+      const end = new THREE.Vector3(0, 2.6, 0);
+      const mid = start.clone().lerp(end, 0.5).setY(7.5);
       return { key: `${s.id}-hub`, agent: s.id, curve: new THREE.QuadraticBezierCurve3(start, mid, end) };
     });
+    // Entre setores vizinhos do pipeline: arcos baixos por cima do anel de circulação.
     const links = STATION_LINKS.map(([a, b]) => {
-      const sa = stationById(a);
-      const sb = stationById(b);
-      const start = new THREE.Vector3(sa.x * 0.9, 0.2, sa.z * 0.9);
-      const end = new THREE.Vector3(sb.x * 0.9, 0.2, sb.z * 0.9);
-      const mid = start.clone().lerp(end, 0.5).multiplyScalar(1.12).setY(1.6);
+      const da = dockOf(a);
+      const db = dockOf(b);
+      const start = new THREE.Vector3(da.x, 0.3, da.z);
+      const end = new THREE.Vector3(db.x, 0.3, db.z);
+      const mid = start.clone().lerp(end, 0.5);
+      mid.setLength(Math.max(mid.length(), 4) * 1.18).setY(2.4);
       return { key: `${a}-${b}`, agent: a, curve: new THREE.QuadraticBezierCurve3(start, mid, end) };
     });
     return [...toHub, ...links];
@@ -70,7 +74,7 @@ export function Flows({ effects, quality, pulse }: { effects: boolean; quality: 
   // Novo evento → pulso no arco do agente até a Central.
   useEffect(() => {
     if (!pulse) return;
-    const idx = flows.findIndex((f) => f.key === `${pulse.agent}-hub`);
+    const idx = flows.findIndex((f) => f.key === `${pulse.agentId}-hub`);
     if (idx < 0) return;
     pulses.current = [...pulses.current.slice(-(MAX_PULSES - 1)), { flow: idx, t: 0 }];
   }, [pulse, flows]);

@@ -42,6 +42,7 @@
   --color-atlas: var(--agent-atlas);
   --color-sol: var(--agent-sol);
   --color-verifier: var(--agent-verifier);
+  --color-vigia: var(--agent-vigia);
 
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
