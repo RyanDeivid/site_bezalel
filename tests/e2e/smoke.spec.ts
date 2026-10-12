@@ -133,6 +133,8 @@ test('laboratório 2D é utilizável', async ({ page }) => {
 
 test('laboratório 3D carrega a cena e a Central de Operações', async ({ page, isMobile }) => {
   test.skip(isMobile, 'O fluxo 3D com teclado é coberto no desktop.');
+  // Sem placa de vídeo (CI) o campus é desenhado por software: quadros lentos.
+  test.setTimeout(90_000);
   const errors = trackErrors(page);
   await gotoReady(page, 'lab/');
   const enter = page.getByRole('button', { name: 'Entrar no laboratório 3D' });
@@ -161,6 +163,7 @@ test('laboratório 2D: o Vigia mostra os prazos reais de reconferência', async 
 
 test('laboratório 3D: ?setor=vigia começa de frente para o setor do Vigia', async ({ page, isMobile }) => {
   test.skip(isMobile, 'Coberto no desktop.');
+  test.setTimeout(90_000);
   const errors = trackErrors(page);
   await gotoReady(page, 'lab/?setor=vigia');
   const enter = page.getByRole('button', { name: 'Entrar no laboratório 3D' });
@@ -213,21 +216,30 @@ test('seguir um curso: da página do curso ao laboratório, com os dados reais e
 
 test('laboratório 3D: o guia leva o visitante até o setor (efeitos pausados = corte direto)', async ({ page, isMobile }) => {
   test.skip(isMobile, 'Coberto no desktop.');
+  // No CI não há placa de vídeo: o WebGL roda em software e cada quadro do campus demora.
+  test.setTimeout(90_000);
   const errors = trackErrors(page);
   await gotoReady(page, 'lab/');
   const enter = page.getByRole('button', { name: 'Entrar no laboratório 3D' });
   test.skip(await enter.isDisabled(), 'WebGL indisponível neste navegador de teste.');
   await enter.click();
   await expect(page.locator('section canvas:not([role])')).toBeVisible({ timeout: 20_000 });
+  // Teclado em vez de clique: o clique espera a página pintar um quadro, e com
+  // WebGL por software isso pode estourar o tempo (como no teste 3D acima).
+  const press = async (name: string) => {
+    await page.getByRole('button', { name, exact: true }).focus();
+    await page.keyboard.press('Enter');
+  };
   // Sem animação o guia (e o visitante atrás dele) chega na hora.
-  await page.getByRole('button', { name: 'Pausar efeitos' }).click();
-  await page.getByRole('button', { name: 'Tour guiado' }).click();
-  await page.keyboard.press('ArrowRight');
+  await press('Pausar efeitos');
+  await press('Tour guiado');
   const tour = page.getByRole('region', { name: 'Tour guiado pelo campus' });
-  await expect(tour.getByRole('heading', { name: 'Scout descobre' })).toBeVisible();
-  await expect(tour.getByText('A caminho…')).toHaveCount(0, { timeout: 10_000 });
+  await expect(tour.getByRole('heading', { name: 'A Central de Operações' })).toBeVisible({ timeout: 20_000 });
+  await page.keyboard.press('ArrowRight');
+  await expect(tour.getByRole('heading', { name: 'Scout descobre' })).toBeVisible({ timeout: 20_000 });
+  await expect(tour.getByText('A caminho…')).toHaveCount(0, { timeout: 30_000 });
   await page.keyboard.press('e');
-  await expect(page.getByRole('heading', { name: 'Estação Scout' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Estação Scout' })).toBeVisible({ timeout: 20_000 });
   expect(errors.filter((e) => !/GPU|WebGL|GL_/.test(e))).toEqual([]);
 });
 
