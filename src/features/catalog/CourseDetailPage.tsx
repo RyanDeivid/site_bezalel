@@ -4,6 +4,8 @@ import { Link, useParams } from 'react-router';
 import { usePreferences } from '@/app/preferences-context';
 import { FieldValue, OriginBadge, PublicationBadge, VerificationBadge } from '@/components/data/DataBadges';
 import { Badge } from '@/components/ui/Badge';
+import { thumbPrimary, thumbSecondary } from '@/components/layout/thumb';
+import { ThumbBar } from '@/components/layout/ThumbBar';
 import { SaveButton } from '@/components/tools/SaveButton';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import { ExternalLink, isSafeExternalUrl } from '@/components/ui/ExternalLink';
@@ -131,7 +133,7 @@ export default function CourseDetailPage() {
             {course.provider.name}
             {course.contentAuthor && <span className="text-fg-subtle">· {course.contentAuthor}</span>}
           </p>
-          <div className="mt-8 flex flex-wrap gap-3">
+          <div id="acoes-do-curso" className="mt-8 flex flex-wrap gap-3">
             {isSafeExternalUrl(course.sourceUrl) && !isDemo && (
               <a href={course.sourceUrl} target="_blank" rel="noopener noreferrer" className="group inline-flex h-12 items-center gap-2 rounded-xl bg-accent px-6 font-medium text-accent-fg shadow-[0_10px_30px_-12px_var(--accent)] transition-colors hover:bg-accent-strong">
                 {c.goToSource}
@@ -155,6 +157,23 @@ export default function CourseDetailPage() {
           </div>
         </div>
       </header>
+
+      {/* Celular: as ações principais voltam ao alcance do polegar depois que o topo sai da tela. */}
+      {!isDemo && (
+        <ThumbBar watchId="acoes-do-curso" label={c.actions}>
+          {isSafeExternalUrl(course.sourceUrl) && (
+            <a href={course.sourceUrl} target="_blank" rel="noopener noreferrer" className={thumbPrimary}>
+              {c.goToSource}
+              <ArrowUpRight aria-hidden className="size-4" />
+              <span className="sr-only"> {m.common.opensInNewTab}</span>
+            </a>
+          )}
+          <SaveButton course={course} thumb />
+          <Link to={`/assistant?q=${encodeURIComponent(course.title)}`} aria-label={c.askSol} className={thumbSecondary}>
+            <MessageCircle aria-hidden className="size-4 text-accent-text" />
+          </Link>
+        </ThumbBar>
+      )}
 
       <div className="container-page grid grid-cols-1 gap-10 py-12 lg:grid-cols-12">
         <div className="space-y-10 lg:col-span-7">

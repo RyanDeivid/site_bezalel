@@ -1,5 +1,6 @@
 import { Bookmark, BookmarkCheck } from 'lucide-react';
 import { useT } from '@/app/preferences-context';
+import { thumbSecondary } from '@/components/layout/thumb';
 import { IconButton } from '@/components/ui/Button';
 import { isSaved, toggleSaved } from '@/domain/tools/shelf';
 import { useShelf } from '@/hooks/useShelf';
@@ -14,11 +15,14 @@ export function SaveButton({
   course,
   size = 'sm',
   withLabel = false,
+  thumb = false,
   className,
 }: {
   course: Pick<Course, 'id' | 'title' | 'origin'>;
   size?: 'sm' | 'md';
   withLabel?: boolean;
+  /** Formato da barra do polegar (celular). */
+  thumb?: boolean;
   className?: string;
 }) {
   const m = useT();
@@ -28,6 +32,13 @@ export function SaveButton({
   const Icon = saved ? BookmarkCheck : Bookmark;
   const label = saved ? m.shelf.unsave(course.title) : m.shelf.save(course.title);
   const toggle = () => update((s) => toggleSaved(s, course.id));
+  if (thumb) {
+    return (
+      <button type="button" aria-pressed={saved} aria-label={label} onClick={toggle} className={cn(thumbSecondary, saved && 'text-accent-text', className)}>
+        <Icon aria-hidden className="size-4" />
+      </button>
+    );
+  }
   if (withLabel) {
     return (
       <button

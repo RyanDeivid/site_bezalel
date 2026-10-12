@@ -59,10 +59,11 @@ const inPortuguese = (c: Course) => c.languages.some((l) => l.startsWith('pt'));
 
 const LEVEL_ORDER: Record<Level, number> = { beginner: 0, 'all-levels': 1, unknown: 1, intermediate: 2, advanced: 3 };
 
-/** Cursos que atendem às restrições (tema e preferências marcadas). */
-export function trailCandidates(answers: TrailAnswers, catalog: readonly Course[], groupOf: (c: CategoryId) => CategoryGroupId): Course[] {
+/** Cursos que atendem às restrições (tema e preferências marcadas), fora os de `exclude` (ids). */
+export function trailCandidates(answers: TrailAnswers, catalog: readonly Course[], groupOf: (c: CategoryId) => CategoryGroupId, exclude?: ReadonlySet<string>): Course[] {
   return catalog.filter(
     (c) =>
+      !exclude?.has(c.id) &&
       c.origin === 'curated' &&
       c.publicationStatus === 'published' &&
       (answers.group === 'any' || groupOf(c.category) === answers.group) &&
@@ -94,8 +95,14 @@ function baseScore(c: Course, goal: TrailGoal): number {
  * que ele traz (competências ainda não cobertas; área nova, se o objetivo é
  * explorar) e uma leve penalidade por repetir a instituição.
  */
-export function buildTrail(answers: TrailAnswers, catalog: readonly Course[], groupOf: (c: CategoryId) => CategoryGroupId, size = TRAIL_SIZE): Trail {
-  const candidates = trailCandidates(answers, catalog, groupOf);
+export function buildTrail(
+  answers: TrailAnswers,
+  catalog: readonly Course[],
+  groupOf: (c: CategoryId) => CategoryGroupId,
+  size = TRAIL_SIZE,
+  exclude?: ReadonlySet<string>,
+): Trail {
+  const candidates = trailCandidates(answers, catalog, groupOf, exclude);
   const pool = [...candidates].sort((a, b) => a.title.localeCompare(b.title));
   const picked: Course[] = [];
   const skills = new Set<string>();
@@ -160,6 +167,9 @@ export function summarize(courses: Course[], answers: Pick<TrailAnswers, 'group'
 }
 
 // ---- Trilha no endereço (compartilhável) ---------------------------------------------
+
+/** Chave da última trilha vista (só no navegador): a home oferece "continue de onde parou". */
+export const LAST_TRAIL_KEY = 'bz-last-trail';
 
 const GROUPS: Array<CategoryGroupId | 'any'> = ['any', 'tech', 'health', 'learning', 'business', 'creative', 'production', 'public'];
 

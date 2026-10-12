@@ -1,18 +1,21 @@
 import { ArrowLeft, ArrowRight, Award, BookmarkPlus, Building, Clock, Link2, RotateCcw, Sparkles } from 'lucide-react';
+import { BezalelMark } from '@/components/brand/BezalelMark';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { usePreferences } from '@/app/preferences-context';
 import { PageHero } from '@/components/layout/PageHero';
+import { thumbPrimary, thumbSecondary } from '@/components/layout/thumb';
+import { ThumbBar } from '@/components/layout/ThumbBar';
 import { SaveButton } from '@/components/tools/SaveButton';
 import { Button } from '@/components/ui/Button';
 import { useToast } from '@/components/ui/toast-context';
 import { categoryGroups } from '@/data/catalog/taxonomy';
 import { progressSummary, saveAll } from '@/domain/tools/shelf';
-import { buildTrail, summarize, TRAIL_GOALS, TRAIL_PACES, TRAIL_SIZE, trailFromParams, trailQuery, type TrailAnswers, type TrailGoal, type TrailPace } from '@/domain/tools/trail';
+import { buildTrail, LAST_TRAIL_KEY, summarize, TRAIL_GOALS, TRAIL_PACES, TRAIL_SIZE, trailCandidates, trailFromParams, trailQuery, type TrailAnswers, type TrailGoal, type TrailPace } from '@/domain/tools/trail';
 import { useDocumentMeta } from '@/hooks/useDocumentMeta';
 import { useShelf } from '@/hooks/useShelf';
 import { cn } from '@/lib/cn';
-import { readStorage } from '@/lib/storage';
+import { readStorage, writeStorage } from '@/lib/storage';
 import type { CategoryGroupId } from '@/types/domain';
 import { coursePath, priceLabel } from '../catalog/present';
 import { toolsContent } from './content';
@@ -70,6 +73,12 @@ function TrailQuiz({ onDone, notice }: { onDone: (answers: TrailAnswers) => void
 
   const next = () => setStep((s) => Math.min(QUESTIONS - 1, s + 1));
   const titles = [t.q1, t.q2, t.q3, t.q4];
+  // Números reais do catálogo em cada escolha: quantos cursos cada tema tem e
+  // quantos sobram com as preferências marcadas (nada de beco sem saída).
+  const catalog = useMemo(() => publishedCourses(), []);
+  const none = { freeOnly: false, certificate: false, portugueseOnly: false };
+  const countFor = (g: CategoryGroupId | 'any', f = none) => trailCandidates({ group: g, goal: 'start', pace: 5, ...f }, catalog, groupOf).length;
+  const remaining = countFor(group ?? forja[0] ?? 'any', flags);
 
   return (
     <section aria-labelledby="trail-question" className="container-page max-w-4xl py-12">
@@ -103,7 +112,7 @@ function TrailQuiz({ onDone, notice }: { onDone: (answers: TrailAnswers) => void
                     next();
                   }}
                   title={g.name[locale]}
-                  hint={g.tagline[locale]}
+                  hint={`${g.tagline[locale]} · ${t.count(countFor(g.id))}`}
                 />
               </li>
             ))}
@@ -175,6 +184,9 @@ function TrailQuiz({ onDone, notice }: { onDone: (answers: TrailAnswers) => void
               </label>
             ))}
           </div>
+          <p aria-live="polite" className={cn('mt-5 text-sm', remaining ? 'text-fg-muted' : 'text-warn')}>
+            {t.live(remaining)}
+          </p>
           {notice && (
             <p role="alert" className="mt-6 text-sm text-warn">
               {notice}
@@ -206,10 +218,26 @@ function TrailResult({ answers, slugs, onRedo }: { answers: TrailAnswers; slugs:
   }, [slugs]);
   const trail = useMemo(() => summarize(courses, answers), [courses, answers]);
   const missing = slugs.length - courses.length;
+  // Aviso de "poucos cursos" só quando é verdade no catálogo (um link pode trazer menos por escolha de quem o montou).
+  const scarce = useMemo(() => trailCandidates(answers, publishedCourses(), groupOf).length < TRAIL_SIZE, [answers]);
   const ids = courses.map((c) => c.id);
   const progress = progressSummary(shelf, ids);
   const allSaved = ids.length > 0 && ids.every((id) => shelf.saved.includes(id));
   const theme = answers.group === 'any' ? t.anyTheme : (categoryGroups.find((g) => g.id === answers.group)?.name[locale] ?? t.anyTheme);
+  const navigate = useNavigate();
+  const complete = ids.length > 0 && progress.done === ids.length;
+  // Próxima trilha para quem terminou: aprofundar no tema, sem repetir os cursos feitos.
+  const deeper = useMemo(
+    () => (answers.goal === 'deepen' ? null : buildTrail({ ...answers, goal: 'deepen' }, publishedCourses(), groupOf, TRAIL_SIZE, new Set(courses.map((c) => c.id)))),
+    [answers, courses],
+  );
+  const goDeeper = () => deeper && navigate({ search: `?${trailQuery({ ...answers, goal: 'deepen' }, deeper.steps.map((s) => s.course.slug))}` });
+
+  // Guarda a última trilha (só neste navegador) para o "continue de onde parou" da home.
+  useEffect(() => {
+    if (courses.length) writeStorage(LAST_TRAIL_KEY, trailQuery(answers, courses.map((c) => c.slug)));
+  }, [answers, courses]);
+
   // A trilha aparece abaixo da abertura: o foco (e a rolagem) vão para ela.
   const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
@@ -239,12 +267,40 @@ function TrailResult({ answers, slugs, onRedo }: { answers: TrailAnswers; slugs:
           </li>
         )}
         {trail.unknownHours > 0 && <li className="rounded-full border border-line px-3 py-1 text-fg-muted">{t.unknown(trail.unknownHours)}</li>}
-        {ids.length > 0 && <li className="rounded-full border border-ok/40 bg-ok-soft px-3 py-1 text-ok">{t.progress(progress.done, progress.total)}</li>}
+        {ids.length > 0 && (
+          <li className="rounded-full border border-ok/40 bg-ok-soft px-3 py-1 text-ok">
+            {t.progress(progress.done, progress.total)}
+            {progress.done > 0 && !complete && ` · ${t.left(progress.total - progress.done)}`}
+          </li>
+        )}
       </ul>
       {missing > 0 && <p className="mt-4 text-sm text-warn">{t.notFound}</p>}
-      {missing === 0 && courses.length < TRAIL_SIZE && <p className="mt-4 text-sm text-warn">{t.few(courses.length)}</p>}
+      {missing === 0 && scarce && courses.length < TRAIL_SIZE && <p className="mt-4 text-sm text-warn">{t.few(courses.length)}</p>}
 
-      <div className="mt-6 flex flex-wrap gap-2">
+      {/* Pico-final: terminar a trilha é um momento — e já aponta o próximo passo. */}
+      {complete && (
+        <section aria-labelledby="trail-done" className="panel page-enter mt-8 flex flex-col items-start gap-5 border-accent/50 p-6 sm:flex-row sm:items-center">
+          <BezalelMark animated className="size-14 shrink-0 text-fg" />
+          <div className="min-w-0 flex-1">
+            <h2 id="trail-done" className="text-xl font-semibold">
+              {t.done.title}
+            </h2>
+            <p className="mt-1 text-sm text-fg-muted">{t.done.summary(courses.length, trail.knownHours, trail.skills.length)}</p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {deeper && deeper.steps.length > 0 && (
+                <Button size="sm" onClick={goDeeper} iconRight={<ArrowRight className="size-4" />}>
+                  {t.done.deepen(theme)}
+                </Button>
+              )}
+              <Button size="sm" variant="secondary" onClick={onRedo}>
+                {t.done.another}
+              </Button>
+            </div>
+          </div>
+        </section>
+      )}
+
+      <div id="acoes-da-trilha" className="mt-6 flex flex-wrap gap-2">
         <Button onClick={() => update((s) => saveAll(s, ids))} disabled={allSaved || !ids.length} iconLeft={<BookmarkPlus className="size-4" />}>
           {allSaved ? t.savedAll : t.saveAll}
         </Button>
@@ -320,6 +376,17 @@ function TrailResult({ answers, slugs, onRedo }: { answers: TrailAnswers; slugs:
         </section>
       )}
       <p className="mt-8 text-xs text-fg-subtle">{t.honesty}</p>
+
+      {/* Celular: salvar e compartilhar ao alcance do polegar depois que o topo sai da tela. */}
+      <ThumbBar watchId="acoes-da-trilha" label={t.actions}>
+        <button type="button" onClick={() => update((s) => saveAll(s, ids))} disabled={allSaved || !ids.length} className={cn(thumbPrimary, 'disabled:opacity-60')}>
+          <BookmarkPlus aria-hidden className="size-4" />
+          {allSaved ? t.savedAll : t.saveAll}
+        </button>
+        <button type="button" onClick={share} aria-label={t.share} className={thumbSecondary}>
+          <Link2 aria-hidden className="size-4 text-accent-text" />
+        </button>
+      </ThumbBar>
     </div>
   );
 }

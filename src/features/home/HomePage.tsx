@@ -11,6 +11,7 @@ import { useDocumentMeta } from '@/hooks/useDocumentMeta';
 import { cn } from '@/lib/cn';
 import { AgentsPreviewSection } from './AgentsPreviewSection';
 import { CategoriesSection } from './CategoriesSection';
+import { ContinueGate } from './ContinueGate';
 import { FeaturedSection } from './FeaturedSection';
 import { ForjaSection } from './forja/ForjaSection';
 import { IndicatorsSection } from './IndicatorsSection';
@@ -53,6 +54,8 @@ export function HomePage() {
     <>
       <BrandIntro />
       <ForjaSection />
+      {/* Só para quem volta (estante/trilha neste navegador); entra depois da hidratação, abaixo da dobra. */}
+      <ContinueGate />
       {/* Abaixo da primeira dobra: o navegador adia estilo/layout/pintura
           (content-visibility) e cada <Suspense> vira uma etapa separada da
           hidratação — o topo fica interativo antes e sem tarefas longas. */}

@@ -159,7 +159,7 @@ export const institutional: Widen<typeof base> = {
       {
         title: '2. Data stored in your browser',
         body: [
-          'To remember your preferences, the site writes to your browser’s local storage: theme (light/dark), language, animation preference, dismissal of the demonstration notice, the topics you pick in the home page opening and your “My shelf” — the courses you save and the progress you mark on them. The animated intro and the lab mode use session storage.',
+          'To remember your preferences, the site writes to your browser’s local storage: theme (light/dark), language, animation preference, dismissal of the demonstration notice, the topics you pick in the home page opening and your “My shelf” — the courses you save and the progress you mark on them — and the last path you built, so the home page can offer “pick up where you left off”. The animated intro and the lab mode use session storage.',
           'The tools (path, comparison, study plan and hours calculator) run entirely in your browser. The study plan calendar file (.ics) is created and downloaded on your own device, without going through any server.',
           'This data stays on your device only, is not sent to any Bezalel server and can be erased by clearing the site data in your browser.',
           'Bezalel does not use its own cookies, analytics tools, advertising pixels or trackers in this version.',

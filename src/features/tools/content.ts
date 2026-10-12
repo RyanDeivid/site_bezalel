@@ -35,6 +35,8 @@ const pt = {
     portugueseOnly: 'Só em português',
     build: 'Montar minha trilha',
     fromForja: (names: string) => `Na abertura você marcou: ${names}.`,
+    count: (n: number) => (n === 1 ? '1 curso' : `${n} cursos`),
+    live: (n: number) => (n ? `Com essas preferências: ${n === 1 ? '1 curso verificado' : `${n} cursos verificados`}.` : 'Nenhum curso atende a essas preferências — desmarque uma.'),
   },
   result: {
     eyebrow: 'Sua trilha',
@@ -45,6 +47,15 @@ const pt = {
     weeks: (w: number, pace: number) => `~${w} semana(s) a ${pace} h/semana`,
     unknown: (n: number) => (n === 1 ? '1 curso sem carga horária informada' : `${n} cursos sem carga horária informada`),
     progress: (done: number, total: number) => `${done} de ${total} concluídos`,
+    left: (n: number) => (n === 1 ? 'falta 1' : `faltam ${n}`),
+    actions: 'Ações da trilha',
+    done: {
+      title: 'Trilha concluída.',
+      summary: (n: number, hours: number, skills: number) =>
+        `Você marcou ${n === 1 ? '1 curso' : `${n} cursos`} como concluídos${hours ? `, ${hours} h declaradas pelas fontes,` : ''} passando por ${skills === 1 ? '1 competência' : `${skills} competências`}. É assim que se constrói.`,
+      deepen: (theme: string) => `Aprofundar em ${theme}`,
+      another: 'Montar outra trilha',
+    },
     few: (n: number) => (n ? `Só ${n} curso(s) atendem a todas as preferências. Afrouxe um filtro para ver mais.` : 'Nenhum curso atende a todas as preferências. Afrouxe um filtro.'),
     redo: 'Refazer o questionário',
     saveAll: 'Salvar trilha na estante',
@@ -75,7 +86,8 @@ const pt = {
     todo: 'Não iniciado',
     doing: 'Em andamento',
     done: 'Concluído',
-  } satisfies Record<Progress | 'label', string>,
+    celebrate: 'Concluído — mais uma peça da sua construção.',
+  } satisfies Record<Progress | 'label' | 'celebrate', string>,
   shelf: {
     eyebrow: 'Minha estante',
     title: 'Seus cursos, seu ritmo.',
@@ -196,6 +208,8 @@ const en: ToolsContent = {
     portugueseOnly: 'Portuguese only',
     build: 'Build my path',
     fromForja: (names) => `In the opening you picked: ${names}.`,
+    count: (n) => (n === 1 ? '1 course' : `${n} courses`),
+    live: (n) => (n ? `With these preferences: ${n === 1 ? '1 verified course' : `${n} verified courses`}.` : 'No course matches these preferences — untick one.'),
   },
   result: {
     eyebrow: 'Your path',
@@ -206,6 +220,15 @@ const en: ToolsContent = {
     weeks: (w, pace) => `~${w} week(s) at ${pace} h/week`,
     unknown: (n) => (n === 1 ? '1 course without stated workload' : `${n} courses without stated workload`),
     progress: (done, total) => `${done} of ${total} completed`,
+    left: (n) => `${n} to go`,
+    actions: 'Path actions',
+    done: {
+      title: 'Path completed.',
+      summary: (n, hours, skills) =>
+        `You marked ${n === 1 ? '1 course' : `${n} courses`} as completed${hours ? `, ${hours} h stated by the sources,` : ''} covering ${skills === 1 ? '1 skill' : `${skills} skills`}. That is how you build.`,
+      deepen: (theme) => `Go deeper in ${theme}`,
+      another: 'Build another path',
+    },
     few: (n) => (n ? `Only ${n} course(s) match all your preferences. Loosen a filter to see more.` : 'No course matches all your preferences. Loosen a filter.'),
     redo: 'Retake the quiz',
     saveAll: 'Save path to shelf',
@@ -231,7 +254,7 @@ const en: ToolsContent = {
     },
     honesty: 'Path built by transparent rules over the verified catalog — not career advice. Confirm price, dates and certificate at the source before enrolling.',
   },
-  progress: { label: 'Progress', todo: 'Not started', doing: 'In progress', done: 'Completed' },
+  progress: { label: 'Progress', todo: 'Not started', doing: 'In progress', done: 'Completed', celebrate: 'Completed — one more piece of what you are building.' },
   shelf: {
     eyebrow: 'My shelf',
     title: 'Your courses, your pace.',

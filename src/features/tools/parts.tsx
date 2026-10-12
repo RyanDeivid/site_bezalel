@@ -23,6 +23,9 @@ export function ProgressControl({ course }: { course: Course }) {
   const [shelf, update] = useShelf();
   const name = useId();
   const value = progressOf(shelf, course.id);
+  // Pico-final no nível do curso: concluir merece um reconhecimento (só quando
+  // o visitante acabou de marcar, não ao abrir a página).
+  const [justDone, setJustDone] = useState(false);
   return (
     <fieldset className="flex flex-wrap items-center gap-1">
       <legend className="sr-only">
@@ -44,12 +47,25 @@ export function ProgressControl({ course }: { course: Course }) {
                 : 'border-line text-fg-muted hover:text-fg',
             )}
           >
-            <input type="radio" name={name} value={p} checked={value === p} onChange={() => update((s) => setProgress(s, course.id, p))} className="sr-only" />
+            <input
+              type="radio"
+              name={name}
+              value={p}
+              checked={value === p}
+              onChange={() => {
+                setJustDone(p === 'done' && value !== 'done');
+                update((s) => setProgress(s, course.id, p));
+              }}
+              className="sr-only"
+            />
             <Icon aria-hidden className="size-3.5" />
             {t[p]}
           </label>
         );
       })}
+      <span role="status" className="page-enter ml-1 text-xs text-ok">
+        {justDone && value === 'done' ? t.celebrate : ''}
+      </span>
     </fieldset>
   );
 }

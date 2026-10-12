@@ -13,7 +13,8 @@ Mensagens de commit no imperativo, em português ou inglês, descrevendo o *porq
 - **TypeScript estrito**; sem `any` (o lint recusa). Tipos de domínio em `src/types/domain.ts`.
 - **Camadas**: componentes → hooks → `useServices()` → serviços → domínio. Componentes nunca importam `src/data` diretamente (exceções documentadas: taxonomia e nomes de agentes, que são constantes de interface).
 - **Lógica pura em `src/domain`**, sempre com teste em `tests/unit`.
-- **Textos da interface só em `src/i18n`**: adicione a chave em `pt-BR/` e o tipo obrigará o inglês; o teste de i18n compara as estruturas.
+- **Textos da interface**: os globais (navegação, rótulos comuns, metadados) em `src/i18n` — adicione a chave em `pt-BR/` e o tipo obrigará o inglês; textos de uma página ou ferramenta ficam num módulo de conteúdo dela (ex.: `features/tools/content.ts`), no chunk da página, para não pesar o JS inicial. Todo módulo de texto novo entra na varredura de `tests/unit/ethics.test.ts`.
+- **Ética** (`docs/ETHICS.md`): nada de escassez, urgência, prova social inventada, contadores falsos ou recusa que envergonha. Números exibidos são reais e conferíveis; sem dado, "Não informado".
 - **Cores e medidas por tokens** (`src/styles/tokens.css`); nada de hex em componentes, exceto contextos sem CSS (canvas/WebGL), centralizados em `AGENT_HEX` e nas texturas.
 - **Acessibilidade**: elementos interativos nativos (`button`, `a`, `dialog`), rótulos em ícones (`IconButton` exige `label`), foco visível, nada que dependa só de cor ou só de hover.
 - **Movimento**: respeitar `reducedMotion` (de `usePreferences`) em animações por JavaScript; CSS já é coberto globalmente.

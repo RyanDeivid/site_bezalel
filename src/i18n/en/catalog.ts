@@ -76,5 +76,6 @@ export const catalog: Widen<typeof base> = {
     share: 'Copy link',
     askSol: 'Ask Sol about this course',
     followInLab: 'Follow in the lab',
+    actions: 'Course actions',
   },
 };

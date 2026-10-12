@@ -529,3 +529,60 @@ test('Ctrl+K abre a paleta e leva a um curso pelo teclado', async ({ page, isMob
   await expect(page).toHaveURL(/course\/harvard-cs50p\/?$/);
   await expect(page.getByRole('heading', { level: 1, name: "CS50's Introduction to Programming with Python" })).toBeVisible();
 });
+
+
+// ---- Fase 5 · Psicologia aplicada com ética (docs/ETHICS.md) -------------------------
+
+const TRAIL_2 = 'trail/?t=tech&g=start&h=5&c=kaggle-intro-to-machine-learning,enap-introducao-lgpd';
+
+test('pico-final: concluir a trilha mostra o fechamento e um próximo passo sem repetir cursos', async ({ page }) => {
+  await gotoReady(page, TRAIL_2);
+  for (const title of ['Intro to Machine Learning', 'Introdução à Lei Brasileira de Proteção de Dados Pessoais']) {
+    await page.getByRole('group', { name: `Progresso: ${title}` }).getByText('Concluído').click();
+  }
+  await expect(page.getByRole('heading', { name: 'Trilha concluída.' })).toBeVisible();
+  await expect(page.getByText(/Você marcou 2 cursos como concluídos, 13 h declaradas pelas fontes/)).toBeVisible();
+  await page.getByRole('button', { name: 'Aprofundar em Tecnologia' }).click();
+  await expect(page).toHaveURL(/g=deepen/);
+  const next = await page.locator('ol h3').allInnerTexts();
+  expect(next.length).toBeGreaterThan(0);
+  expect(next).not.toContain('Intro to Machine Learning');
+  expect(next).not.toContain('Introdução à Lei Brasileira de Proteção de Dados Pessoais');
+});
+
+test('gradiente de meta: a home lembra a trilha e o curso em andamento (só para quem volta)', async ({ page }) => {
+  await gotoReady(page, '');
+  await expect(page.getByRole('heading', { name: 'Continue de onde parou' })).toHaveCount(0);
+  await page.goto(TRAIL_2);
+  await page.getByRole('group', { name: 'Progresso: Intro to Machine Learning' }).getByText('Em andamento').click();
+  await page.goto('');
+  const box = page.getByRole('region', { name: 'Continue de onde parou' });
+  await expect(box.getByRole('link', { name: 'Intro to Machine Learning' })).toBeVisible();
+  await expect(box.getByText('Sua trilha: 0 de 2 concluídos')).toBeVisible();
+  await box.getByRole('link', { name: 'Voltar à trilha' }).click();
+  await expect(page).toHaveURL(/trail\/?\?t=tech&g=start&h=5&c=kaggle-intro-to-machine-learning,enap-introducao-lgpd$/);
+});
+
+test('curiosidade com números reais: cada escolha do questionário mostra quantos cursos sobram', async ({ page }) => {
+  await gotoReady(page, 'trail/');
+  await expect(page.getByRole('button', { name: /^Tecnologia.*· \d+ cursos$/ })).toBeVisible();
+  await page.getByRole('button', { name: /^Tecnologia/ }).click();
+  await page.getByRole('button', { name: /^Começar do zero/ }).click();
+  await page.getByRole('button', { name: /^5 horas por semana/ }).click();
+  const live = page.getByText(/^Com essas preferências: \d+ cursos? verificados?\.$/);
+  const before = Number((await live.innerText()).match(/\d+/)![0]);
+  await page.getByLabel('Só em português').check();
+  await expect.poll(async () => Number(((await live.innerText()).match(/\d+/) ?? ['0'])[0])).toBeLessThan(before);
+});
+
+test('polegar: no celular, as ações do curso voltam ao rodapé depois que o topo sai da tela', async ({ page, isMobile }) => {
+  test.skip(!isMobile, 'A barra só existe no celular.');
+  await gotoReady(page, 'course/harvard-cs50x/');
+  const bar = page.getByRole('navigation', { name: 'Ações do curso' });
+  await expect(bar).toBeHidden();
+  await page.mouse.wheel(0, 900);
+  await expect(bar).toBeVisible();
+  await expect(bar.getByRole('link', { name: /Acessar fonte oficial/ })).toHaveAttribute('href', /^https:\/\//);
+  await bar.getByRole('button', { name: /^Salvar na estante: / }).click();
+  await expect(bar.getByRole('button', { name: /^Remover da estante: / })).toBeVisible();
+});
