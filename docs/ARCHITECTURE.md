@@ -61,6 +61,7 @@ server/           backend de referência (FastAPI) + deploy Oracle Cloud
 | **A Forja: three.js puro na home** (v2 · Fase 1) | A abertura da home é uma construção em 3D dirigida pela rolagem (`features/home/forja/`): faísca → partículas por área chegando → triagem com braços robóticos (aprovadas viram estrutura, reprovadas caem) → arestas e o grafo real curso↔competência → placas encaixando até a pose exata do símbolo da marca → mergulho no núcleo. Sem React/R3F na cena (controle fino do laço de renderização); partículas movidas só por shader. O palco fica preso à tela (`position: sticky` num trilho que é **elemento**, não padding — sticky só prende na área de conteúdo do pai) e o hero rola por cima. |
 | **Dois modos da Forja, decididos antes da pintura** | O script do `index.html` grava `data-forja="full"` (3D com rolagem conduzida) ou deixa o padrão — história em cartões — para sem JavaScript, movimento reduzido, economia de dados ou aparelho fraco. A marcação pré-renderizada é a mesma nos dois; só o CSS muda, então não há salto de layout nem divergência de hidratação. |
 | **3D só quando vale a pena** | Ocioso: só pré-carrega o módulo. A cena é montada na primeira interação; no primeiro ato ela "dorme" (pôster em CSS). Em repouso o desktop segue a 20–24 quadros/s e o celular congela no último quadro. Sem placa de vídeo (WebGL por software, ex.: SwiftShader/llvmpipe) a cena não roda — fica o pôster e o texto dos atos. Braços desenhados por instâncias (11 chamadas de desenho em vez de 56) e shaders compilados em paralelo na montagem (`compileAsync`), para não travar a estreia de cada ato. |
+| **A origem: manivela em vez de rolagem** (v2 · Fase 2b) | Na página Sobre a dinâmica é outra: o visitante constrói com a mão. `features/about/origem/`: `crank.ts` (física pura e testada — ângulo acumulado, volante, encaixe por capítulo na direção do gesto, cliques da catraca), `formations.ts` (as 8 folhas da planta: alvos das partículas, traços na ordem do desenho e rótulos; o Tabernáculo em isométrica com as medidas do texto), `blueprint.ts` (canvas 2D carregado perto da tela; as mesmas partículas viajam de folha em folha; um preenchimento por cor) e `OrigemSection.tsx` (engrenagens em SVG giradas só por `transform`, `role="slider"`). Os textos ficam em `content.ts`, no chunk da página — fora do i18n global, que vai no JS inicial. Sem JS, a história é uma lista; com movimento reduzido, a planta pula de capítulo pronto em capítulo pronto. Em tela de toque a planta congela parada e usa menos partículas. |
 | **Catálogo num chunk próprio** (v2 · Fase 2) | Cursos (`courses.ts` + `expansion/`) e definições de competências (`skills.ts`) ficam num chunk separado, pré-carregado com `<link rel="modulepreload">` em toda página e aguardado (`loadCatalog()`) antes do primeiro render, da pré-renderização e dos testes. O resto do app lê por acessores síncronos (`curated()`, `skills()`, `skillName()`); nada no bundle principal importa esses arquivos — senão o Rollup os puxaria de volta para o JS inicial. Assim o catálogo pode crescer sem pesar no primeiro carregamento. |
 | **21 áreas em 7 temas** (v2 · Fase 2) | Com 21 áreas, toda escolha é feita primeiro por tema (lei de Hick): a home mostra 7 cartões com as áreas dentro, os filtros e o seletor de Insights agrupam por tema, e a Forja oferece os 7 temas como interesses. A ordem das áreas segue os temas, então áreas de um mesmo tema recebem cores vizinhas na cena. |
 | **Robôs feitos em código** | `robot-arm.ts`: braço industrial (base, torre, ombro, braço, cotovelo, antebraço, punho, garra) com cinemática inversa analítica de dois segmentos (testada pela cinemática direta). Reaproveitável no laboratório (Fase 3). |
@@ -112,6 +113,19 @@ Mesmas condições, mediana de 3 rodadas, comparação pareada com a `main` ante
 | CLS / Acessibilidade | 0 / 100 | 0 / 100 | 0 / 100 | 0 / 100 |
 
 O catálogo 5,5× maior não pesou: cursos e competências saíram do JS inicial (185 kB, antes 182 kB com 7 áreas) para o chunk pré-carregado.
+
+### Medição da Fase 2b (A origem), 11/10/2026
+
+Pareada com a `main` anterior (servidor gzip local, mediana de 3). Custo da thread principal medido por `Performance.getMetrics` com a seção na tela, no capítulo IV.
+
+| Métrica | Antes | Fase 2b |
+|---|---|---|
+| Lighthouse /about/ (celular) | 91 | 92 |
+| CLS /about/ · acessibilidade | 0 · 100 | 0 · 100 |
+| Thread principal parada, celular (CPU 4×) | — | 0% (planta congelada) |
+| Thread principal girando, celular (CPU 4×) | — | 45% |
+| Thread principal parada, desktop | — | 2% (tremeluzir a 24 quadros/s) |
+| JS inicial | 185,3 kB | 185,3 kB |
 
 ### Orçamento (CI — `scripts/check-budget.ts`)
 

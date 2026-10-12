@@ -17,7 +17,8 @@ Plataforma de inteligência educacional que conecta pessoas a cursos, certifica�
 | `/agents` | Perfis, estados ao vivo (ativo/ocioso/com falha/demo), fluxo entre agentes e trilha de eventos |
 | `/lab` | Laboratório 3D explorável (WASD/setas, clique, toque) com Central de Operações, e versão 2D completa |
 | `/assistant` | Assistente Sol com regras locais transparentes |
-| `/about`, `/methodology`, `/privacy`, `/terms` | Institucional (privacidade e termos são rascunhos preliminares) |
+| `/about` | "A origem": a história de Bezalel construída pelo visitante com uma manivela (7 voltas, 7 capítulos), missão e compromissos |
+| `/methodology`, `/privacy`, `/terms` | Institucional (privacidade e termos são rascunhos preliminares) |
 
 ## Stack
 
