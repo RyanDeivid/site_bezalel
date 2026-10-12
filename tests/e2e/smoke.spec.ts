@@ -30,6 +30,9 @@ const ROUTES: Array<[string, RegExp]> = [
   ['methodology/', /Como cada informação chega/],
   ['privacy/', /Política de privacidade/],
   ['terms/', /Termos de uso/],
+  ['trail/', /Quatro perguntas, uma trilha de cursos reais/],
+  ['saved/', /Seus cursos, seu ritmo/],
+  ['compare/', /Lado a lado, só com o que a fonte declara/],
 ];
 
 /** Espera o React assumir a página (o HTML pré-renderizado aparece antes de ser interativo). */
@@ -252,7 +255,7 @@ test('Agentes: o Vigia está entre os seis agentes e leva ao seu setor no labora
 });
 
 test('sem rolagem horizontal acidental', async ({ page }) => {
-  for (const path of ['', 'explore/', 'insights/', 'agents/', 'lab/', 'methodology/']) {
+  for (const path of ['', 'explore/', 'insights/', 'agents/', 'lab/', 'methodology/', 'trail/', 'saved/', 'compare/']) {
     await page.goto(path);
     await page.waitForFunction(() => Boolean(document.documentElement.dataset.hydrated));
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
@@ -442,4 +445,87 @@ test('Sobre: sem JavaScript a história inteira aparece como lista', async ({ br
   }
   await expect(page.getByRole('slider')).toHaveCount(0);
   await context.close();
+});
+
+
+// ---- Fase 4 · Ferramentas -------------------------------------------------------------
+
+test('trilha: quatro respostas montam uma trilha real e o link reabre a mesma trilha', async ({ page, browser }) => {
+  await gotoReady(page, 'trail/');
+  await page.getByRole('button', { name: /^Tecnologia/ }).click();
+  await expect(page.getByRole('heading', { name: 'Qual é o seu objetivo agora?' })).toBeFocused();
+  await page.getByRole('button', { name: /^Começar do zero/ }).click();
+  await page.getByRole('button', { name: /^5 horas por semana/ }).click();
+  await page.getByLabel('Com certificado confirmado').check();
+  await page.getByRole('button', { name: 'Montar minha trilha' }).click();
+  await expect(page.getByRole('heading', { level: 2, name: /cursos em Tecnologia/ })).toBeVisible();
+  await expect(page).toHaveURL(/trail\/?\?t=tech&g=start&h=5&o=c&c=[a-z0-9-]+(,[a-z0-9-]+)+$/);
+  const titles = await page.locator('ol h3').allInnerTexts();
+  expect(titles.length).toBeGreaterThanOrEqual(2);
+  // O link basta: outra pessoa (outro navegador) vê a mesma trilha.
+  const other = await browser.newContext();
+  const shared = await other.newPage();
+  await shared.goto(page.url());
+  await expect(shared.locator('ol h3')).toHaveText(titles);
+  await other.close();
+});
+
+test('estante: salvar, marcar progresso, comparar, baixar o plano (.ics) e somar horas', async ({ page }) => {
+  // Dois cursos reais com carga em horas e certificado confirmados: 3 h (Kaggle) e 10 h (Enap).
+  for (const [slug, title] of [
+    ['kaggle-intro-to-machine-learning', 'Intro to Machine Learning'],
+    ['enap-introducao-lgpd', 'Introdução à Lei Brasileira de Proteção de Dados Pessoais'],
+  ]) {
+    await gotoReady(page, `course/${slug}/`);
+    await page.getByRole('button', { name: `Salvar na estante: ${title}`, exact: true }).click();
+    await expect(page.getByRole('button', { name: `Remover da estante: ${title}`, exact: true })).toBeVisible();
+  }
+  await page.goto('saved/');
+  await expect(page.getByRole('heading', { name: '2 cursos salvos' })).toBeVisible();
+  // Progresso: o de 3 h concluído.
+  await page.getByRole('group', { name: 'Progresso: Intro to Machine Learning' }).getByText('Concluído').click();
+  await expect(page.getByText('1 de 2 concluídos')).toBeVisible();
+  // Horas complementares: 13 h no total, 3 h contando só os concluídos.
+  await page.getByLabel('Horas exigidas pela sua instituição').fill('20');
+  await expect(page.getByText('13 h que podem ser comprovadas')).toBeVisible();
+  await expect(page.getByText('faltam 7 h para a meta')).toBeVisible();
+  await page.getByLabel('só os concluídos').check();
+  await expect(page.getByText('3 h que podem ser comprovadas')).toBeVisible();
+  // Plano de estudos: só o que falta (10 h em sessões de 60 min, seg–qua).
+  await expect(page.getByText(/^10 sessões/)).toBeVisible();
+  const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Baixar plano (.ics)' }).click();
+  const file = await download;
+  expect(file.suggestedFilename()).toBe('bezalel-plano-de-estudos.ics');
+  const text = (await import('node:fs')).readFileSync((await file.path())!, 'utf8');
+  expect(text.startsWith('BEGIN:VCALENDAR\r\n')).toBe(true);
+  expect(text.match(/BEGIN:VEVENT/g)).toHaveLength(10);
+  // Linhas longas vêm dobradas (RFC 5545): desdobra antes de procurar.
+  expect(text.replace(/\r\n /g, '')).toContain('SUMMARY:Estudar: Introdução à Lei Brasileira de Proteção de Dados Pessoais (1/10)');
+  // Comparador com os dois.
+  for (const box of await page.getByRole('checkbox', { name: /Selecionar para comparar/ }).all()) await box.check();
+  await page.getByRole('link', { name: 'Comparar selecionados (2)' }).click();
+  await expect(page.getByRole('table')).toBeVisible();
+  await expect(page.getByRole('columnheader')).toHaveCount(3);
+  await expect(page.getByRole('row', { name: /Carga horária/ })).toContainText('3 horas');
+  await expect(page.getByRole('row', { name: /Carga horária/ })).toContainText('10 horas');
+});
+
+test('Ctrl+K abre a paleta e leva a um curso pelo teclado', async ({ page, isMobile }) => {
+  test.skip(isMobile, 'Atalho de teclado: coberto no desktop.');
+  await gotoReady(page, '');
+  await page.keyboard.press('Control+k');
+  const input = page.getByRole('combobox', { name: 'Buscar cursos, páginas e ações' });
+  await expect(input).toBeFocused();
+  await input.fill('cs50 python');
+  // Desce com as setas até o curso e abre com Enter (padrão combobox/listbox).
+  const options = page.getByRole('option');
+  await expect(options.filter({ hasText: "CS50's Introduction to Programming with Python" })).toHaveCount(1);
+  const labels = await options.allInnerTexts();
+  const target = labels.findIndex((l) => l.includes("CS50's Introduction to Programming with Python"));
+  for (let i = 0; i < target; i++) await page.keyboard.press('ArrowDown');
+  await expect(options.nth(target)).toHaveAttribute('aria-selected', 'true');
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/course\/harvard-cs50p\/?$/);
+  await expect(page.getByRole('heading', { level: 1, name: "CS50's Introduction to Programming with Python" })).toBeVisible();
 });

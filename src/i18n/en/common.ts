@@ -43,6 +43,11 @@ export const common: Widen<typeof base> = {
     primary: 'Main navigation',
     home: 'Home',
     explore: 'Explore',
+    trail: 'Your path',
+    saved: 'My shelf',
+    savedCount: (n: number) => (n === 1 ? 'My shelf: 1 saved course' : `My shelf: ${n} saved courses`),
+    search: 'Search',
+    searchLong: 'Search the site (Ctrl+K)',
     insights: 'Insights',
     agents: 'Agents',
     lab: 'Lab',
@@ -64,6 +69,12 @@ export const common: Widen<typeof base> = {
     motionReduce: 'Reduce animations',
     motionRestore: 'Restore animations',
     preferences: 'Preferences',
+  },
+  shelf: {
+    save: (title: string) => `Save to shelf: ${title}`,
+    unsave: (title: string) => `Remove from shelf: ${title}`,
+    saveShort: 'Save',
+    savedShort: 'Saved',
   },
   banner: {
     text: 'Version 1.0 in demonstration mode: the catalog lists real, verified courses; agents and their events are simulated locally.',
@@ -235,6 +246,18 @@ export const common: Widen<typeof base> = {
       title: 'Bezalel — Discover. Learn. Build.',
       description:
         'Discover courses and certifications verified at the source, understand skills in focus and visit the Bezalel AI agents lab.',
+    },
+    trail: {
+      title: 'Find your path',
+      description: 'Answer four questions and get a short path of real, verified courses, with workload, a study plan and a link to share.',
+    },
+    saved: {
+      title: 'My shelf',
+      description: 'Your saved courses and the progress you marked, kept only in your browser — with a comparison table, study plan and hours calculator.',
+    },
+    compare: {
+      title: 'Compare courses',
+      description: 'Compare up to three courses side by side: price, certificate, workload, level, language, skills and source verification.',
     },
     explore: {
       title: 'Explore opportunities',

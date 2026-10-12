@@ -4,11 +4,12 @@ type NavKey = keyof Messages['nav'];
 
 export interface NavItem {
   to: string;
-  key: Extract<NavKey, 'explore' | 'insights' | 'agents' | 'lab' | 'assistant' | 'about' | 'methodology' | 'privacy' | 'terms' | 'home'>;
+  key: Extract<NavKey, 'explore' | 'trail' | 'insights' | 'agents' | 'lab' | 'assistant' | 'about' | 'methodology' | 'privacy' | 'terms' | 'home'>;
 }
 
 export const PRIMARY_NAV: NavItem[] = [
   { to: '/explore', key: 'explore' },
+  { to: '/trail', key: 'trail' },
   { to: '/insights', key: 'insights' },
   { to: '/agents', key: 'agents' },
   { to: '/lab', key: 'lab' },

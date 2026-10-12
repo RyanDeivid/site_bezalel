@@ -11,6 +11,9 @@ Plataforma de inteligência educacional que conecta pessoas a cursos, certifica�
 | Rota | Conteúdo |
 |---|---|
 | `/` | A Forja (abertura em 3D conduzida pela rolagem, personalizável pelos interesses), busca, destaques, áreas agrupadas em 7 temas, competências, agentes, prévia do laboratório, indicadores e validação |
+| `/trail` | **Descubra sua trilha**: quatro perguntas → trilha curta de cursos reais, com o porquê de cada um, progresso, plano de estudos (.ics) e link para compartilhar |
+| `/saved` | **Minha estante** (só no navegador): cursos salvos, progresso, seleção para comparar, plano de estudos e calculadora de horas complementares |
+| `/compare` | Comparador de até três cursos lado a lado (`?c=slug1,slug2`) |
 | `/explore` | Catálogo com busca, filtros (categoria, preço, nível, modalidade, tipo, certificado), ordenação, "carregar mais" e visualização rápida |
 | `/course/:slug` | Detalhe com fonte oficial, estado de verificação, "Não informado" para campos ausentes e relacionados |
 | `/insights` | Competências por número de cursos, categorias, grafo competência→curso, série temporal **demonstrativa** e painel de vagas indisponível |

@@ -1,17 +1,21 @@
-import { Languages, Menu, Moon, Sparkles, Sun, Wind } from 'lucide-react';
+import { Bookmark, Languages, Menu, Moon, Search, Sparkles, Sun, Wind } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { NavLink } from 'react-router';
 import { usePreferences } from '@/app/preferences-context';
 import { Logo } from '@/components/brand/Logo';
 import { IconButton } from '@/components/ui/Button';
+import { useShelf } from '@/hooks/useShelf';
 import { cn } from '@/lib/cn';
 import { MobileMenu } from './MobileMenu';
+import { openPalette } from './palette-events';
 import { PRIMARY_NAV } from './nav-items';
 
 export function Header() {
   const { m, toggleTheme, locale, setLocale, motion, toggleMotion } = usePreferences();
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [shelf] = useShelf();
+  const savedCount = shelf.saved.length;
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -51,6 +55,36 @@ export function Header() {
           </ul>
         </nav>
         <div className="ml-auto flex items-center gap-1">
+          {/* Busca e comandos (Ctrl+K): a paleta só é baixada quando aberta. */}
+          <button
+            type="button"
+            onClick={openPalette}
+            aria-label={m.nav.searchLong}
+            title={m.nav.searchLong}
+            className="inline-flex h-9 items-center gap-2 rounded-lg px-2.5 text-sm text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg xl:border xl:border-line xl:pr-1.5"
+          >
+            <Search aria-hidden className="size-4" />
+            <span className="hidden xl:inline">{m.nav.search}</span>
+            <kbd aria-hidden className="kbd hidden xl:inline">
+              Ctrl K
+            </kbd>
+          </button>
+          <NavLink
+            to="/saved"
+            viewTransition
+            aria-label={savedCount ? m.nav.savedCount(savedCount) : m.nav.saved}
+            title={m.nav.saved}
+            className={({ isActive }) =>
+              cn('relative inline-flex size-10 items-center justify-center rounded-[10px] text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg max-sm:hidden', isActive && 'text-accent-text')
+            }
+          >
+            <Bookmark aria-hidden className="size-4" />
+            {savedCount > 0 && (
+              <span aria-hidden className="absolute right-1 top-1 grid min-w-4 place-items-center rounded-full bg-accent px-1 font-mono text-[0.6rem] leading-4 text-accent-fg">
+                {savedCount > 99 ? '99+' : savedCount}
+              </span>
+            )}
+          </NavLink>
           <button
             type="button"
             onClick={() => setLocale(locale === 'pt-BR' ? 'en' : 'pt-BR')}
@@ -61,7 +95,7 @@ export function Header() {
             {m.nav.languageShort}
             <span className="sr-only"> — {m.nav.switchLanguage}</span>
           </button>
-          <IconButton label={motion === 'full' ? m.nav.motionReduce : m.nav.motionRestore} onClick={toggleMotion} active={motion === 'reduced'} className="hidden sm:inline-flex">
+          <IconButton label={motion === 'full' ? m.nav.motionReduce : m.nav.motionRestore} onClick={toggleMotion} active={motion === 'reduced'} className="max-sm:hidden">
             {motion === 'full' ? <Sparkles className="size-4" /> : <Wind className="size-4" />}
           </IconButton>
           {/* Marcação igual nos dois temas (o HTML pré-gerado não sabe o tema do

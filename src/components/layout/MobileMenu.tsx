@@ -52,7 +52,7 @@ export function MobileMenu({ open, onClose }: { open: boolean; onClose: () => vo
           </div>
           <nav className="container-page flex-1 overflow-y-auto py-6">
             <ul className="flex flex-col">
-              {[{ to: '/', key: 'home' as const }, ...PRIMARY_NAV].map((item, i) => (
+              {[{ to: '/', key: 'home' as const }, ...PRIMARY_NAV, { to: '/saved', key: 'saved' as const }].map((item, i) => (
                 <li key={item.to} className="border-b border-line" style={{ animation: `bz-fade-up 500ms var(--ease-out) ${i * 45}ms both` }}>
                   <NavLink
                     to={item.to}

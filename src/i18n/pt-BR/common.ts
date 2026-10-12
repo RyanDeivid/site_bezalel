@@ -44,6 +44,11 @@ export const common = {
     primary: 'Navegação principal',
     home: 'Início',
     explore: 'Explorar',
+    trail: 'Sua trilha',
+    saved: 'Minha estante',
+    savedCount: (n: number) => (n === 1 ? 'Minha estante: 1 curso salvo' : `Minha estante: ${n} cursos salvos`),
+    search: 'Buscar',
+    searchLong: 'Buscar no site (Ctrl+K)',
     insights: 'Insights',
     agents: 'Agentes',
     lab: 'Laboratório',
@@ -65,6 +70,12 @@ export const common = {
     motionReduce: 'Reduzir animações',
     motionRestore: 'Restaurar animações',
     preferences: 'Preferências',
+  },
+  shelf: {
+    save: (title: string) => `Salvar na estante: ${title}`,
+    unsave: (title: string) => `Remover da estante: ${title}`,
+    saveShort: 'Salvar',
+    savedShort: 'Salvo',
   },
   banner: {
     text: 'Versão 1.0 em modo demonstração: o catálogo traz cursos reais verificados; os agentes e seus eventos são simulados localmente.',
@@ -236,6 +247,18 @@ export const common = {
       title: 'Bezalel — Discover. Learn. Build.',
       description:
         'Descubra cursos e certificações verificados na fonte, entenda competências em evidência e conheça o laboratório dos agentes de IA da Bezalel.',
+    },
+    trail: {
+      title: 'Descubra sua trilha',
+      description: 'Responda quatro perguntas e receba uma trilha curta de cursos reais e verificados, com carga horária, plano de estudos e link para compartilhar.',
+    },
+    saved: {
+      title: 'Minha estante',
+      description: 'Seus cursos salvos e o progresso que você marcou, guardados só no seu navegador — com comparador, plano de estudos e calculadora de horas.',
+    },
+    compare: {
+      title: 'Comparar cursos',
+      description: 'Compare até três cursos lado a lado: preço, certificado, carga horária, nível, idioma, competências e verificação na fonte.',
     },
     explore: {
       title: 'Explorar oportunidades',

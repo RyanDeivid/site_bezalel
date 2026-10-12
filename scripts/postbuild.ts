@@ -58,6 +58,8 @@ interface PageSpec {
   title: string;
   description: string;
   jsonLd?: Record<string, unknown> | null;
+  /** Página pessoal (estante, comparação): fora do sitemap e dos buscadores. */
+  noindex?: boolean;
   /** HTML estático (seguro) colocado dentro de #root. */
   body: string;
   priority: number;
@@ -124,6 +126,14 @@ const pages: PageSpec[] = [
     ),
     priority: 0.9,
   },
+  ...(['trail', 'saved', 'compare'] as const).map((key) => ({
+    path: `/${key}`,
+    title: meta[key].title,
+    description: meta[key].description,
+    body: shell(meta[key].title, `<p>${escapeHtml(meta[key].description)}</p>`),
+    priority: 0.8,
+    noindex: key !== 'trail',
+  })),
   ...(['insights', 'agents', 'lab', 'assistant', 'about', 'methodology', 'privacy', 'terms'] as const).map((key) => ({
     path: `/${key}`,
     title: meta[key].title,
@@ -248,7 +258,7 @@ async function main() {
       console.warn(`postbuild: falha ao pré-renderizar ${page.path}; usando resumo estático.`, err);
     }
     if (ssr) rendered++;
-    await writeFile(file, renderPage(template, page, { ssr }), 'utf8');
+    await writeFile(file, renderPage(template, page, { ssr, noindex: page.noindex }), 'utf8');
   }
 
   await writeFile(
@@ -258,6 +268,7 @@ async function main() {
   );
 
   const sitemap = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${pages
+    .filter((p) => !p.noindex)
     .map((p) => `  <url><loc>${absolute(p.path)}</loc><lastmod>${BUILD_DATE}</lastmod><priority>${p.priority.toFixed(1)}</priority></url>`)
     .join('\n')}\n</urlset>\n`;
   await writeFile(join(dist, 'sitemap.xml'), sitemap, 'utf8');

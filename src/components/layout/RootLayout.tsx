@@ -4,6 +4,7 @@ import { useT } from '@/app/preferences-context';
 import { DemoBanner } from './DemoBanner';
 import { Footer } from './Footer';
 import { Header } from './Header';
+import { PaletteHost } from './PaletteHost';
 import { RouteFallback } from './RouteFallback';
 
 /**
@@ -49,6 +50,7 @@ export function RootLayout() {
       <p aria-live="polite" className="sr-only">
         {announcement}
       </p>
+      <PaletteHost />
       {/* Entradas carregadas direto (F5/link externo) recebem a chave "default";
           usar o caminho nesses casos evita herdar a rolagem de outra página. */}
       <ScrollRestoration getKey={(loc) => (loc.key === 'default' ? loc.pathname : loc.key)} />

@@ -158,7 +158,8 @@ export const institutional = {
       {
         title: '2. Dados armazenados no seu navegador',
         body: [
-          'Para lembrar suas preferências, o site grava no armazenamento local do seu navegador: tema (claro/escuro), idioma, preferência de animações e o fechamento do aviso de demonstração. A abertura animada usa o armazenamento da sessão para não se repetir.',
+          'Para lembrar suas preferências, o site grava no armazenamento local do seu navegador: tema (claro/escuro), idioma, preferência de animações, o fechamento do aviso de demonstração, os temas que você marcar na abertura da página inicial e a sua “Minha estante” — os cursos que você salvar e o progresso que marcar neles. A abertura animada e o modo do laboratório usam o armazenamento da sessão.',
+          'As ferramentas (trilha, comparador, plano de estudos e calculadora de horas) funcionam inteiramente no seu navegador. O arquivo de agenda (.ics) do plano de estudos é gerado e baixado no próprio aparelho, sem passar por nenhum servidor.',
           'Esses dados ficam apenas no seu dispositivo, não são enviados a nenhum servidor da Bezalel e podem ser apagados limpando os dados do site no navegador.',
           'A Bezalel não usa cookies próprios, ferramentas de análise, pixels de publicidade nem rastreadores nesta versão.',
         ],

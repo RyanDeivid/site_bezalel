@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router';
 import { usePreferences } from '@/app/preferences-context';
 import { FieldValue, OriginBadge, PublicationBadge, VerificationBadge } from '@/components/data/DataBadges';
 import { Badge } from '@/components/ui/Badge';
+import { SaveButton } from '@/components/tools/SaveButton';
 import { Button, ButtonLink } from '@/components/ui/Button';
 import { ExternalLink, isSafeExternalUrl } from '@/components/ui/ExternalLink';
 import { Skeleton, StateView } from '@/components/ui/StateView';
@@ -138,6 +139,7 @@ export default function CourseDetailPage() {
                 <span className="sr-only"> {m.common.opensInNewTab}</span>
               </a>
             )}
+            <SaveButton course={course} withLabel />
             <Button variant="secondary" size="lg" onClick={copyLink} iconLeft={<Copy className="size-4" />}>
               {c.share}
             </Button>

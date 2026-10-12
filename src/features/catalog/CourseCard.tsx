@@ -2,6 +2,7 @@ import { Award, Building, Clock, Eye } from 'lucide-react';
 import { Link } from 'react-router';
 import { usePreferences } from '@/app/preferences-context';
 import { OriginBadge, VerificationBadge } from '@/components/data/DataBadges';
+import { SaveButton } from '@/components/tools/SaveButton';
 import { IconButton } from '@/components/ui/Button';
 import { formatDate } from '@/lib/format';
 import { cn } from '@/lib/cn';
@@ -73,11 +74,14 @@ export function CourseCard({ course, onQuickView, className }: CourseCardProps) 
           <VerificationBadge status={course.verificationStatus} />
           <span className="font-mono text-[0.7rem] text-fg-subtle">{m.explore.verifiedOn(formatDate(course.lastCheckedAt, locale) ?? '—')}</span>
         </div>
-        {onQuickView && (
-          <IconButton label={`${m.explore.quickView}: ${course.title}`} size="sm" onClick={() => onQuickView(course)}>
-            <Eye className="size-4" />
-          </IconButton>
-        )}
+        <div className="flex shrink-0 items-center gap-1">
+          <SaveButton course={course} />
+          {onQuickView && (
+            <IconButton label={`${m.explore.quickView}: ${course.title}`} size="sm" onClick={() => onQuickView(course)}>
+              <Eye className="size-4" />
+            </IconButton>
+          )}
+        </div>
       </div>
     </article>
   );
