@@ -1,6 +1,22 @@
 import type { Locale } from '@/types/domain';
 
+/*
+ * Formatadores Intl são caros de criar (dezenas a centenas de µs, bem mais num
+ * celular): criamos um por idioma + opções e reaproveitamos.
+ */
 const dateCache = new Map<string, Intl.DateTimeFormat>();
+const relativeCache = new Map<Locale, Intl.RelativeTimeFormat>();
+const numberCache = new Map<string, Intl.NumberFormat>();
+
+function numberFormatter(locale: Locale, options?: Intl.NumberFormatOptions): Intl.NumberFormat {
+  const key = `${locale}|${JSON.stringify(options ?? {})}`;
+  let f = numberCache.get(key);
+  if (!f) {
+    f = new Intl.NumberFormat(locale, options);
+    numberCache.set(key, f);
+  }
+  return f;
+}
 
 function dateFormatter(locale: Locale, options: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
   const key = `${locale}|${JSON.stringify(options)}`;
@@ -30,7 +46,11 @@ export function formatTime(iso: string, locale: Locale): string {
 
 export function formatRelative(iso: string, locale: Locale, now: Date = new Date()): string {
   const diffSec = Math.round((parseIso(iso).getTime() - now.getTime()) / 1000);
-  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto', style: 'short' });
+  let rtf = relativeCache.get(locale);
+  if (!rtf) {
+    rtf = new Intl.RelativeTimeFormat(locale, { numeric: 'auto', style: 'short' });
+    relativeCache.set(locale, rtf);
+  }
   const abs = Math.abs(diffSec);
   if (abs < 60) return rtf.format(diffSec, 'second');
   if (abs < 3600) return rtf.format(Math.round(diffSec / 60), 'minute');
@@ -39,9 +59,9 @@ export function formatRelative(iso: string, locale: Locale, now: Date = new Date
 }
 
 export function formatNumber(value: number, locale: Locale): string {
-  return new Intl.NumberFormat(locale).format(value);
+  return numberFormatter(locale).format(value);
 }
 
 export function formatMoney(amount: number, currency: string, locale: Locale): string {
-  return new Intl.NumberFormat(locale, { style: 'currency', currency }).format(amount);
+  return numberFormatter(locale, { style: 'currency', currency }).format(amount);
 }

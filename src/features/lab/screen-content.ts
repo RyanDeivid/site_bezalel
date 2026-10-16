@@ -6,6 +6,7 @@ import type { AgentEvent, AgentId, AgentStatus, Locale } from '@/types/domain';
 import { describeEvent } from '../agents/describe-event';
 import { STATION_ORDER } from './layout';
 import type { HubContent, LogContent, MetricContent, ScreenContent } from './scene/textures';
+import { formatTime } from '@/lib/format';
 
 const STATUS_COLOR: Record<AgentStatus, string> = {
   active: '#5cc8a1',
@@ -123,7 +124,9 @@ export function buildSideScreens({
 }: Omit<ScreenInput, 'statuses' | 'names'> & { locale: Locale }): Record<AgentId, { log: LogContent; metric: MetricContent }> {
   const sc = m.lab.screen;
   const mt = sc.metric;
-  const time = (iso: string) => new Date(iso).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  // Formatador reaproveitado: toLocaleTimeString com opções cria um Intl novo a
+  // cada chamada — com centenas de eventos, era a maior parte da carga do /lab.
+  const time = (iso: string) => formatTime(iso, locale);
   const graph = [...events].reverse().find((e) => e.type === 'graph.linked' && e.entityLabel === 'skill-graph');
   const metric: Record<AgentId, Omit<MetricContent, 'color' | 'footer'>> = {
     scout: { label: mt.scout.label, value: String(metrics.discovered), detail: mt.scout.detail(metrics.sourcesChecked) },
