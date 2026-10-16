@@ -28,6 +28,7 @@ export const routes: RouteObject[] = [
       { path: 'explore', lazy: lazyPage(() => import('@/features/catalog/ExplorePage')) },
       { path: 'course/:slug', lazy: lazyPage(() => import('@/features/catalog/CourseDetailPage')) },
       { path: 'trail', lazy: lazyPage(() => import('@/features/tools/TrailPage')) },
+      { path: 'skills', lazy: lazyPage(() => import('@/features/tools/ConstellationPage')) },
       { path: 'saved', lazy: lazyPage(() => import('@/features/tools/ShelfPage')) },
       { path: 'compare', lazy: lazyPage(() => import('@/features/tools/ComparePage')) },
       { path: 'insights', lazy: lazyPage(() => import('@/features/insights/InsightsPage')) },

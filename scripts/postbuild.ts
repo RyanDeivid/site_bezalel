@@ -126,13 +126,13 @@ const pages: PageSpec[] = [
     ),
     priority: 0.9,
   },
-  ...(['trail', 'saved', 'compare'] as const).map((key) => ({
+  ...(['trail', 'skills', 'saved', 'compare'] as const).map((key) => ({
     path: `/${key}`,
     title: meta[key].title,
     description: meta[key].description,
     body: shell(meta[key].title, `<p>${escapeHtml(meta[key].description)}</p>`),
     priority: 0.8,
-    noindex: key !== 'trail',
+    noindex: key === 'saved' || key === 'compare',
   })),
   ...(['insights', 'agents', 'lab', 'assistant', 'about', 'methodology', 'privacy', 'terms'] as const).map((key) => ({
     path: `/${key}`,

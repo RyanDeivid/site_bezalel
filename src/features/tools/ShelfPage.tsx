@@ -1,4 +1,4 @@
-import { ArrowRight, Building, Clock, Compass, GitCompareArrows, Search, Trash2 } from 'lucide-react';
+import { ArrowRight, Building, Clock, Compass, GitCompareArrows, Search, Sparkles, Trash2 } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router';
 import { usePreferences } from '@/app/preferences-context';
@@ -130,9 +130,14 @@ export default function ShelfPage() {
             </ul>
           )}
           {courses.length > 0 && (
-            <ButtonLink to="/trail" variant="ghost" className="mt-4" iconRight={<ArrowRight className="size-4" />}>
-              {s.emptyTrail}
-            </ButtonLink>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <ButtonLink to="/trail" variant="ghost" iconRight={<ArrowRight className="size-4" />}>
+                {s.emptyTrail}
+              </ButtonLink>
+              <ButtonLink to="/skills" variant="ghost" iconLeft={<Sparkles className="size-4" />}>
+                {s.constellation}
+              </ButtonLink>
+            </div>
           )}
         </section>
 

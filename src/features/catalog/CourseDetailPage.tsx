@@ -217,6 +217,13 @@ export default function CourseDetailPage() {
                 <FieldValue value={null} />
               </p>
             )}
+            {course.skills[0] && (
+              <p className="mt-3">
+                <Link to={`/skills?skill=${encodeURIComponent(course.skills[0])}`} className="text-sm text-accent-text underline-offset-4 hover:underline">
+                  {c.skillsMap}
+                </Link>
+              </p>
+            )}
           </section>
 
           {course.topics.length > 0 && (

@@ -44,6 +44,7 @@ export const catalog = {
     about: 'Sobre',
     skills: 'Competências abordadas',
     skillsNote: 'Classificação da curadoria Bezalel a partir do conteúdo declarado.',
+    skillsMap: 'Ver na constelação de competências',
     topics: 'Tópicos declarados pela fonte',
     details: 'Detalhes',
     provider: 'Instituição responsável',

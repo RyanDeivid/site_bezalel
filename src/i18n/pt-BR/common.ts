@@ -45,6 +45,7 @@ export const common = {
     home: 'Início',
     explore: 'Explorar',
     trail: 'Sua trilha',
+    skills: 'Constelação',
     saved: 'Minha estante',
     savedCount: (n: number) => (n === 1 ? 'Minha estante: 1 curso salvo' : `Minha estante: ${n} cursos salvos`),
     search: 'Buscar',
@@ -255,6 +256,10 @@ export const common = {
     saved: {
       title: 'Minha estante',
       description: 'Seus cursos salvos e o progresso que você marcou, guardados só no seu navegador — com comparador, plano de estudos e calculadora de horas.',
+    },
+    skills: {
+      title: 'Constelação de competências',
+      description: 'As competências do catálogo verificado como um céu: estrelas ligadas pelos cursos que as ensinam juntas. Os cursos que você salva acendem a sua parte e sugerem o próximo passo.',
     },
     compare: {
       title: 'Comparar cursos',

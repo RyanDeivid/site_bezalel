@@ -44,6 +44,7 @@ export const common: Widen<typeof base> = {
     home: 'Home',
     explore: 'Explore',
     trail: 'Your path',
+    skills: 'Skill map',
     saved: 'My shelf',
     savedCount: (n: number) => (n === 1 ? 'My shelf: 1 saved course' : `My shelf: ${n} saved courses`),
     search: 'Search',
@@ -254,6 +255,10 @@ export const common: Widen<typeof base> = {
     saved: {
       title: 'My shelf',
       description: 'Your saved courses and the progress you marked, kept only in your browser — with a comparison table, study plan and hours calculator.',
+    },
+    skills: {
+      title: 'Skill constellation',
+      description: 'Skills from the verified catalog as a sky: stars linked by the courses that teach them together. The courses you save light up your part and suggest the next step.',
     },
     compare: {
       title: 'Compare courses',

@@ -4,6 +4,7 @@ import { originContent } from '@/features/about/origem/content';
 import { continueText } from '@/features/home/continue-content';
 import { journeyContent } from '@/features/lab/journey-content';
 import { toolsContent } from '@/features/tools/content';
+import { constellationContent } from '@/features/tools/constellation-content';
 import { messages } from '@/i18n';
 
 /**
@@ -54,6 +55,7 @@ const sources: Record<string, unknown> = {
   'i18n.pt-BR': messages['pt-BR'],
   'i18n.en': messages.en,
   tools: toolsContent,
+  constellation: constellationContent,
   journeys: journeyContent,
   origem: originContent,
   continue: continueText,

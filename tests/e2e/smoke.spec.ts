@@ -31,6 +31,7 @@ const ROUTES: Array<[string, RegExp]> = [
   ['privacy/', /Política de privacidade/],
   ['terms/', /Termos de uso/],
   ['trail/', /Quatro perguntas, uma trilha de cursos reais/],
+  ['skills/', /O que você aprende, ligado ao que vem depois/],
   ['saved/', /Seus cursos, seu ritmo/],
   ['compare/', /Lado a lado, só com o que a fonte declara/],
 ];
@@ -255,7 +256,7 @@ test('Agentes: o Vigia está entre os seis agentes e leva ao seu setor no labora
 });
 
 test('sem rolagem horizontal acidental', async ({ page }) => {
-  for (const path of ['', 'explore/', 'insights/', 'agents/', 'lab/', 'methodology/', 'trail/', 'saved/', 'compare/']) {
+  for (const path of ['', 'explore/', 'insights/', 'agents/', 'lab/', 'methodology/', 'trail/', 'skills/', 'saved/', 'compare/']) {
     await page.goto(path);
     await page.waitForFunction(() => Boolean(document.documentElement.dataset.hydrated));
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
@@ -631,4 +632,34 @@ test('polegar no catálogo: no celular, "Filtros" fica ao alcance depois da busc
   await expect(bar).toBeVisible();
   await bar.getByRole('button', { name: /^Filtros/ }).click();
   await expect(page.getByRole('dialog', { name: 'Filtros' })).toBeVisible();
+});
+
+// ---- Constelação de competências ---------------------------------------------------
+
+test('constelação: do curso para a competência, com quem a ensina', async ({ page }) => {
+  await gotoReady(page, 'course/harvard-cs50x/');
+  await page.getByRole('link', { name: 'Ver na constelação de competências' }).click();
+  await expect(page).toHaveURL(/\/skills\/?\?skill=[a-z0-9-]+$/);
+  const detail = page.getByRole('region').filter({ has: page.locator('#sky-detail') });
+  await expect(detail.getByRole('link', { name: /CS50/ }).first()).toBeVisible();
+  await expect(page.getByRole('img', { name: /Mapa de \d+ competências/ })).toBeVisible();
+});
+
+test('constelação: a estante acende o céu e sugere próximos passos; o tema aproxima', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('bz-shelf-v1', JSON.stringify({ v: 1, saved: [], progress: { 'crs-harvard-cs50x': 'done' } })));
+  await gotoReady(page, 'skills/');
+  const mine = page.getByRole('region', { name: 'Sua constelação' });
+  await expect(mine).toContainText(/competências? acesas?/);
+  const suggestion = mine.getByRole('listitem').first().getByRole('button');
+  const name = (await suggestion.textContent())!.trim();
+  await suggestion.click();
+  await expect(page.locator('#sky-detail')).toHaveText(name);
+
+  const map = page.getByRole('img', { name: /Mapa de/ });
+  const full = await map.getAttribute('viewBox');
+  await page.getByRole('group', { name: 'Tema' }).getByRole('button', { name: 'Saúde e bem-estar' }).click();
+  await expect(page).toHaveURL(/tema=health/);
+  expect(await map.getAttribute('viewBox')).not.toBe(full);
+  // A lista acessível mostra só o tema escolhido, já aberto.
+  await expect(page.getByRole('region', { name: 'Todas as competências' }).locator('details[open]')).toHaveCount(1);
 });

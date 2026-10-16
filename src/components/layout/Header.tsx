@@ -33,8 +33,8 @@ export function Header() {
     >
       <div className="container-page flex h-[var(--header-h)] items-center gap-4">
         <Logo />
-        <nav aria-label={m.nav.primary} className="ml-6 hidden flex-1 lg:block">
-          <ul className="flex items-center gap-1">
+        <nav aria-label={m.nav.primary} className="ml-2 hidden flex-1 lg:block xl:ml-6">
+          <ul className="flex items-center xl:gap-1">
             {PRIMARY_NAV.map((item) => (
               <li key={item.to}>
                 <NavLink
@@ -42,8 +42,8 @@ export function Header() {
                   viewTransition
                   className={({ isActive }) =>
                     cn(
-                      'relative inline-flex h-9 items-center rounded-lg px-3 text-[0.92rem] transition-colors duration-200',
-                      'after:absolute after:inset-x-3 after:-bottom-[15px] after:h-px after:origin-left after:scale-x-0 after:bg-accent after:transition-transform after:duration-300',
+                      'relative inline-flex h-9 items-center whitespace-nowrap rounded-lg px-2 text-[0.92rem] transition-colors duration-200 xl:px-3',
+                      'after:absolute after:inset-x-2 after:-bottom-[15px] xl:after:inset-x-3 after:h-px after:origin-left after:scale-x-0 after:bg-accent after:transition-transform after:duration-300',
                       isActive ? 'text-fg after:scale-x-100' : 'text-fg-muted hover:bg-surface-2/70 hover:text-fg',
                     )
                   }

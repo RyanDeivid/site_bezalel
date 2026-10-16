@@ -47,6 +47,7 @@ export const catalog: Widen<typeof base> = {
     about: 'About',
     skills: 'Skills covered',
     skillsNote: 'Bezalel curation classification based on the declared content.',
+    skillsMap: 'See it in the skill constellation',
     topics: 'Topics declared by the source',
     details: 'Details',
     provider: 'Responsible institution',
