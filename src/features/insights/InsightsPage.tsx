@@ -62,17 +62,19 @@ export default function InsightsPage() {
         title={t.title}
         lead={t.lead}
         aside={
-          <dl className="glass space-y-4 rounded-2xl p-6 text-sm">
+          <div className="glass space-y-4 rounded-2xl p-6 text-sm">
             <p className="font-mono text-xs uppercase tracking-[0.16em] text-fg-subtle">{t.scopeTitle}</p>
-            <div>
-              <dt className="text-fg-subtle">{t.scopePeriod}</dt>
-              <dd className="mt-1 font-medium">{periodFrom && periodTo ? (periodFrom === periodTo ? periodFrom : `${periodFrom} – ${periodTo}`) : '—'}</dd>
-            </div>
-            <div>
-              <dt className="text-fg-subtle">{t.scopeSource}</dt>
-              <dd className="mt-1 font-medium">{facets.data ? t.scopeSourceValue(facets.data.total, facets.data.providers) : '—'}</dd>
-            </div>
-          </dl>
+            <dl className="space-y-4">
+              <div>
+                <dt className="text-fg-subtle">{t.scopePeriod}</dt>
+                <dd className="mt-1 font-medium">{periodFrom && periodTo ? (periodFrom === periodTo ? periodFrom : `${periodFrom} – ${periodTo}`) : '—'}</dd>
+              </div>
+              <div>
+                <dt className="text-fg-subtle">{t.scopeSource}</dt>
+                <dd className="mt-1 font-medium">{facets.data ? t.scopeSourceValue(facets.data.total, facets.data.providers) : '—'}</dd>
+              </div>
+            </dl>
+          </div>
         }
       />
 

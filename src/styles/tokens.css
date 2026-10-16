@@ -92,7 +92,9 @@
   --line-strong: rgb(242 232 213 / 0.18);
   --fg: var(--ivory-200);
   --fg-muted: var(--gray-400);
-  --fg-subtle: var(--gray-500);
+  /* 4,5:1 ou mais em todas as superfícies escuras, inclusive --surface-2 e
+     painéis translúcidos (auditoria axe, Fase 6; o --gray-500 dava 4,0–4,4:1). */
+  --fg-subtle: #8f9aab;
   --accent: var(--gold-400);
   --accent-strong: var(--gold-300);
   --accent-text: var(--gold-300);
@@ -143,7 +145,16 @@
   --line-strong: rgb(16 27 43 / 0.2);
   --fg: var(--navy-900);
   --fg-muted: var(--gray-700);
-  --fg-subtle: var(--gray-600);
+  /* 4,6:1 ou mais em todos os fundos marfim (o --gray-600 caía a 3,9–4,2:1). */
+  --fg-subtle: #526075;
+  /* Cores dos agentes escurecidas no marfim: 4,6:1 ou mais em qualquer fundo
+     claro, porque também aparecem como texto (função do agente) e ícone. */
+  --agent-scout: #226a83;
+  --agent-trend: #7f5d1d;
+  --agent-atlas: #1257e3;
+  --agent-sol: #a94415;
+  --agent-verifier: #286c54;
+  --agent-vigia: #576720;
   --accent: var(--gold-400);
   --accent-strong: var(--gold-500);
   --accent-text: var(--gold-700);
@@ -152,8 +163,9 @@
   --steel: var(--steel-600);
   --focus: var(--gold-700);
 
-  /* 4,98:1 sobre --ok-soft no marfim (o anterior, #1f7a5c, ficava em 4,1–4,3:1). */
-  --ok: #1a6b50;
+  /* 5:1 sobre --ok-soft no marfim, também quando ele se sobrepõe a outro
+     fundo suave (#1a6b50 ficava em 4,4:1 nos selos do catálogo). */
+  --ok: #17604a;
   --ok-soft: rgb(26 107 80 / 0.1);
   --warn: #8a5a00;
   --warn-soft: rgb(138 90 0 / 0.1);

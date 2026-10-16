@@ -44,7 +44,8 @@ export function SaveButton({
       <button
         type="button"
         aria-pressed={saved}
-        aria-label={label}
+        // O nome começa pelo texto visível ("Salvo"), para quem usa comando de voz.
+        aria-label={saved ? `${m.shelf.savedShort}. ${label}` : label}
         onClick={toggle}
         className={cn(
           'inline-flex h-12 items-center gap-2 rounded-xl border px-5 font-medium transition-colors',

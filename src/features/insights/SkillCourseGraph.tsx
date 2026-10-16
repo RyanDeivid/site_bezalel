@@ -83,13 +83,19 @@ export function SkillCourseGraph({ skills, courses, pairs, skillName }: Props) {
                 <text x="14" y={skillY(i) + 4.5} fontSize="13" fill="var(--fg)" fontFamily="var(--font-sans)">
                   {skillName(s.skillId)}
                 </text>
-                <text x="212" y={skillY(i) + 4.5} fontSize="11" textAnchor="end" fill="var(--fg-subtle)" fontFamily="var(--font-mono)">
-                  {s.courseCount}
-                </text>
                 <circle cx="230" cy={skillY(i)} r="3.5" fill={active ? 'var(--accent)' : 'var(--fg-subtle)'} />
               </g>
             );
           })}
+          {/* Contagens fora dos botões: o nome acessível ("Python: 9 cursos") já as
+              diz, e texto visível colado ao nome ("Python9") confundiria comandos de voz. */}
+          <g aria-hidden style={{ pointerEvents: 'none' }}>
+            {top.map((s, i) => (
+              <text key={s.skillId} x="212" y={skillY(i) + 4.5} fontSize="11" textAnchor="end" fill="var(--fg-subtle)" fontFamily="var(--font-mono)">
+                {s.courseCount}
+              </text>
+            ))}
+          </g>
           {linkedCourses.map((c, i) => (
             <g key={c.id} opacity={highlighted.has(c.id) ? 1 : 0.4} style={{ transition: 'opacity 300ms' }}>
               <circle cx="560" cy={courseY(i)} r="3.5" fill={highlighted.has(c.id) ? 'var(--accent)' : 'var(--fg-subtle)'} />

@@ -134,11 +134,11 @@ export function Planner({ courses, hoursPerWeek = 2 }: { courses: Course[]; hour
                   key={d}
                   type="button"
                   aria-pressed={on}
-                  aria-label={t.weekdaysLong[i]}
                   onClick={() => setDays((cur) => (on ? cur.filter((x) => x !== i) : [...cur, i].sort()))}
                   className={cn('h-9 min-w-12 rounded-lg border px-2 text-sm', on ? 'border-accent bg-accent-soft text-fg' : 'border-line-strong text-fg-muted hover:text-fg')}
                 >
-                  {d}
+                  <span aria-hidden>{d}</span>
+                  <span className="sr-only">{t.weekdaysLong[i]}</span>
                 </button>
               );
             })}

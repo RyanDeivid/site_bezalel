@@ -88,6 +88,7 @@ Detalhes, base URL, domínio próprio e limitações de SEO: [`docs/DEPLOYMENT.m
 - [Roadmap](docs/ROADMAP.md)
 - [Segurança](docs/SECURITY.md)
 - [Design ético](docs/ETHICS.md)
+- [Acessibilidade](docs/ACCESSIBILITY.md)
 - [Contribuição](docs/CONTRIBUTING.md)
 - [Backend de referência](server/README.md)
 

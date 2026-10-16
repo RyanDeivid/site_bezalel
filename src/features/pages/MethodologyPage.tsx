@@ -12,6 +12,7 @@ import { useDocumentMeta } from '@/hooks/useDocumentMeta';
 import { useServices } from '@/services/context';
 import { runDemoPipeline } from '@/services/catalog/demo-registry';
 import { StateMachineDiagram } from './StateMachineDiagram';
+import { scrollRegion } from '@/lib/scroll-region';
 
 const CHECKS: Array<{ id: ValidationCheckId; blocking: boolean }> = [
   { id: 'has-title', blocking: true },
@@ -132,7 +133,7 @@ export default function MethodologyPage() {
           <section id="checks">
             <h2 className="text-title">{t.checks.title}</h2>
             <p className="mt-4 max-w-prose text-fg-muted">{t.checks.lead}</p>
-            <div className="mt-6 overflow-x-auto rounded-xl border border-line">
+            <div {...scrollRegion(t.checks.title)} className="mt-6 overflow-x-auto rounded-xl border border-line">
               <table className="w-full min-w-[36rem] text-left text-sm">
                 <thead className="bg-surface-2 text-xs uppercase tracking-wider text-fg-subtle">
                   <tr>
@@ -180,7 +181,7 @@ export default function MethodologyPage() {
           <section id="states">
             <h2 className="text-title">{t.states.title}</h2>
             <p className="mt-4 text-fg-muted">{t.states.lead}</p>
-            <StateMachineDiagram transitions={PUBLICATION_TRANSITIONS} />
+            <StateMachineDiagram transitions={PUBLICATION_TRANSITIONS} label={t.states.title} />
             <dl className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
               {(Object.keys(PUBLICATION_TRANSITIONS) as Array<keyof typeof PUBLICATION_TRANSITIONS>).map((s) => (
                 <div key={s} className="flex items-start gap-3 rounded-lg border border-line p-4">
@@ -228,7 +229,7 @@ export default function MethodologyPage() {
               <Badge tone="demo">{m.common.demo}</Badge>
             </div>
             <p className="mt-4 max-w-prose text-fg-muted">{t.example.lead}</p>
-            <div className="hatch-demo mt-6 overflow-x-auto rounded-xl border border-demo/30">
+            <div {...scrollRegion(t.example.title)} className="hatch-demo mt-6 overflow-x-auto rounded-xl border border-demo/30">
               <table className="w-full min-w-[40rem] text-left text-sm">
                 <thead className="bg-surface-2/80 text-xs uppercase tracking-wider text-fg-subtle">
                   <tr>

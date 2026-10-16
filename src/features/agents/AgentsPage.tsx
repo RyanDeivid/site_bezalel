@@ -20,6 +20,7 @@ import { cn } from '@/lib/cn';
 import { useServices } from '@/services/context';
 import type { AgentId } from '@/types/domain';
 import { useAnimationGate } from '@/hooks/useAnimationGate';
+import { scrollRegion } from '@/lib/scroll-region';
 
 /** Diagrama do fluxo entre agentes com conexões animadas. */
 function AgentFlow() {
@@ -48,7 +49,7 @@ function AgentFlow() {
     ['vigia', 'verifier'],
   ];
   return (
-    <div ref={gate} className="overflow-x-auto rounded-2xl border border-line bg-bg-deep p-4">
+    <div ref={gate} {...scrollRegion(m.agentsPage.flowLead)} className="overflow-x-auto rounded-2xl border border-line bg-bg-deep p-4">
       <svg viewBox="0 0 810 390" className="min-w-[640px]" role="img" aria-label={m.agentsPage.flowLead}>
         {edges.map(([a, b], i) => {
           const p = pos[a]!;

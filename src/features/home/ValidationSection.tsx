@@ -9,6 +9,7 @@ import type { ValidationCheckId } from '@/domain/pipeline';
 import { useInView } from '@/hooks/useInView';
 import { cn } from '@/lib/cn';
 import type { PublicationStatus } from '@/types/domain';
+import { scrollRegion } from '@/lib/scroll-region';
 
 const STEPS: PublicationStatus[] = ['found', 'validating', 'approved', 'published'];
 const BLOCKING: ValidationCheckId[] = ['has-title', 'has-provider', 'https-url', 'trusted-source', 'safe-content', 'fresh'];
@@ -96,7 +97,7 @@ export function ValidationSection() {
             </div>
           </div>
 
-          <div className="bz-rail bz-rail-bleed grid grid-cols-1 gap-4 sm:grid-cols-2 lg:col-span-5 lg:grid-cols-1">
+          <div {...scrollRegion(v.title)} className="bz-rail bz-rail-bleed grid grid-cols-1 gap-4 sm:grid-cols-2 lg:col-span-5 lg:grid-cols-1">
             <div className="panel p-5">
               <h3 className="font-mono text-xs uppercase tracking-[0.16em] text-fg-subtle">{v.blocking}</h3>
               <ul className="mt-4 space-y-2.5">

@@ -265,7 +265,6 @@ export default function ConstellationPage() {
                             <button
                               type="button"
                               aria-pressed={selected === s.id}
-                              aria-label={`${t.list.select(nameOf(s.id), s.courseIds.length)}${st ? ` — ${t.states[st]}` : ''}`}
                               onClick={() => selectAndShow(s.id)}
                               {...peek(s.id)}
                               className={cn('flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm transition-colors hover:bg-surface-2', selected === s.id && 'bg-accent-soft')}

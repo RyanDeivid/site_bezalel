@@ -1,6 +1,7 @@
 import { Compass, Hammer, Layers, ShieldCheck } from 'lucide-react';
 import { useT } from '@/app/preferences-context';
 import { Reveal } from '@/components/visual/Reveal';
+import { scrollRegion } from '@/lib/scroll-region';
 
 const ICONS = [Compass, Layers, Hammer];
 
@@ -13,7 +14,7 @@ export function PillarsSection() {
         <p className="eyebrow">{p.eyebrow}</p>
         <h2 className="text-display mt-5 max-w-4xl">{p.title}</h2>
       </Reveal>
-      <div className="bz-rail relative mt-10 grid grid-cols-1 gap-px overflow-hidden rounded-2xl border border-line bg-line md:mt-16 md:grid-cols-3">
+      <div {...scrollRegion(p.title)} className="bz-rail relative mt-10 grid grid-cols-1 gap-px overflow-hidden rounded-2xl border border-line bg-line md:mt-16 md:grid-cols-3">
         {p.items.map((item, i) => {
           const Icon = ICONS[i] ?? Compass;
           return (

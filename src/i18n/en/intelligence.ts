@@ -51,7 +51,7 @@ export const intelligence: Widen<typeof base> = {
       title: 'Relationships between skills and courses',
       lead: 'Hover or focus a skill to see which courses develop it. Map maintained by the Atlas agent from the curation.',
       select: 'Selected skill',
-      coursesFor: (skill: string, n: number) => `${n} course${n === 1 ? '' : 's'} develop “${skill}”`,
+      coursesFor: (skill: string, n: number) => `${skill}: ${n} course${n === 1 ? '' : 's'}`,
       pairs: 'Skills that most often appear together',
       pairCourses: (n: number) => `${n} courses in common`,
       hint: 'Select a skill from the list.',

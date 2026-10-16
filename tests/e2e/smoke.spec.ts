@@ -479,7 +479,7 @@ test('estante: salvar, marcar progresso, comparar, baixar o plano (.ics) e somar
   ]) {
     await gotoReady(page, `course/${slug}/`);
     await page.getByRole('button', { name: `Salvar na estante: ${title}`, exact: true }).click();
-    await expect(page.getByRole('button', { name: `Remover da estante: ${title}`, exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: `Salvo. Remover da estante: ${title}`, exact: true })).toBeVisible();
   }
   await page.goto('saved/');
   await expect(page.getByRole('heading', { name: '2 cursos salvos' })).toBeVisible();

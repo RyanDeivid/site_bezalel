@@ -58,7 +58,6 @@ const pt = {
     title: 'Todas as competências',
     lead: 'A mesma informação do mapa, em lista. Os temas abrem sob demanda.',
     courses: (n: number) => plural(n, 'curso', 'cursos'),
-    select: (name: string, n: number) => `${name}: ${plural(n, 'curso', 'cursos')}`,
   },
 };
 
@@ -110,7 +109,6 @@ const en: Content = {
     title: 'All skills',
     lead: 'The same information as the map, as a list. Themes open on demand.',
     courses: (n) => plural(n, 'course', 'courses'),
-    select: (name, n) => `${name}: ${plural(n, 'course', 'courses')}`,
   },
 };
 

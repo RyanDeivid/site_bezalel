@@ -48,7 +48,7 @@ export const intelligence = {
       title: 'Relações entre competências e cursos',
       lead: 'Passe o cursor ou foque uma competência para ver quais cursos a desenvolvem. Mapa mantido pelo agente Atlas a partir da curadoria.',
       select: 'Competência selecionada',
-      coursesFor: (skill: string, n: number) => `${n} curso${n === 1 ? '' : 's'} desenvolvem “${skill}”`,
+      coursesFor: (skill: string, n: number) => `${skill}: ${n} curso${n === 1 ? '' : 's'}`,
       pairs: 'Competências que mais aparecem juntas',
       pairCourses: (n: number) => `${n} cursos em comum`,
       hint: 'Selecione uma competência na lista.',

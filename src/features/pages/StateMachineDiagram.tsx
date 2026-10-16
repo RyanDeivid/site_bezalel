@@ -1,5 +1,6 @@
 import { useT } from '@/app/preferences-context';
 import type { PublicationStatus } from '@/types/domain';
+import { scrollRegion } from '@/lib/scroll-region';
 
 /** Posições fixas dos estados no diagrama (viewBox 760×260). */
 const POS: Record<PublicationStatus, { x: number; y: number }> = {
@@ -23,11 +24,11 @@ const COLOR: Record<PublicationStatus, string> = {
 };
 
 /** Diagrama da máquina de estados gerado a partir da tabela de transições real do código. */
-export function StateMachineDiagram({ transitions }: { transitions: Record<PublicationStatus, readonly PublicationStatus[]> }) {
+export function StateMachineDiagram({ transitions, label }: { transitions: Record<PublicationStatus, readonly PublicationStatus[]>; label: string }) {
   const m = useT();
   const edges = (Object.keys(transitions) as PublicationStatus[]).flatMap((from) => transitions[from].map((to) => [from, to] as const));
   return (
-    <div className="mt-6 overflow-x-auto rounded-xl border border-line bg-bg-deep p-4">
+    <div {...scrollRegion(label)} className="mt-6 overflow-x-auto rounded-xl border border-line bg-bg-deep p-4">
       <svg viewBox="0 0 760 260" className="min-w-[640px]" role="img" aria-label={edges.map(([a, b]) => `${m.enums.publicationStatus[a]} → ${m.enums.publicationStatus[b]}`).join('; ')}>
         <defs>
           <marker id="bz-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
