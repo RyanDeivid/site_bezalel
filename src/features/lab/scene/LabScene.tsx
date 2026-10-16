@@ -1,13 +1,13 @@
-import { Canvas, useThree } from '@react-three/fiber';
-import { useEffect } from 'react';
+import { Canvas } from '@react-three/fiber';
 import { AGENT_HEX } from '@/components/agents/AgentGlyph';
+import { ContextLossWatcher, PerformanceWatch } from '@/components/three/watchers';
 import type { AgentId, AgentStatus } from '@/types/domain';
 import type { GuideTarget } from '../journey';
 import { STATIONS, type LabPulse, type LabRuntime } from '../layout';
 import { Environment } from './Environment';
 import { Flows } from './Flows';
 import { Hub } from './Hub';
-import { PerformanceWatch, Player } from './Player';
+import { Player } from './Player';
 import { Bloom } from './post/Bloom';
 import { Robots } from './Robots';
 import { Sector } from './Sector';
@@ -38,25 +38,6 @@ export interface LabSceneProps {
   guideTarget: GuideTarget | null;
   /** O guia chegou à parada. */
   onGuideArrive: () => void;
-}
-
-/**
- * Observa perda real do contexto WebGL (driver, GPU, memória). O listener é
- * removido no desmonte — antes de o R3F forçar a perda do contexto ao
- * descartar o renderer —, então sair da página não é tratado como falha.
- */
-function ContextLossWatcher({ onLost }: { onLost: () => void }) {
-  const gl = useThree((s) => s.gl);
-  useEffect(() => {
-    const el = gl.domElement;
-    const handler = (e: Event) => {
-      e.preventDefault();
-      onLost();
-    };
-    el.addEventListener('webglcontextlost', handler);
-    return () => el.removeEventListener('webglcontextlost', handler);
-  }, [gl, onLost]);
-  return null;
 }
 
 /**

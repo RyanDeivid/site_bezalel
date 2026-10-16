@@ -34,6 +34,7 @@ export const routes: RouteObject[] = [
       { path: 'insights', lazy: lazyPage(() => import('@/features/insights/InsightsPage')) },
       { path: 'agents', lazy: lazyPage(() => import('@/features/agents/AgentsPage')) },
       { path: 'lab', lazy: lazyPage(() => import('@/features/lab/LabPage')) },
+      { path: 'universe', lazy: lazyPage(() => import('@/features/universe/UniversePage')) },
       { path: 'assistant', lazy: lazyPage(() => import('@/features/assistant/AssistantPage')) },
       { path: 'about', lazy: lazyPage(() => import('@/features/pages/AboutPage')) },
       { path: 'methodology', lazy: lazyPage(() => import('@/features/pages/MethodologyPage')) },

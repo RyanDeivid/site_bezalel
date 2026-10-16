@@ -22,6 +22,13 @@ export function detectWebGL(): boolean {
   }
 }
 
+let webglSupport: boolean | undefined;
+/** Detecta WebGL uma única vez por sessão (o teste cria um contexto descartável). */
+export function hasWebGL(): boolean {
+  webglSupport ??= detectWebGL();
+  return webglSupport;
+}
+
 /**
  * Estima a capacidade do dispositivo para dosar efeitos: partículas,
  * resolução do canvas e recomendação 3D/2D no laboratório.

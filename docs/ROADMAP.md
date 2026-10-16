@@ -15,6 +15,12 @@ Executado fase a fase; cada fase é publicada ao terminar.
 | 5 · Psicologia aplicada (ética) | Pico-final, curiosidade, progresso, poucas escolhas por tela, polegar; prova social só com números reais — nada de escassez ou contador falso | **Concluída** (`docs/ETHICS.md`; medições em `ARCHITECTURE.md`) — guarda ética automática sobre todos os textos; pico-final ao concluir curso e trilha e um "Próximo passo" no fim das páginas internas (catálogo, curso, Insights, agentes, metodologia, Sobre); "Continue de onde parou" para quem volta; contagens reais ao vivo no questionário; filtros do catálogo com 7 temas que se abrem sob demanda e "Mais filtros"; barras na zona do polegar na home, no catálogo, no curso e na trilha; teste de que os números da home são contagens reais |
 | 6 · Qualidade | Testes de tudo que for novo, auditoria de acessibilidade, documentação | **Em andamento** — auditoria automática WCAG 2.2 AA (axe-core) em todas as rotas, nos dois temas e tamanhos de tela, no CI; primeira rodada corrigida (contraste do texto secundário e das cores dos agentes, nomes acessíveis, rolagem por teclado, `<dl>`) — ver `docs/ACCESSIBILITY.md`; `/lab` sem a travada da abertura (formatadores `Intl` recriados a cada evento: ~350 ms de CPU no celular simulado, e travadas de 60–95 ms a cada evento novo) |
 
+## Bezalel Universe
+
+| Fase | Escopo | Estado |
+|---|---|---|
+| 1 · Fundação e primeira área | Rota `/universe`: praça futurista com a Sede, o Laboratório de IA e o Centro de Produtos (produtos reais do site), ruas com trânsito terrestre determinístico, carro voador pilotável (teclado, mouse, toque), piloto automático até cada local, painéis com links reais, dois níveis de qualidade com rebaixamento automático, tela cheia e sugestão de celular deitado, mapa 2D acessível como alternativa | **Implementada localmente** (branch `universe-1`, não publicada) — ver `docs/UNIVERSE.md` |
+
 ---
 
 Estado em 10/10/2026 (v1.0).

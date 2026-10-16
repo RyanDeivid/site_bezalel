@@ -32,6 +32,7 @@ const ROUTES: Array<[string, RegExp]> = [
   ['terms/', /Termos de uso/],
   ['trail/', /Quatro perguntas, uma trilha de cursos reais/],
   ['skills/', /O que você aprende, ligado ao que vem depois/],
+  ['universe/', /Uma cidade para explorar o que a Bezalel constrói/],
   ['saved/', /Seus cursos, seu ritmo/],
   ['compare/', /Lado a lado, só com o que a fonte declara/],
 ];
@@ -256,7 +257,7 @@ test('Agentes: o Vigia está entre os seis agentes e leva ao seu setor no labora
 });
 
 test('sem rolagem horizontal acidental', async ({ page }) => {
-  for (const path of ['', 'explore/', 'insights/', 'agents/', 'lab/', 'methodology/', 'trail/', 'skills/', 'saved/', 'compare/']) {
+  for (const path of ['', 'explore/', 'insights/', 'agents/', 'lab/', 'methodology/', 'trail/', 'skills/', 'universe/', 'saved/', 'compare/']) {
     await page.goto(path);
     await page.waitForFunction(() => Boolean(document.documentElement.dataset.hydrated));
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
@@ -662,4 +663,65 @@ test('constelação: a estante acende o céu e sugere próximos passos; o tema a
   expect(await map.getAttribute('viewBox')).not.toBe(full);
   // A lista acessível mostra só o tema escolhido, já aberto.
   await expect(page.getByRole('region', { name: 'Todas as competências' }).locator('details[open]')).toHaveCount(1);
+});
+
+// ---- Bezalel Universe ---------------------------------------------------------------
+
+test('Universe 2D: mapa da cidade com os locais e links reais', async ({ page }) => {
+  await gotoReady(page, 'universe/');
+  await page.getByRole('button', { name: 'Ver o mapa da cidade' }).click();
+  await expect(page.getByRole('group', { name: /Planta da primeira área/ })).toBeVisible();
+  const lab = page.locator('#universe-ai-lab');
+  await expect(lab.getByRole('heading', { name: 'Laboratório de IA' })).toBeVisible();
+  await expect(lab.getByRole('link', { name: 'Entrar no laboratório 3D' })).toHaveAttribute('href', /\/lab$/);
+  // Centro de Produtos: só produtos que existem no site.
+  const products = page.locator('#universe-products-center');
+  await expect(products.getByRole('link', { name: /Descubra sua trilha/ })).toHaveAttribute('href', /\/trail$/);
+  await expect(products.getByRole('link', { name: /Constelação de competências/ })).toHaveAttribute('href', /\/skills$/);
+});
+
+test('Universe 3D: entra, mostra a orientação, abre um local pelo teclado e leva ao laboratório', async ({ page, isMobile }) => {
+  test.skip(isMobile, 'O fluxo 3D com teclado é coberto no desktop.');
+  test.setTimeout(90_000);
+  const errors = trackErrors(page);
+  await gotoReady(page, 'universe/');
+  const enter = page.getByRole('button', { name: 'Pilotar em 3D' });
+  test.skip(await enter.isDisabled(), 'WebGL indisponível neste navegador de teste.');
+  await enter.click();
+  // Primeira entrada: orientação com os controles.
+  await expect(page.getByRole('dialog', { name: 'Como pilotar' })).toBeVisible();
+  await page.getByRole('button', { name: 'Começar a explorar' }).click();
+  await expect(page.locator('section[data-universe-stage] canvas')).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByRole('button', { name: 'Tela cheia' })).toBeVisible();
+  const places = page.getByRole('button', { name: 'Locais' });
+  await places.focus();
+  await page.keyboard.press('Enter');
+  const item = page.getByRole('navigation', { name: 'Locais' }).getByRole('button', { name: /Laboratório de IA/ });
+  await item.focus();
+  await page.keyboard.press('Enter');
+  const panel = page.getByRole('dialog', { name: 'Laboratório de IA' });
+  await expect(panel).toBeVisible();
+  await expect(panel.getByText(/6 agentes representados/)).toBeVisible();
+  await expect(panel.getByRole('button', { name: 'Voar até aqui' })).toBeVisible();
+  await panel.getByRole('link', { name: 'Entrar no laboratório 3D' }).click();
+  await expect(page).toHaveURL(/\/lab\/?$/);
+  expect(errors.filter((e) => !/GPU|WebGL|GL_/.test(e))).toEqual([]);
+});
+
+test('Universe no celular em pé: sugere deitar o aparelho, sem bloquear', async ({ page, isMobile }) => {
+  test.skip(!isMobile, 'Só no celular.');
+  test.setTimeout(90_000);
+  await page.addInitScript(() => localStorage.setItem('bz-universe-help-v1', 'seen'));
+  await gotoReady(page, 'universe/');
+  const enter = page.getByRole('button', { name: 'Pilotar em 3D' });
+  test.skip(await enter.isDisabled(), 'WebGL indisponível neste navegador de teste.');
+  await expect(page.getByText(/deite o aparelho e use a tela cheia/)).toBeVisible();
+  await enter.click();
+  const hint = page.getByRole('dialog', { name: 'Gire o celular' });
+  await expect(hint).toBeVisible();
+  await hint.getByRole('button', { name: 'Continuar assim' }).click();
+  await expect(hint).toBeHidden();
+  // Controles de toque: joystick e botões de subir/descer.
+  await expect(page.getByRole('application', { name: /Controle de voo/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Subir' })).toBeVisible();
 });

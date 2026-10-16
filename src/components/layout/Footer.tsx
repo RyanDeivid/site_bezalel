@@ -4,7 +4,7 @@ import { useT } from '@/app/preferences-context';
 import { BezalelMark } from '@/components/brand/BezalelMark';
 import { Wordmark } from '@/components/brand/Logo';
 import { appConfig } from '@/lib/env';
-import { INSTITUTIONAL_NAV, PRIMARY_NAV } from './nav-items';
+import { EXTRA_NAV, INSTITUTIONAL_NAV, PRIMARY_NAV } from './nav-items';
 
 export function Footer() {
   const m = useT();
@@ -25,7 +25,7 @@ export function Footer() {
         <nav aria-label={m.footer.product} className="md:col-span-2">
           <h2 className="font-mono text-xs uppercase tracking-[0.18em] text-fg-subtle">{m.footer.product}</h2>
           <ul className="mt-4 space-y-2.5 text-sm">
-            {PRIMARY_NAV.map((item) => (
+            {[...PRIMARY_NAV, ...EXTRA_NAV].map((item) => (
               <li key={item.to}>
                 <Link to={item.to} className="text-fg-muted transition-colors hover:text-fg">
                   {item.key === 'assistant' ? m.nav.assistantLong : m.nav[item.key]}

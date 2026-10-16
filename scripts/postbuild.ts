@@ -134,7 +134,7 @@ const pages: PageSpec[] = [
     priority: 0.8,
     noindex: key === 'saved' || key === 'compare',
   })),
-  ...(['insights', 'agents', 'lab', 'assistant', 'about', 'methodology', 'privacy', 'terms'] as const).map((key) => ({
+  ...(['insights', 'agents', 'lab', 'universe', 'assistant', 'about', 'methodology', 'privacy', 'terms'] as const).map((key) => ({
     path: `/${key}`,
     title: meta[key].title,
     description: meta[key].description,

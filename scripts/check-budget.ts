@@ -23,7 +23,8 @@ const BUDGET = {
   // Sob demanda. three.js fica num chunk compartilhado pela Forja (home) e
   // pelo laboratório; cada um soma só o próprio código por cima dele.
   three: 200,
-  lazy: { scene: 30, LabScene: 100, InsightsPage: 130 },
+  // `textures` = React Three Fiber + as texturas em canvas, compartilhados pelo laboratório e pelo Universe.
+  lazy: { scene: 30, textures: 70, LabScene: 100, UniverseScene: 60, UniversePage: 30, InsightsPage: 130 },
 };
 
 const gz = async (file: string) => gzipSync(await readFile(file)).length / KB;

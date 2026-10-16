@@ -1,5 +1,5 @@
 import { Box, Check, CircleAlert, Compass, Footprints, Gauge, Map as MapIcon, Pause, Play, Sparkles, TriangleAlert } from 'lucide-react';
-import { Component, lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { usePreferences } from '@/app/preferences-context';
 import { AgentPanel } from '@/components/agents/AgentPanel';
@@ -13,7 +13,9 @@ import { useToast } from '@/components/ui/toast-context';
 import { curated, skillName } from '@/data/catalog/store';
 import { assessFreshness } from '@/domain/pipeline/freshness';
 import { useAsync } from '@/hooks/useAsync';
-import { detectWebGL, useDeviceProfile } from '@/hooks/useDeviceProfile';
+import { Joystick } from '@/components/three/Joystick';
+import { SceneBoundary } from '@/components/three/SceneBoundary';
+import { hasWebGL, useDeviceProfile } from '@/hooks/useDeviceProfile';
 import { useDocumentMeta } from '@/hooks/useDocumentMeta';
 import { useIsClient } from '@/hooks/useIsClient';
 import { useEventFeed } from '@/hooks/useEventFeed';
@@ -21,7 +23,6 @@ import { readSession, writeSession } from '@/lib/storage';
 import { cn } from '@/lib/cn';
 import { useServices } from '@/services/context';
 import type { AgentId } from '@/types/domain';
-import { Joystick } from './hud/Joystick';
 import { courseFacts, journeyStops, type JourneyKind } from './journey';
 import { journeyContent } from './journey-content';
 import { CoursePicker, JourneyPanel, type LiveMetric } from './JourneyPanel';
@@ -38,32 +39,11 @@ const LabScene = lazy(() => import('./scene/LabScene'));
 type Mode = 'launcher' | '3d' | '2d';
 const MODE_KEY = 'bz-lab-mode';
 
-let webglSupport: boolean | undefined;
-/** Detecta WebGL uma única vez (cria um contexto descartável). */
-function hasWebGL(): boolean {
-  webglSupport ??= detectWebGL();
-  return webglSupport;
-}
-
 function savedMode(): Mode {
   const saved = readSession(MODE_KEY);
   if (saved === '2d') return '2d';
   if (saved === '3d' && hasWebGL()) return '3d';
   return 'launcher';
-}
-
-/** Se a cena 3D falhar (driver, memória, import), cai para a versão 2D. */
-class SceneBoundary extends Component<{ onError: () => void; children: ReactNode }, { failed: boolean }> {
-  state = { failed: false };
-  static getDerivedStateFromError() {
-    return { failed: true };
-  }
-  componentDidCatch() {
-    this.props.onError();
-  }
-  render() {
-    return this.state.failed ? null : this.props.children;
-  }
 }
 
 export default function LabPage() {
@@ -482,7 +462,7 @@ export default function LabPage() {
           {/* Controles */}
           <div className={cn('absolute bottom-4 left-4 flex items-end gap-3', journey && 'hidden')}>
             {device.coarse ? (
-              <Joystick runtime={runtime} />
+              <Joystick runtime={runtime} label={l.hud.joystick} />
             ) : (
               <div className="glass hidden max-w-xs rounded-xl px-3 py-2.5 text-xs text-fg-muted md:block">
                 <p className="font-mono uppercase tracking-wider text-fg-subtle">{l.hud.controls}</p>

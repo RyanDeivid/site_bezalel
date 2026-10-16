@@ -52,6 +52,7 @@ export const common: Widen<typeof base> = {
     insights: 'Insights',
     agents: 'Agents',
     lab: 'Lab',
+    universe: 'Bezalel Universe',
     assistant: 'Sol',
     assistantLong: 'Sol assistant',
     about: 'About',
@@ -275,6 +276,10 @@ export const common: Widen<typeof base> = {
     agents: {
       title: 'Agent ecosystem',
       description: 'Meet Scout, Verifier, Vigia, Atlas, Trend and Sol: roles, states, limitations and recent events (demonstration mode).',
+    },
+    universe: {
+      title: 'Bezalel Universe',
+      description: "Fly a hover car through a 3D city and visit Bezalel's headquarters, AI lab and products center — with a 2D map for those who prefer no 3D.",
     },
     lab: {
       title: '3D Lab',

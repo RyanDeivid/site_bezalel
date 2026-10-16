@@ -4,7 +4,7 @@ type NavKey = keyof Messages['nav'];
 
 export interface NavItem {
   to: string;
-  key: Extract<NavKey, 'explore' | 'trail' | 'skills' | 'insights' | 'agents' | 'lab' | 'assistant' | 'about' | 'methodology' | 'privacy' | 'terms' | 'home'>;
+  key: Extract<NavKey, 'explore' | 'trail' | 'skills' | 'universe' | 'insights' | 'agents' | 'lab' | 'assistant' | 'about' | 'methodology' | 'privacy' | 'terms' | 'home'>;
 }
 
 export const PRIMARY_NAV: NavItem[] = [
@@ -16,6 +16,9 @@ export const PRIMARY_NAV: NavItem[] = [
   { to: '/lab', key: 'lab' },
   { to: '/assistant', key: 'assistant' },
 ];
+
+/** Experiências fora do menu principal (que já tem sete itens): aparecem no rodapé e na busca. */
+export const EXTRA_NAV: NavItem[] = [{ to: '/universe', key: 'universe' }];
 
 export const INSTITUTIONAL_NAV: NavItem[] = [
   { to: '/about', key: 'about' },

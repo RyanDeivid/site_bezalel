@@ -1,8 +1,8 @@
-import { useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
+import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { AGENT_HEX } from '@/components/agents/AgentGlyph';
+import { EnvironmentMap } from '@/components/three/EnvironmentMap';
 import { ENTRANCE_ANGLE, LAB_RADIUS, PLAZA_RADIUS, RING_RADIUS, SECTOR_RADIUS, SECTOR_SIZE, STATIONS } from '../layout';
 import { drawCampusFloor, makeCanvasTexture } from './textures';
 
@@ -15,30 +15,6 @@ const PILLARS = 36;
 const pillarAngles = Array.from({ length: PILLARS }, (_, i) => (i / PILLARS) * Math.PI * 2 + ENTRANCE_ANGLE + Math.PI / PILLARS).filter(
   (a) => Math.abs(Math.atan2(Math.sin(a - ENTRANCE_ANGLE), Math.cos(a - ENTRANCE_ANGLE))) > GATE_HALF + 0.04,
 );
-
-/**
- * Reflexos PBR: um mapa de ambiente pré-filtrado (PMREM) gerado uma vez a
- * partir de uma sala de estúdio procedural — metais e vernizes dos robôs e
- * das máquinas refletem algo coerente sem baixar imagens.
- */
-function EnvironmentMap({ intensity }: { intensity: number }) {
-  const gl = useThree((s) => s.gl);
-  const scene = useThree((s) => s.scene);
-  useEffect(() => {
-    const pmrem = new THREE.PMREMGenerator(gl);
-    const room = new RoomEnvironment();
-    const env = pmrem.fromScene(room, 0.04).texture;
-    scene.environment = env;
-    scene.environmentIntensity = intensity;
-    room.dispose();
-    pmrem.dispose();
-    return () => {
-      scene.environment = null;
-      env.dispose();
-    };
-  }, [gl, scene, intensity]);
-  return null;
-}
 
 /**
  * Arquitetura do campus: piso com praça, anel de circulação e caminhos até os

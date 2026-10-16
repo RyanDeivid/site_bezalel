@@ -1,12 +1,19 @@
 import { useRef, useState, type PointerEvent } from 'react';
-import { useT } from '@/app/preferences-context';
-import type { LabRuntime } from '../layout';
 
 const RADIUS = 42;
 
-/** Joystick virtual para telas de toque: escreve o vetor de movimento no runtime. */
-export function Joystick({ runtime }: { runtime: LabRuntime }) {
-  const m = useT();
+/** O que o joystick escreve: o vetor (x à direita, y para cima, -1…1) e o fim de um destino clicado. */
+export interface JoystickPad {
+  joystick: { x: number; y: number };
+  target: unknown;
+}
+
+/**
+ * Joystick virtual para telas de toque: escreve o vetor de movimento no
+ * objeto mutável da cena (fora do estado do React). Usado pelo laboratório
+ * (caminhar) e pelo Universe (pilotar).
+ */
+export function Joystick({ runtime, label }: { runtime: JoystickPad; label: string }) {
   const base = useRef<HTMLDivElement>(null);
   const [knob, setKnob] = useState({ x: 0, y: 0 });
   const active = useRef<number | null>(null);
@@ -38,7 +45,7 @@ export function Joystick({ runtime }: { runtime: LabRuntime }) {
     <div
       ref={base}
       role="application"
-      aria-label={m.lab.hud.joystick}
+      aria-label={label}
       className="relative size-28 touch-none rounded-full border border-line-strong bg-bg/60 backdrop-blur"
       onPointerDown={(e) => {
         active.current = e.pointerId;

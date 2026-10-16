@@ -333,6 +333,15 @@
   }
 }
 
+/* Universe: ícone do celular girando para a horizontal (sugestão de orientação). */
+@keyframes bz-rotate-hint {
+  0%, 30% { transform: rotate(0deg); }
+  60%, 100% { transform: rotate(-90deg); }
+}
+.bz-rotate-hint {
+  animation: bz-rotate-hint 2.4s var(--ease-out, ease-out) infinite alternate;
+}
+
 /* Barra de ações do celular (MobileActionBar.tsx): entra deslizando de baixo. */
 .bz-mobile-bar {
   transform: translate3d(0, 110%, 0);

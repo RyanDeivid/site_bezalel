@@ -53,6 +53,7 @@ export const common = {
     insights: 'Insights',
     agents: 'Agentes',
     lab: 'Laboratório',
+    universe: 'Bezalel Universe',
     assistant: 'Sol',
     assistantLong: 'Assistente Sol',
     about: 'Sobre',
@@ -276,6 +277,10 @@ export const common = {
     agents: {
       title: 'Ecossistema de agentes',
       description: 'Conheça Scout, Verifier, Vigia, Atlas, Trend e Sol: funções, estados, limitações e eventos recentes (modo demonstração).',
+    },
+    universe: {
+      title: 'Bezalel Universe',
+      description: 'Pilote um carro voador por uma cidade 3D e visite a sede, o laboratório de IA e o centro de produtos da Bezalel — com um mapa 2D para quem prefere sem 3D.',
     },
     lab: {
       title: 'Laboratório 3D',

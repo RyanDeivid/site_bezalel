@@ -25,6 +25,7 @@ const ROUTES = [
   'insights/',
   'agents/',
   'lab/',
+  'universe/',
   'assistant/',
   'about/',
   'methodology/',
@@ -75,6 +76,29 @@ for (const theme of THEMES) {
     await page.keyboard.type('python');
     await expect(page.getByRole('option').first()).toBeVisible();
     await audit(page, `paleta (${theme})`);
+  });
+
+  test(`a11y: Universe — mapa da cidade (2D) — tema ${theme}`, async ({ page }) => {
+    test.setTimeout(90_000);
+    await ready(page, 'universe/', theme);
+    await page.getByRole('button', { name: 'Ver o mapa da cidade' }).click();
+    await expect(page.getByRole('group', { name: /Planta da primeira área/ })).toBeVisible();
+    await audit(page, `Universe 2D (${theme})`);
+  });
+
+  test(`a11y: Universe — HUD do 3D e painel de um local — tema ${theme}`, async ({ page }) => {
+    test.setTimeout(90_000);
+    await page.addInitScript(() => localStorage.setItem('bz-universe-help-v1', 'seen'));
+    await ready(page, 'universe/', theme);
+    const enter = page.getByRole('button', { name: 'Pilotar em 3D' });
+    test.skip(await enter.isDisabled(), 'WebGL indisponível neste navegador de teste.');
+    await enter.click();
+    await expect(page.locator('section[data-universe-stage] canvas')).toBeVisible({ timeout: 30_000 });
+    await audit(page, `Universe 3D HUD (${theme})`);
+    await page.getByRole('button', { name: 'Locais' }).click();
+    await page.getByRole('navigation', { name: 'Locais' }).getByRole('button', { name: /Centro de Produtos/ }).click();
+    await expect(page.getByRole('dialog', { name: 'Centro de Produtos' })).toBeVisible();
+    await audit(page, `Universe painel (${theme})`);
   });
 
   test(`a11y: menu do celular aberto — tema ${theme}`, async ({ page, isMobile }) => {

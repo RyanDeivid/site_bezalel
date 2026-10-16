@@ -29,9 +29,9 @@ export default tseslint.config(
     },
   },
   {
-    files: ['src/features/lab/scene/**/*.tsx', 'src/features/lab/hud/**/*.tsx'],
+    files: ['src/features/lab/scene/**/*.tsx', 'src/features/lab/hud/**/*.tsx', 'src/features/universe/scene/**/*.tsx', 'src/components/three/**/*.tsx'],
     rules: {
-      // Objetos do three.js e o LabRuntime são mutados de propósito a cada
+      // Objetos do three.js e os runtimes das cenas (laboratório, Universe) são mutados de propósito a cada
       // quadro (padrão recomendado pelo React Three Fiber para evitar
       // re-renders); esse estado nunca alimenta a renderização do React.
       'react-hooks/immutability': 'off',
