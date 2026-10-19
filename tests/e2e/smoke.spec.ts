@@ -775,6 +775,46 @@ test('Universe 3D: anda, entra no carro, dirige, sai em lugar seguro e volta a a
   expect(errors.filter((e) => !/GPU|WebGL|GL_/.test(e))).toEqual([]);
 });
 
+test('Universe 3D no computador: carro voador sobe e desce com ↑/↓; botão e tecla F de tela cheia', async ({ page, isMobile }) => {
+  test.skip(isMobile, 'Teclado e tela cheia do computador.');
+  test.setTimeout(120_000);
+  const errors = trackErrors(page);
+  const state = await enterUniverse3d(page);
+  const stage = page.locator('section[data-universe-stage]');
+  const hover = async () => (await state()).vehicles.find((v) => v.id === 'hover')!;
+  // Tela cheia: botão com nome visível e atalho F.
+  const fs = page.getByRole('button', { name: 'Tela cheia' });
+  await expect(fs).toBeVisible();
+  await expect(fs).toHaveAttribute('aria-keyshortcuts', 'F');
+  await page.mouse.move(640, 400);
+  await page.keyboard.press('f');
+  await expect(page.getByRole('button', { name: 'Sair da tela cheia' })).toBeVisible({ timeout: 10_000 });
+  expect(await page.evaluate(() => document.fullscreenElement?.hasAttribute('data-universe-stage'))).toBe(true);
+  await page.keyboard.press('f');
+  await expect(page.getByRole('button', { name: 'Tela cheia' })).toBeVisible({ timeout: 10_000 });
+  // Clicar no botão também alterna (e o foco fica nele: as setas precisam continuar indo para o jogo).
+  await page.getByRole('button', { name: 'Tela cheia' }).click();
+  await expect(page.getByRole('button', { name: 'Sair da tela cheia' })).toBeVisible({ timeout: 10_000 });
+  await page.getByRole('button', { name: 'Sair da tela cheia' }).click();
+  await expect(page.getByRole('button', { name: 'Tela cheia' })).toBeFocused();
+  // Entra no carro voador e sobe com ↑, sem andar para a frente.
+  await page.evaluate(() => (window as UniverseWindow).__bzUniverse!.placeWalker(-2.5, 78, Math.PI / 2));
+  await expect(page.getByRole('button', { name: /Entrar: / })).toBeVisible({ timeout: 10_000 });
+  await page.keyboard.press('e');
+  await expect(stage).toHaveAttribute('data-player-mode', 'hover', { timeout: 10_000 });
+  const ground = await hover();
+  await page.keyboard.down('ArrowUp');
+  await expect.poll(async () => (await hover()).y, { timeout: 15_000 }).toBeGreaterThan(ground.y + 4);
+  await page.keyboard.up('ArrowUp');
+  const high = await hover();
+  expect(Math.hypot(high.x - ground.x, high.z - ground.z)).toBeLessThan(3);
+  // ↓ desce.
+  await page.keyboard.down('ArrowDown');
+  await expect.poll(async () => (await hover()).y, { timeout: 15_000 }).toBeLessThan(high.y - 2);
+  await page.keyboard.up('ArrowDown');
+  expect(errors.filter((e) => !/GPU|WebGL|GL_/.test(e))).toEqual([]);
+});
+
 test('Universe 3D: abre um local pelo teclado, troca a qualidade e sai sem deixar o jogo rodando', async ({ page, isMobile }) => {
   test.skip(isMobile, 'O fluxo com teclado é coberto no desktop.');
   test.setTimeout(120_000);
@@ -833,6 +873,8 @@ test('Universe no celular: sugere deitar o aparelho, joystick a pé, pedais e vo
   await page.addInitScript(() => {
     localStorage.setItem('bz-universe-help-v2', 'seen');
     localStorage.setItem('bz-universe-debug', '1');
+    // O aviso de demonstração empurra o palco para baixo e tiraria os pedais da tela.
+    localStorage.setItem('bz-demo-banner-v1', 'dismissed');
     sessionStorage.setItem('bz-universe-quality', 'low');
   });
   await gotoReady(page, 'universe/');
@@ -861,6 +903,7 @@ test('Universe no celular: sugere deitar o aparelho, joystick a pé, pedais e vo
   await expect(page.getByRole('button', { name: 'Frear / ré' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Freio de mão' })).toBeVisible();
   // Segurar o acelerador move o carro.
+  await gas.scrollIntoViewIfNeeded();
   const box = (await gas.boundingBox())!;
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down();

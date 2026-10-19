@@ -155,6 +155,21 @@ aberto, para ninguém precisar de manual:
 Não há motor de física: o modelo cinemático acima basta para um carro
 controlável e previsível, e é testado sem navegador.
 
+## Controles no computador
+
+| | A pé | Carro | Carro voador |
+|---|---|---|---|
+| Frente / trás | W S ou ↑ ↓ | W acelera · S freia/ré (ou ↑ ↓) | W acelera · S freia |
+| Virar | A D ou ← → | A D ou ← → | A D ou ← → |
+| Subir / descer | — | — | **↑ ↓**, Espaço/R · C/Q |
+| Extra | Shift corre | Espaço = freio de mão | Shift = turbo |
+| Ação | E entra / abre | E sai | E pousa e sai |
+
+Em todos os modos, **F** liga e desliga a **tela cheia**; o botão "Tela cheia"
+fica ao lado de "Sair do Universe". Depois de clicar num botão do HUD, as
+setas continuam indo para o jogo; o Espaço fica com o botão focado, que é como
+ele se aciona pelo teclado.
+
 ## Câmera
 
 Terceira pessoa nos três modos, sempre amortecida (sem saltos):

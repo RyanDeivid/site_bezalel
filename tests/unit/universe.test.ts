@@ -28,7 +28,7 @@ import {
 } from '@/features/universe/world/city';
 import { autopilotInput, createCraft, planAutopilot, resolveCollisions, stepCraft } from '@/features/universe/world/flight';
 import { PRODUCTS, productText } from '@/features/universe/world/products';
-import { cancelAutopilot, createUniverseRuntime, driveInput, goToPlace, nearestVehicle, requestExit, tryEnter, updatePlayer, vehicleBodies, vehicleById, vehiclePose } from '@/features/universe/world/runtime';
+import { cancelAutopilot, createUniverseRuntime, driveInput, goToPlace, manualInput, nearestVehicle, requestExit, tryEnter, updatePlayer, vehicleBodies, vehicleById, vehiclePose } from '@/features/universe/world/runtime';
 import { createTraffic, CRUISE_SPEED, ROUTES, sampleRoute, stepTraffic, TRAFFIC_STEP } from '@/features/universe/world/traffic';
 import { CAR_SPECS, createCar, exitSpot, NO_DRIVE, stepCar, stopInput } from '@/features/universe/world/vehicles';
 import { createWalker, PERSON_RADIUS, RUN_SPEED, stepWalker, WALK_SPEED, walkerSpeed } from '@/features/universe/world/walker';
@@ -438,6 +438,26 @@ describe('Universe — entrar e sair dos veículos', () => {
 });
 
 describe('Universe — voo (carro voador)', () => {
+  it('no teclado, ↑/↓ sobem e descem; W/S aceleram e freiam; ←/→ viram', () => {
+    const rt = createUniverseRuntime();
+    const with_ = (...keys: string[]) => {
+      rt.keys.clear();
+      keys.forEach((k) => rt.keys.add(k));
+      return manualInput(rt);
+    };
+    expect(with_('arrowup')).toMatchObject({ lift: 1, throttle: 0 });
+    expect(with_('arrowdown')).toMatchObject({ lift: -1, throttle: 0 });
+    expect(with_(' ')).toMatchObject({ lift: 1 });
+    expect(with_('c')).toMatchObject({ lift: -1 });
+    expect(with_('arrowup', ' ')).toMatchObject({ lift: 1 });
+    expect(with_('w')).toMatchObject({ throttle: 1, lift: 0 });
+    expect(with_('s')).toMatchObject({ throttle: -1, lift: 0 });
+    expect(with_('arrowleft').turn).toBe(-1);
+    expect(with_('d').turn).toBe(1);
+    // No carro e a pé, as setas continuam sendo frente e trás.
+    expect(driveInput(Object.assign(rt, { keys: new Set(['arrowup']) })).throttle).toBe(1);
+  });
+
   it('não atravessa prédios; respeita chão, teto e limites', () => {
     const hq = BUILDINGS[0]!.solids[1]!;
     const c = { x: (hq.minX + hq.maxX) / 2, y: 20, z: hq.maxZ - 1 };

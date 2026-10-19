@@ -140,18 +140,6 @@ export default function UniversePage() {
     if (runtime.near) setOpen(runtime.near);
   }, [runtime, open, helpOpen]);
 
-  useEffect(() => {
-    if (mode !== '3d') return;
-    const onKey = (e: KeyboardEvent) => {
-      if (open || helpOpen || (e.target as HTMLElement | null)?.closest('input, textarea, select, dialog')) return;
-      const k = e.key.toLowerCase();
-      if (k === 'e' && !e.repeat) interact();
-      else if (k === 'h') goTo('arrival');
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [mode, open, helpOpen, interact, goTo]);
-
   // Gancho de inspeção só para os testes de navegador (ativado por localStorage).
   useEffect(() => {
     if (mode !== '3d' || readStorage('bz-universe-debug') !== '1') return;
@@ -168,7 +156,26 @@ export default function UniversePage() {
     writeSession(ROTATE_KEY, '1');
     setRotateDismissed(true);
   };
-  const toggleFullscreen = () => (fullscreen.active ? fullscreen.exit() : fullscreen.enter({ landscape: device.coarse }));
+  const { active: fullscreenActive, enter: enterFullscreen, exit: exitFullscreen } = fullscreen;
+  const toggleFullscreen = useCallback(
+    () => (fullscreenActive ? exitFullscreen() : enterFullscreen({ landscape: device.coarse })),
+    [fullscreenActive, enterFullscreen, exitFullscreen, device.coarse],
+  );
+
+  // Atalhos do palco: E (ação do momento), H (voltar ao início), F (tela cheia).
+  useEffect(() => {
+    if (mode !== '3d') return;
+    const onKey = (e: KeyboardEvent) => {
+      if (open || helpOpen || (e.target as HTMLElement | null)?.closest('input, textarea, select, dialog')) return;
+      const k = e.key.toLowerCase();
+      if (k === 'e' && !e.repeat) interact();
+      else if (k === 'h') goTo('arrival');
+      else if (k === 'f' && !e.repeat && canFullscreen) toggleFullscreen();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [mode, open, helpOpen, interact, goTo, canFullscreen, toggleFullscreen]);
+
   useEffect(() => {
     if (mode !== '3d') void fullscreen.exit();
   }, [mode, fullscreen]);
@@ -403,12 +410,24 @@ export default function UniversePage() {
                 <IconButton label={t.hud.map} onClick={() => setMode('2d')} size="sm">
                   <MapIcon className="size-4" />
                 </IconButton>
-                {canFullscreen && (
-                  <IconButton label={fullscreen.active ? t.hud.exitFullscreen : t.hud.fullscreen} onClick={toggleFullscreen} active={fullscreen.active} size="sm">
-                    {fullscreen.active ? <Minimize className="size-4" /> : <Maximize className="size-4" />}
-                  </IconButton>
-                )}
               </div>
+              {canFullscreen && (
+                <Button
+                  variant={fullscreen.active ? 'secondary' : 'primary'}
+                  size="sm"
+                  className={cn(fullscreen.active && 'glass')}
+                  aria-pressed={fullscreen.active}
+                  aria-keyshortcuts="F"
+                  title={`${fullscreen.active ? t.hud.exitFullscreen : t.hud.fullscreen} (F)`}
+                  onClick={toggleFullscreen}
+                  iconLeft={fullscreen.active ? <Minimize className="size-4" /> : <Maximize className="size-4" />}
+                >
+                  <span className="max-md:sr-only">{fullscreen.active ? t.hud.exitFullscreen : t.hud.fullscreen}</span>
+                  <span aria-hidden className="kbd ml-1 hidden lg:inline">
+                    F
+                  </span>
+                </Button>
+              )}
               <ButtonLink to="/" variant="secondary" size="sm" className="glass" iconLeft={<LogOut className="size-4" />}>
                 <span className="max-sm:sr-only">{t.hud.exit}</span>
               </ButtonLink>
@@ -464,7 +483,7 @@ export default function UniversePage() {
                   </>
                 ) : (
                   <>
-                    <span className="kbd">WASD</span> · <span className="kbd">Espaço</span>/<span className="kbd">C</span> · <span className="kbd">E</span>
+                    <span className="kbd">WASD</span> · <span className="kbd">↑</span>/<span className="kbd">↓</span> {t.hud.liftHint} · <span className="kbd">E</span>
                   </>
                 )}
               </p>

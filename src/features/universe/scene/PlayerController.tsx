@@ -38,12 +38,18 @@ interface Props {
 const NEAR_ALTITUDE = 26;
 
 const isTyping = (el: Element | null) => !!el?.closest('input, textarea, select, [contenteditable], dialog[open]');
-/** Espaço e setas só viram comando quando o foco não está num botão/link do HUD. */
-const focusOnStage = () => {
+/**
+ * Setas e Espaço viram comando do jogo quando o foco está no palco. Depois de
+ * clicar num botão do HUD (tela cheia, entrar, locais…) o foco fica nele: as
+ * setas continuam indo para o jogo (nenhum botão do HUD as usa), mas o Espaço
+ * fica com o botão, que é como ele se aciona pelo teclado. Fora do palco (menu
+ * do site, campos), nada é capturado.
+ */
+const keyForGame = (k: string) => {
   const el = document.activeElement;
   if (!el || el === document.body || el.tagName === 'CANVAS') return true;
-  if (el.closest('button, a, input, select, textarea, [role="button"], [role="application"]')) return false;
-  return !!el.closest('[data-universe-stage]');
+  if (!el.closest('[data-universe-stage]')) return false;
+  return k !== ' ' || !el.closest('button, a, [role="button"], [role="radio"]');
 };
 
 /** Controle (gamepad) no padrão dos consoles: analógico esquerdo, gatilhos RT/LT, A = interagir, B = freio de mão. */
@@ -102,7 +108,7 @@ export function PlayerController({ runtime, solids, inputEnabled, calmCamera, on
       if (!inputEnabled || isTyping(document.activeElement)) return;
       const k = e.key.toLowerCase();
       if (!isControlKey(k)) return;
-      if ((k === ' ' || k.startsWith('arrow')) && !focusOnStage()) return;
+      if ((k === ' ' || k.startsWith('arrow')) && !keyForGame(k)) return;
       if (k === ' ' || k.startsWith('arrow')) e.preventDefault();
       runtime.keys.add(k);
     };

@@ -129,10 +129,17 @@ export function driveInput(rt: UniverseRuntime) {
   };
 }
 
-/** Comandos do carro voador (o mesmo esquema da fase 1). */
+const clamp1 = (v: number) => Math.max(-1, Math.min(1, v));
+
+/**
+ * Comandos do carro voador. Aqui as setas ↑/↓ sobem e descem (como Espaço/R e
+ * C/Q); W/S aceleram e freiam, e A/D ou ←/→ viram.
+ */
 export function manualInput(rt: UniverseRuntime) {
   const a = axes(rt);
-  return { throttle: a.forward, turn: a.side, lift: a.lift, boost: a.run };
+  const throttle = clamp1((rt.keys.has('w') ? 1 : 0) - (rt.keys.has('s') ? 1 : 0) + rt.joystick.y);
+  const lift = clamp1(a.lift + (rt.keys.has('arrowup') ? 1 : 0) - (rt.keys.has('arrowdown') ? 1 : 0));
+  return { throttle, turn: a.side, lift, boost: a.run };
 }
 
 export const hasManualInput = (i: ReturnType<typeof manualInput>) => i.throttle !== 0 || i.turn !== 0 || i.lift !== 0;

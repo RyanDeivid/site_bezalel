@@ -62,6 +62,7 @@ const pt = {
     map: 'Ver o mapa (2D)',
     fullscreen: 'Tela cheia',
     exitFullscreen: 'Sair da tela cheia',
+    liftHint: 'sobe/desce',
     exit: 'Sair do Universe',
     joystick: 'Controle de movimento: arraste na direção em que quer ir',
     steering: 'Volante: arraste para os lados para virar',
@@ -120,8 +121,8 @@ const pt = {
       {
         title: 'Carro voador',
         keys: [
-          ['W S A D', 'acelerar, frear, virar'],
-          ['Espaço / R  ·  C / Q', 'subir · descer'],
+          ['W S  ·  A D / ← →', 'acelerar, frear · virar'],
+          ['↑ ↓  ·  Espaço / C', 'subir · descer'],
           ['Shift', 'turbo'],
           ['E', 'pousar e sair'],
         ],
@@ -129,6 +130,7 @@ const pt = {
     ] as Array<{ title: string; keys: Array<[string, string]> }>,
     general: [
       ['H', 'voltar ao início'],
+      ['F', 'tela cheia'],
       ['Arrastar / roda', 'olhar em volta / aproximar'],
     ] as Array<[string, string]>,
     gamepad: 'Controle (Xbox/PlayStation): analógico esquerdo move e vira; RT acelera; LT freia; A entra, sai e abre; B freio de mão; analógico direito gira a câmera.',
@@ -236,6 +238,7 @@ const en: Content = {
     map: 'See the map (2D)',
     fullscreen: 'Full screen',
     exitFullscreen: 'Exit full screen',
+    liftHint: 'up/down',
     exit: 'Leave the Universe',
     joystick: 'Movement control: drag in the direction you want to go',
     steering: 'Steering: drag sideways to turn',
@@ -294,8 +297,8 @@ const en: Content = {
       {
         title: 'Hover car',
         keys: [
-          ['W S A D', 'speed up, brake, turn'],
-          ['Space / R  ·  C / Q', 'up · down'],
+          ['W S  ·  A D / ← →', 'speed up, brake · turn'],
+          ['↑ ↓  ·  Space / C', 'up · down'],
           ['Shift', 'boost'],
           ['E', 'land and get out'],
         ],
@@ -303,6 +306,7 @@ const en: Content = {
     ],
     general: [
       ['H', 'back to start'],
+      ['F', 'full screen'],
       ['Drag / wheel', 'look around / zoom'],
     ],
     gamepad: 'Gamepad (Xbox/PlayStation): left stick moves and steers; RT accelerates; LT brakes; A gets in, out and opens; B handbrake; right stick turns the camera.',
