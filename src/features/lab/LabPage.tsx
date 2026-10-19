@@ -1,4 +1,4 @@
-import { Box, Check, CircleAlert, Compass, Footprints, Gauge, Map as MapIcon, Pause, Play, Sparkles, TriangleAlert } from 'lucide-react';
+import { Box, Building2, Check, CircleAlert, Compass, Footprints, Gauge, Map as MapIcon, Pause, Play, Sparkles, TriangleAlert } from 'lucide-react';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { usePreferences } from '@/app/preferences-context';
@@ -6,7 +6,7 @@ import { AgentPanel } from '@/components/agents/AgentPanel';
 import { AGENT_COLOR } from '@/components/agents/AgentGlyph';
 import { BezalelMark } from '@/components/brand/BezalelMark';
 import { Badge } from '@/components/ui/Badge';
-import { Button, IconButton } from '@/components/ui/Button';
+import { Button, ButtonLink, IconButton } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
 import { ProcessingIndicator } from '@/components/ui/StateView';
 import { useToast } from '@/components/ui/toast-context';
@@ -32,6 +32,7 @@ import { createLabRuntime, STATION_ORDER } from './layout';
 import { OpsCenter } from './OpsCenter';
 import { buildHub, buildScreens, buildSideScreens } from './screen-content';
 import { StationDetails } from './StationDetails';
+import { universeLink } from './universe-link';
 
 // three.js + R3F só são baixados quando o modo 3D é escolhido.
 const LabScene = lazy(() => import('./scene/LabScene'));
@@ -70,6 +71,7 @@ export default function LabPage() {
   const [runtime] = useState(() => createLabRuntime(startAt));
   const published = useMemo(() => curated().filter((c) => c.publicationStatus === 'published'), []);
   const jc = journeyContent[locale];
+  const ul = universeLink[locale];
 
   // ---- Jornadas guiadas: tour pelo campus e "seguir um curso" ------------------------
   // `?curso=<slug>` (link da página do curso) já abre seguindo aquele registro.
@@ -338,6 +340,18 @@ export default function LabPage() {
                 </Button>
               </div>
             </div>
+            <div className="mt-5 flex flex-col items-start gap-4 rounded-2xl border border-accent/40 bg-accent-soft p-6 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3">
+                <Building2 aria-hidden className="mt-0.5 size-6 shrink-0 text-accent-text" />
+                <p className="text-sm text-fg-muted">
+                  <span className="block text-base font-semibold text-fg">{ul.label}</span>
+                  {ul.lead}
+                </p>
+              </div>
+              <ButtonLink to="/universe" iconLeft={<Building2 className="size-4" />}>
+                {ul.label}
+              </ButtonLink>
+            </div>
           </section>
         </>
       )}
@@ -415,6 +429,9 @@ export default function LabPage() {
                   <MapIcon className="size-4" />
                 </IconButton>
               </div>
+              <ButtonLink to="/universe" variant="secondary" size="sm" className="glass" iconLeft={<Building2 className="size-4" />}>
+                {ul.short}
+              </ButtonLink>
               {!opsOpen && (
                 <Button variant="secondary" size="sm" className="glass" onClick={() => setOpsOpen(true)}>
                   {l.ops.expand}
@@ -508,11 +525,16 @@ export default function LabPage() {
                   <h2 className="text-xl font-semibold">{l.plan.title}</h2>
                   <p className="text-sm text-fg-muted">{l.plan.lead}</p>
                 </div>
-                {webgl && (
-                  <Button variant="secondary" size="sm" onClick={() => setMode('3d')} iconLeft={<Box className="size-4" />}>
-                    {l.hud.switchTo3d}
-                  </Button>
-                )}
+                <div className="flex flex-wrap gap-2">
+                  {webgl && (
+                    <Button variant="secondary" size="sm" onClick={() => setMode('3d')} iconLeft={<Box className="size-4" />}>
+                      {l.hud.switchTo3d}
+                    </Button>
+                  )}
+                  <ButtonLink to="/universe" variant="secondary" size="sm" iconLeft={<Building2 className="size-4" />}>
+                    {ul.label}
+                  </ButtonLink>
+                </div>
               </div>
               {journeyPanel ? <div className="mt-6">{journeyPanel}</div> : journeyButtons('mt-4')}
               <div className="mt-6 rounded-2xl border border-line bg-bg-deep p-4">

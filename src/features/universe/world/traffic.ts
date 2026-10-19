@@ -1,4 +1,5 @@
-import { LANE_OFFSET, STREET_LINES, type Point2 } from './city';
+import { LANE_OFFSET, STREET_LINES, type Point2, type Quality } from './city';
+import type { CarClass } from './vehicles';
 
 /**
  * Trânsito do Bezalel Universe: rotas descritas por dados (sequências de
@@ -25,7 +26,7 @@ export interface RouteSpec {
   /** Altitude de cruzeiro (rotas aéreas). */
   altitude?: number;
   /** Quantos veículos em cada nível de qualidade. */
-  vehicles: { high: number; low: number };
+  vehicles: Record<Quality, number>;
 }
 
 export interface Route {
@@ -40,15 +41,21 @@ export interface Route {
 
 export const ROUTES: RouteSpec[] = [
   // Anel em volta da praça, nos dois sentidos.
-  { id: 'plaza-ring-cw', kind: 'ground', nodes: [[1, 1], [2, 1], [2, 2], [1, 2]], vehicles: { high: 4, low: 2 } },
-  { id: 'plaza-ring-ccw', kind: 'ground', nodes: [[1, 2], [2, 2], [2, 1], [1, 1]], vehicles: { high: 3, low: 1 } },
+  { id: 'plaza-ring-cw', kind: 'ground', nodes: [[2, 2], [3, 2], [3, 3], [2, 3]], vehicles: { high: 4, medium: 3, low: 2 } },
+  { id: 'plaza-ring-ccw', kind: 'ground', nodes: [[2, 3], [3, 3], [3, 2], [2, 2]], vehicles: { high: 3, medium: 2, low: 1 } },
+  // Anel médio (em volta das quadras institucionais).
+  { id: 'midtown-cw', kind: 'ground', nodes: [[1, 1], [4, 1], [4, 4], [1, 4]], vehicles: { high: 5, medium: 3, low: 2 } },
+  { id: 'midtown-ccw', kind: 'ground', nodes: [[1, 4], [4, 4], [4, 1], [1, 1]], vehicles: { high: 4, medium: 3, low: 1 } },
   // Avenida de contorno da cidade.
-  { id: 'outer-cw', kind: 'ground', nodes: [[0, 0], [3, 0], [3, 3], [0, 3]], vehicles: { high: 5, low: 2 } },
-  { id: 'outer-ccw', kind: 'ground', nodes: [[0, 3], [3, 3], [3, 0], [0, 0]], vehicles: { high: 4, low: 1 } },
+  { id: 'outer-cw', kind: 'ground', nodes: [[0, 0], [5, 0], [5, 5], [0, 5]], vehicles: { high: 6, medium: 4, low: 2 } },
+  { id: 'outer-ccw', kind: 'ground', nodes: [[0, 5], [5, 5], [5, 0], [0, 0]], vehicles: { high: 5, medium: 3, low: 1 } },
   // Laços de quadra: passam pela frente da sede, do laboratório e do centro de produtos.
-  { id: 'hq-loop', kind: 'ground', nodes: [[1, 0], [2, 0], [2, 1], [1, 1]], vehicles: { high: 2, low: 1 } },
-  { id: 'lab-loop', kind: 'ground', nodes: [[2, 1], [3, 1], [3, 2], [2, 2]], vehicles: { high: 2, low: 1 } },
-  { id: 'products-loop', kind: 'ground', nodes: [[0, 2], [1, 2], [1, 1], [0, 1]], vehicles: { high: 2, low: 0 } },
+  { id: 'hq-loop', kind: 'ground', nodes: [[2, 1], [3, 1], [3, 2], [2, 2]], vehicles: { high: 2, medium: 1, low: 1 } },
+  { id: 'lab-loop', kind: 'ground', nodes: [[3, 2], [4, 2], [4, 3], [3, 3]], vehicles: { high: 2, medium: 1, low: 1 } },
+  { id: 'products-loop', kind: 'ground', nodes: [[1, 3], [2, 3], [2, 2], [1, 2]], vehicles: { high: 2, medium: 1, low: 0 } },
+  // Travessias: atravessam a cidade de ponta a ponta pelas avenidas do centro.
+  { id: 'cross-north-south', kind: 'ground', nodes: [[2, 0], [3, 0], [3, 5], [2, 5]], vehicles: { high: 3, medium: 2, low: 1 } },
+  { id: 'cross-east-west', kind: 'ground', nodes: [[0, 2], [5, 2], [5, 3], [0, 3]], vehicles: { high: 3, medium: 2, low: 1 } },
 ];
 
 const CORNER_RADIUS = 5;
@@ -136,6 +143,18 @@ export interface Vehicle {
   heading: number;
   /** Cor da carroceria (índice na paleta da cena). */
   paint: number;
+  /** Modelo (sedã, esportivo, táxi): cada um tem velocidade e desenho próprios. */
+  cls: CarClass;
+  /** Velocidade de cruzeiro deste veículo (m/s): varia por modelo e um pouco por motorista. */
+  cruise: number;
+  /** Há quanto tempo (s) espera na porta de um cruzamento: quem chegou antes passa antes. */
+  wait: number;
+}
+
+/** Obstáculo externo que o trânsito respeita (o visitante a pé ou o carro que ele dirige). */
+export interface TrafficObstacle {
+  x: number;
+  z: number;
 }
 
 export interface TrafficState {
@@ -147,8 +166,12 @@ export interface TrafficState {
 /** Passo fixo da simulação (s): independe da taxa de quadros. */
 export const TRAFFIC_STEP = 1 / 30;
 export const CRUISE_SPEED = 10;
+const CLASSES: CarClass[] = ['sedan', 'taxi', 'sedan', 'sport', 'taxi', 'sedan', 'sport'];
+const CLASS_PACE: Record<CarClass, number> = { sedan: 1, sport: 1.12, taxi: 0.9 };
 const ACCEL = 3.5;
 const BRAKE = 10;
+/** Frenagem de conforto que o perfil de aproximação usa (abaixo de BRAKE: sempre dá para seguir o perfil). */
+const COMFORT_BRAKE = 4.5;
 const LOOK_AHEAD = 12;
 const LANE_HALF = 3.2;
 const MIN_GAP = 5.5;
@@ -157,6 +180,7 @@ export const ZONE_RADIUS = 10;
 /** Faixa antes da zona em que o veículo já decide se para (cabe a frenagem a partir da velocidade de cruzeiro). */
 const ZONE_BAND = 12;
 export const MIN_SPAWN_GAP = 9;
+const STOP_LINE = 1.5;
 
 function place(v: Vehicle, routes: Route[]) {
   const p = sampleRoute(routes[v.route]!, v.s);
@@ -166,13 +190,17 @@ function place(v: Vehicle, routes: Route[]) {
 }
 
 /** Estado inicial: veículos espaçados ao longo de cada rota, sem ninguém em cima de ninguém. */
-export function createTraffic(quality: 'high' | 'low', specs: RouteSpec[] = ROUTES): TrafficState {
+export function createTraffic(quality: Quality, specs: RouteSpec[] = ROUTES): TrafficState {
   const routes = specs.map(buildRoute);
   const vehicles: Vehicle[] = [];
   routes.forEach((route, r) => {
     const count = specs[r]!.vehicles[quality];
     for (let k = 0; k < count; k++) {
-      const v: Vehicle = { id: vehicles.length, route: r, s: (route.length * k) / count + r * 17, speed: CRUISE_SPEED * 0.6, x: 0, z: 0, heading: 0, paint: vehicles.length % 4 };
+      const id = vehicles.length;
+      const cls = CLASSES[id % CLASSES.length]!;
+      // Variação determinística de ±5% por motorista (nem todos andam igual).
+      const cruise = CRUISE_SPEED * CLASS_PACE[cls] * (0.95 + ((id * 37) % 11) / 100);
+      const v: Vehicle = { id, route: r, s: (route.length * k) / count + r * 17, speed: cruise * 0.6, x: 0, z: 0, heading: 0, paint: id % 4, cls, cruise, wait: 0 };
       place(v, routes);
       // Rotas compartilham trechos: avança até achar um lugar livre.
       for (let tries = 0; tries < 60 && vehicles.some((o) => Math.hypot(o.x - v.x, o.z - v.z) < MIN_SPAWN_GAP); tries++) {
@@ -186,7 +214,7 @@ export function createTraffic(quality: 'high' | 'low', specs: RouteSpec[] = ROUT
 }
 
 /** Distância até o primeiro veículo na trajetória à frente (Infinity se livre). */
-function gapAhead(v: Vehicle, all: Vehicle[], routes: Route[], ignore: (o: Vehicle) => boolean): { gap: number; blocker: number } {
+function gapAhead(v: Vehicle, all: Vehicle[], routes: Route[], ignore: (o: Vehicle) => boolean, obstacles: TrafficObstacle[]): { gap: number; blocker: number } {
   const dx = Math.sin(v.heading);
   const dz = Math.cos(v.heading);
   let gap = Infinity;
@@ -213,6 +241,16 @@ function gapAhead(v: Vehicle, all: Vehicle[], routes: Route[], ignore: (o: Vehic
       blocker = o.id;
     }
   }
+  // O visitante (a pé ou dirigindo) na frente: freia e espera.
+  for (const o of obstacles) {
+    const rx = o.x - v.x;
+    const rz = o.z - v.z;
+    const f = rx * dx + rz * dz;
+    if (f > 0 && f <= LOOK_AHEAD && Math.abs(rx * dz - rz * dx) < LANE_HALF && f < gap) {
+      gap = f;
+      blocker = -2;
+    }
+  }
   return { gap, blocker };
 }
 
@@ -236,42 +274,61 @@ function nearestNode(v: Vehicle): { node: number; distance: number; approaching:
 /**
  * Cruzamentos como zonas exclusivas (um semáforo implícito): quem está fora só
  * entra se a zona estiver vazia e ninguém mais perto dela estiver também na
- * porta (empate: menor id). Resolve as convergências de faixa — numa curva, quem entra na faixa
+ * porta — a prioridade é de quem espera há mais tempo (ordem de chegada),
+ * depois de quem está mais perto, e por fim do menor id. Resolve as convergências de faixa — numa curva, quem entra na faixa
  * de outro não "corta a frente" de quem vem atrás. Devolve a distância até a
  * linha de parada, ou Infinity se pode seguir.
  */
-function zoneGaps(vs: Vehicle[]): { gaps: number[]; inside: boolean[] } {
+function zoneGaps(vs: Vehicle[]): { gaps: number[]; inside: boolean[]; contending: boolean[] } {
   const at = vs.map(nearestNode);
   const inside = at.map((a) => a.distance < ZONE_RADIUS);
+  const contending = at.map((a, i) => !inside[i] && a.approaching && a.distance <= ZONE_RADIUS + ZONE_BAND);
+  /** j tem prioridade sobre i na mesma porta? */
+  const before = (j: number, i: number) => {
+    const dw = vs[j]!.wait - vs[i]!.wait;
+    if (Math.abs(dw) > 0.05) return dw > 0;
+    const dd = at[j]!.distance - at[i]!.distance;
+    return Math.abs(dd) > 0.01 ? dd < 0 : j < i;
+  };
+  // Quem já não consegue parar antes da linha (a distância de frenagem passa dela)
+  // ocupa a zona como se estivesse dentro: ninguém mais recebe passagem.
+  const committed = vs.map((v, i) => !inside[i] && at[i]!.approaching && v.speed > 0.5 && at[i]!.distance - ZONE_RADIUS < (v.speed * v.speed) / (2 * BRAKE));
+  const occupies = (j: number) => inside[j]! || committed[j]!;
   const gaps = vs.map((_, i) => {
     const a = at[i]!;
-    if (inside[i] || !a.approaching || a.distance > ZONE_RADIUS + ZONE_BAND) return Infinity;
-    const busy = vs.some((_, j) => j !== i && at[j]!.node === a.node && (inside[j] || (at[j]!.approaching && at[j]!.distance <= ZONE_RADIUS + ZONE_BAND && (at[j]!.distance < a.distance - 0.01 || (Math.abs(at[j]!.distance - a.distance) <= 0.01 && j < i)))));
-    return busy ? Math.max(0, a.distance - ZONE_RADIUS) + MIN_GAP : Infinity;
+    if (occupies(i) || !contending[i]) return Infinity;
+    const busy = vs.some((_, j) => j !== i && at[j]!.node === a.node && (occupies(j) || (contending[j] && before(j, i))));
+    // A linha de parada fica STOP_LINE metros antes da zona: quem para nela nunca "escorrega" para dentro.
+    return busy ? Math.max(0, a.distance - ZONE_RADIUS - STOP_LINE) + MIN_GAP : Infinity;
   });
-  return { gaps, inside };
+  return { gaps, inside, contending };
 }
 
 /** Avança a simulação um passo fixo. Muta e devolve o mesmo estado (sem alocar por quadro). */
-export function stepTraffic(state: TrafficState): TrafficState {
+export function stepTraffic(state: TrafficState, obstacles: TrafficObstacle[] = []): TrafficState {
   const dt = TRAFFIC_STEP;
   const vs = state.vehicles;
   const zone = zoneGaps(vs);
   // Quem já está num cruzamento não espera por quem está retido na linha de
   // parada dele (a zona é exclusiva; sem isto, os dois se esperariam).
-  const ahead = vs.map((v, i) => gapAhead(v, vs, state.routes, (o) => zone.inside[i]! && zone.gaps[o.id]! !== Infinity));
+  const ahead = vs.map((v, i) => gapAhead(v, vs, state.routes, (o) => zone.inside[i]! && zone.gaps[o.id]! !== Infinity, obstacles));
   vs.forEach((v, i) => {
     const a = ahead[i]!;
     let gap = a.gap;
     // Dois veículos que se bloqueiam mutuamente (raro, num cruzamento): o de menor id passa.
     if (a.blocker >= 0 && ahead[a.blocker]?.blocker === v.id && v.id < a.blocker) gap = Infinity;
     gap = Math.min(gap, zone.gaps[i]!);
-    const target = gap === Infinity ? CRUISE_SPEED : CRUISE_SPEED * Math.max(0, Math.min(1, (gap - MIN_GAP) / 6));
+    // Perfil de frenagem cinemático (v = √(2·a·d)): chega parado a MIN_GAP do obstáculo
+    // sem nunca pedir mais desaceleração do que BRAKE permite.
+    const target = gap === Infinity ? v.cruise : Math.min(v.cruise, Math.sqrt(2 * COMFORT_BRAKE * Math.max(0, gap - MIN_GAP)));
     const rate = target > v.speed ? ACCEL : BRAKE;
     v.speed += Math.max(-rate * dt, Math.min(rate * dt, target - v.speed));
     v.s += v.speed * dt;
   });
-  vs.forEach((v) => place(v, state.routes));
+  vs.forEach((v, i) => {
+    v.wait = zone.contending[i] ? v.wait + dt : 0;
+    place(v, state.routes);
+  });
   state.time += dt;
   return state;
 }

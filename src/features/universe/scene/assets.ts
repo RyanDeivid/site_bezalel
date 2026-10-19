@@ -2,7 +2,9 @@ import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { facadeTextures, intersectionTexture, stonePanelTexture, storefrontTextures, layersTexture, padTexture, PALETTE, paverTexture, plazaTexture, roadTexture, skyTexture } from './textures';
 
-export type Quality = 'high' | 'low';
+import type { Quality } from '../world/city';
+
+export type { Quality };
 
 /**
  * Materiais e texturas da cidade, criados uma vez por nível de qualidade e
@@ -10,10 +12,13 @@ export type Quality = 'high' | 'low';
  * estado na GPU). Tudo é descartado ao sair da cena ou trocar a qualidade.
  */
 export function createUniverseAssets(quality: Quality) {
-  const hi = quality === 'high';
-  const tex = hi ? 1024 : 512;
+  // Médio e alto usam texturas maiores; o alto, as maiores de todas.
+  const hi = quality !== 'low';
+  const tex = quality === 'high' ? 1024 : 512;
   const facadeA = facadeTextures(hi ? 512 : 256, 11, 0.8);
   const facadeB = facadeTextures(hi ? 512 : 256, 29, 0.55);
+  const facadeC = facadeTextures(hi ? 512 : 256, 43, 0.92);
+  const facadeDark = facadeTextures(hi ? 512 : 256, 71, 0.4);
   const facadeHq = facadeTextures(hi ? 512 : 256, 5, 0.9);
   const textures = {
     road: roadTexture(hi ? 512 : 256),
@@ -26,6 +31,8 @@ export function createUniverseAssets(quality: Quality) {
     layers: layersTexture(256),
     facadeA,
     facadeB,
+    facadeC,
+    facadeDark,
     facadeHq,
     storefront: storefrontTextures(hi ? 1024 : 512),
     stoneDark: stonePanelTexture(hi ? 512 : 256, PALETTE.surface, 'rgba(199,168,106,0.22)'),
@@ -63,6 +70,16 @@ export function createUniverseAssets(quality: Quality) {
     trunk: std({ color: '#2a2622', roughness: 0.9, metalness: 0 }),
     facadeA: facade(facadeA),
     facadeB: facade(facadeB, '#d8dde6'),
+    // Residencial: caixilhos claros, luz quente.
+    facadeC: facade(facadeC, '#efe3cc'),
+    // Corporativa: vidro escuro espelhado, poucas janelas acesas.
+    facadeDark: (() => {
+      const mat = facade(facadeDark, '#7f93b3');
+      mat.roughness = 0.12;
+      mat.metalness = 0.85;
+      mat.emissiveIntensity = 0.75;
+      return mat;
+    })(),
     facadeHq: facade(facadeHq),
     pad: new THREE.MeshBasicMaterial({ map: textures.pad, transparent: true, toneMapped: false, depthWrite: false }),
     sky: new THREE.MeshBasicMaterial({ map: textures.sky, side: THREE.BackSide, depthWrite: false, fog: false, toneMapped: false }),

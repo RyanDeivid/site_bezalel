@@ -61,12 +61,12 @@ export function Header() {
             onClick={openPalette}
             aria-keyshortcuts="Control+K"
             title={m.nav.searchLong}
-            className="inline-flex h-9 items-center gap-2 rounded-lg px-2.5 text-sm text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg xl:border xl:border-line xl:pr-1.5"
+            className="inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-lg px-2.5 text-sm text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg xl:border xl:border-line 2xl:pr-1.5"
           >
             <Search aria-hidden className="size-4" />
             {/* Visível só em telas largas; abaixo disso, continua sendo o nome do botão. */}
             <span className="max-xl:sr-only">{m.nav.search}</span>
-            <kbd aria-hidden className="kbd hidden xl:inline">
+            <kbd aria-hidden className="kbd hidden 2xl:inline">
               Ctrl K
             </kbd>
           </button>

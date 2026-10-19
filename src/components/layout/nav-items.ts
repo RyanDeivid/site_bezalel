@@ -14,11 +14,9 @@ export const PRIMARY_NAV: NavItem[] = [
   { to: '/insights', key: 'insights' },
   { to: '/agents', key: 'agents' },
   { to: '/lab', key: 'lab' },
+  { to: '/universe', key: 'universe' },
   { to: '/assistant', key: 'assistant' },
 ];
-
-/** Experiências fora do menu principal (que já tem sete itens): aparecem no rodapé e na busca. */
-export const EXTRA_NAV: NavItem[] = [{ to: '/universe', key: 'universe' }];
 
 export const INSTITUTIONAL_NAV: NavItem[] = [
   { to: '/about', key: 'about' },

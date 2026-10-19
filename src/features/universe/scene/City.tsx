@@ -1,11 +1,11 @@
 import { useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { blockBounds, BUILDINGS, DISTRICTS, PLACES, PLAZA_RADIUS, ROAD_WIDTH, SIDEWALK, STREET_LINES, TOWER_VARIANTS, type TowerSpec } from '../world/city';
+import { BLOCKS, blockBounds, BUILDINGS, DISTRICTS, PLACES, PLAZA_RADIUS, ROAD_WIDTH, SIDEWALK, STREET_LINES } from '../world/city';
 import type { Quality, UniverseAssets } from './assets';
 import { boxWithMeterUVs } from './textures';
 
-const ROAD_LENGTH = STREET_LINES[3] - STREET_LINES[0] + ROAD_WIDTH;
+const ROAD_LENGTH = STREET_LINES[STREET_LINES.length - 1]! - STREET_LINES[0] + ROAD_WIDTH;
 const LAWN_BLOCKS = new Set(DISTRICTS.map((d) => d.block.join(',')));
 
 /** Escreve as matrizes de um InstancedMesh uma vez (os objetos da cidade são estáticos). */
@@ -40,9 +40,10 @@ function treeFree(x: number, z: number): boolean {
   return true;
 }
 
-export function City({ assets, quality, towers }: { assets: UniverseAssets; quality: Quality; towers: TowerSpec[] }) {
+export function City({ assets, quality }: { assets: UniverseAssets; quality: Quality }) {
   const m = assets.materials;
-  const hi = quality === 'high';
+  // Médio e alto: mobiliário urbano denso; baixo: metade.
+  const hi = quality !== 'low';
 
   // ---- Ruas: 8 faixas longas (4 em cada eixo) e 16 cruzamentos -------------------------
   const roadRef = useRef<THREE.InstancedMesh>(null);
@@ -68,8 +69,8 @@ export function City({ assets, quality, towers }: { assets: UniverseAssets; qual
     const side: THREE.BufferGeometry[] = [];
     const lawn: THREE.BufferGeometry[] = [];
     const corner: THREE.BufferGeometry[] = [];
-    for (let bx = 0; bx < 3; bx++)
-      for (let bz = 0; bz < 3; bz++) {
+    for (let bx = 0; bx < BLOCKS; bx++)
+      for (let bz = 0; bz < BLOCKS; bz++) {
         const b = blockBounds(bx, bz);
         side.push(slab(b.minX - SIDEWALK, b.maxX + SIDEWALK, b.minZ - SIDEWALK, b.maxZ + SIDEWALK, 0.22, 0.22, 4));
         (LAWN_BLOCKS.has(`${bx},${bz}`) ? lawn : corner).push(slab(b.minX, b.maxX, b.minZ, b.maxZ, 0.3, 0.1, 6));
@@ -81,8 +82,10 @@ export function City({ assets, quality, towers }: { assets: UniverseAssets; qual
 
   // Caminhos da praça até as quatro ruas e, no parque de chegada, do heliponto até a rua.
   const paths = useMemo(() => {
-    const b = blockBounds(1, 1);
-    const arrival = blockBounds(1, 2);
+    const plaza = DISTRICTS.find((d) => d.id === 'plaza')!.block;
+    const b = blockBounds(plaza[0], plaza[1]);
+    const south = DISTRICTS.find((d) => d.id === 'arrival')!.block;
+    const arrival = blockBounds(south[0], south[1]);
     const pad = PLACES.find((p) => p.id === 'arrival')!.pad;
     return mergeGeometries([
       slab(-3, 3, b.minZ, -PLAZA_RADIUS + 1, 0.34, 0.04, 6),
@@ -117,8 +120,8 @@ export function City({ assets, quality, towers }: { assets: UniverseAssets; qual
   const lamps = useMemo(() => {
     const out: Array<{ x: number; z: number; r: number }> = [];
     const step = hi ? 16 : 26;
-    for (let bx = 0; bx < 3; bx++)
-      for (let bz = 0; bz < 3; bz++) {
+    for (let bx = 0; bx < BLOCKS; bx++)
+      for (let bz = 0; bz < BLOCKS; bz++) {
         const b = blockBounds(bx, bz);
         const e = SIDEWALK - 1;
         for (let x = b.minX + 4; x <= b.maxX - 4; x += step) {
@@ -171,26 +174,11 @@ export function City({ assets, quality, towers }: { assets: UniverseAssets; qual
   useInstanceMatrices(bollardRef, bollardM);
   useInstanceMatrices(bollardCapRef, bollardCapM);
 
-  // ---- Torres da cidade em volta: uma InstancedMesh por forma ---------------------------------
-  const towerGroups = useMemo(
-    () =>
-      TOWER_VARIANTS.map((v, variant) => ({
-        geo: boxWithMeterUVs(v.w, v.h, v.d),
-        roof: new THREE.BoxGeometry(v.w * 0.55, 2.4, v.d * 0.55),
-        crown: new THREE.BoxGeometry(v.w + 0.3, 0.35, v.d + 0.3),
-        h: v.h,
-        items: towers.filter((t) => t.variant === variant),
-        material: variant % 2 ? 'facadeB' : 'facadeA',
-      })),
-    [towers],
-  );
-
   useLayoutEffect(
     () => () => {
       [roadGeo, crossGeo, sidewalks, lawns, corners, paths].forEach((g) => g.dispose());
-      towerGroups.forEach((t) => [t.geo, t.roof, t.crown].forEach((g) => g.dispose()));
     },
-    [roadGeo, crossGeo, sidewalks, lawns, corners, paths, towerGroups],
+    [roadGeo, crossGeo, sidewalks, lawns, corners, paths],
   );
 
   return (
@@ -242,30 +230,6 @@ export function City({ assets, quality, towers }: { assets: UniverseAssets; qual
         <cylinderGeometry args={[0.17, 0.17, 0.08, 8]} />
       </instancedMesh>
 
-      {towerGroups.map((t, i) => (
-        <Towers key={i} group={t} assets={assets} shadows={hi} />
-      ))}
     </group>
-  );
-}
-
-function Towers({ group, assets, shadows }: { group: { geo: THREE.BufferGeometry; roof: THREE.BufferGeometry; crown: THREE.BufferGeometry; h: number; items: TowerSpec[]; material: string }; assets: UniverseAssets; shadows: boolean }) {
-  const body = useRef<THREE.InstancedMesh>(null);
-  const roof = useRef<THREE.InstancedMesh>(null);
-  const crown = useRef<THREE.InstancedMesh>(null);
-  const bodyM = useMemo(() => group.items.map((t) => compose(t.x, group.h / 2, t.z, t.rotation)), [group]);
-  const roofM = useMemo(() => group.items.map((t) => compose(t.x, group.h + 1.2, t.z, t.rotation)), [group]);
-  const crownM = useMemo(() => group.items.map((t) => compose(t.x, group.h + 0.1, t.z, t.rotation)), [group]);
-  useInstanceMatrices(body, bodyM);
-  useInstanceMatrices(roof, roofM);
-  useInstanceMatrices(crown, crownM);
-  if (!group.items.length) return null;
-  const material = assets.materials[group.material as 'facadeA' | 'facadeB'];
-  return (
-    <>
-      <instancedMesh ref={body} args={[group.geo, material, bodyM.length]} castShadow={shadows} receiveShadow={shadows} />
-      <instancedMesh ref={roof} args={[group.roof, assets.materials.steel, roofM.length]} />
-      <instancedMesh ref={crown} args={[group.crown, assets.materials.glowGoldSoft, crownM.length]} />
-    </>
   );
 }

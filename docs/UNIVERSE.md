@@ -1,202 +1,323 @@
-# Bezalel Universe — Fase 1
+# Bezalel Universe — versão 2.0
 
-Primeira área explorável do universo 3D da Bezalel: uma praça futurista com a
-**Sede**, o **Laboratório de IA** e o **Centro de Produtos**, ruas com trânsito
-terrestre e um **carro voador** que o visitante pilota. Rota: `/universe`.
+Cidade 3D explorável da Bezalel em `/universe`. O visitante começa **a pé** no
+parque de chegada, caminha pela cidade, **entra em carros e os dirige**, sai e
+continua andando. Também há o **carro voador** da versão 1. Em volta circulam
+**trânsito terrestre** e **trânsito aéreo** autônomos. A Sede, o Laboratório de
+IA e o Centro de Produtos continuam sendo pontos de interesse, com painéis que
+levam às páginas reais do site.
 
-## Como a experiência é inicializada
+O laboratório tem atalho para o Universe na tela de entrada, no HUD do 3D e no
+mapa 2D, e "Universe" está no menu principal.
 
-1. `/universe` é uma página lazy (`features/universe/UniversePage.tsx`,
-   ~13 kB), pré-renderizada como as outras: o HTML traz a tela de entrada e
-   nenhum 3D.
-2. A tela de entrada oferece **Pilotar em 3D** (se houver WebGL) ou **Ver o mapa
-   da cidade** (2D, sempre disponível). A escolha fica na sessão
-   (`bz-universe-mode`).
-3. Só ao escolher o 3D é baixada a cena (`scene/UniverseScene.tsx`) junto com o
-   motor 3D: cerca de **250 kB comprimidos** no total, compartilhados com o
-   laboratório (three.js, React Three Fiber e as texturas em canvas).
-4. Na primeira entrada aparece a orientação **Como pilotar**
-   (`bz-universe-help-v1` no localStorage). Depois ela fica no botão
-   **Controles**.
-5. Se o 3D falhar (erro de import, driver, perda do contexto WebGL), a página
-   avisa e cai no mapa 2D, sem tela vazia (`SceneBoundary` + `ContextLossWatcher`).
+## Inicialização
+
+1. `/universe` é uma página lazy (`UniversePage.tsx`, ~19 kB comprimidos) e
+   pré-renderizada. O HTML traz a tela de entrada e nenhum 3D.
+2. **Explorar em 3D** (se houver WebGL) ou **Ver o mapa da cidade** (2D, sempre
+   disponível). A escolha fica na sessão (`bz-universe-mode`).
+3. Só ao escolher o 3D é baixada a cena (`scene/UniverseScene.tsx`, ~23 kB),
+   junto com o three.js e o React Three Fiber compartilhados com o laboratório.
+   São ~286 kB comprimidos no total, conferidos por `npm run check:budget`.
+4. Na primeira entrada aparece **Como jogar** (`bz-universe-help-v2`). Depois,
+   o guia fica no botão de ajuda.
+5. Se o 3D falhar (import, driver ou perda de contexto), a página avisa e cai
+   no mapa 2D.
 
 ## Organização
 
 ```
 features/universe/
-  UniversePage.tsx        página: entrada, palco 3D + HUD, mapa 2D, painéis
-  PlacePanel.tsx          conteúdo de um local (o mesmo no 3D e no 2D)
-  UniverseMap.tsx         planta em SVG gerada dos dados da cidade
-  universe-content.ts     textos pt-BR/en (no chunk da página)
-  world/                  dados e lógica pura — sem three.js, testados
-    city.ts               grade de ruas, quadras, edifícios, locais, torres, colisões
-    traffic.ts            rotas e simulação do trânsito (passo fixo, determinística)
-    flight.ts             voo do carro, colisões, piloto automático
+  UniversePage.tsx        entrada, palco 3D + HUD (modo, ação, velocímetro), mapa 2D, painéis
+  TouchControls.tsx       controles de toque por modo (joystick/volante, pedais, subir/descer)
+  PlacePanel.tsx, UniverseMap.tsx, universe-content.ts (textos pt-BR/en)
+  world/                  dados e lógica pura, sem three.js e testados
+    city.ts               grade 5 × 5, distritos, edifícios, torres, passarelas, telões, sólidos, alturas do chão
+    walker.ts             caminhar/correr com inércia e colisões
+    vehicles.ts           três classes de carro, direção arcade, colisões, saída segura
+    runtime.ts            estado do jogador (a pé → entrando → dirigindo → saindo), veículos estacionados
+    traffic.ts            rotas e simulação do trânsito terrestre (passo fixo, determinística)
+    air.ts                corredores e simulação do trânsito aéreo
+    flight.ts             carro voador do jogador e piloto automático
     products.ts           produtos do Centro de Produtos (rotas reais)
-    runtime.ts            estado mutável compartilhado (carro, teclas, câmera)
-  scene/                  three.js / React Three Fiber
-    UniverseScene.tsx     Canvas, céu, luzes, sombras, vigias de desempenho
-    assets.ts             materiais e texturas compartilhados (descartados ao sair)
-    textures.ts           texturas desenhadas em canvas (nenhuma imagem baixada)
-    City.tsx              chão, ruas, cruzamentos, quadras, praça, árvores, postes, torres
-    Landmarks.tsx         Sede, Laboratório, Centro de Produtos, monumento, marcadores
-    Traffic.tsx           veículos instanciados
-    Craft.tsx             carro voador, câmera de perseguição, entrada, proximidade
+  scene/                  three.js / React Three Fiber (só desenha o que world/ calcula)
+    UniverseScene.tsx     Canvas, céu, luzes e sombras por qualidade, vigias de desempenho
+    quality.ts            o que cada nível de qualidade muda
+    PlayerController.tsx  teclado, mouse/toque, gamepad, câmera em 3 modos
+    Avatar.tsx            o explorador (humanoide do laboratório reaproveitado)
+    carModels.ts          modelos procedurais dos 3 carros + materiais automotivos
+    airModels.ts          modelos dos 4 voadores
+    Vehicles.tsx          carros do jogador (esterço, rodas, faróis, lanternas de freio)
+    Traffic.tsx, AirTraffic.tsx   trânsito instanciado
+    Buildings.tsx, towerGeometry.ts   torres, passarelas e telões
+    City.tsx, Landmarks.tsx, assets.ts, textures.ts
 ```
 
-### A cidade
+## A cidade
 
-Grade de superquadras: quatro linhas de rua em cada eixo
-(`STREET_LINES = [-110, -40, 40, 110]`) formam 3 × 3 quadras. A central é a
-**praça** (piso em anéis, espelho d'água e o **monumento**: o símbolo da
-Bezalel como um cubo equilibrado num vértice, com as três faces da marca no
-alto). Norte: **Sede** (pódio, saguão, letreiro, torre com aletas de bronze e o
-mesmo cubo na coroa). Leste: **Laboratório de IA** (salão octogonal de vidro,
-treliça girando e seis colunas, uma por agente do site). Oeste: **Centro de
-Produtos** (galerias empilhadas e um painel com os produtos reais). Sul:
-**parque de chegada**, onde o voo começa. Os cantos e o anel externo têm torres
-sem interação, geradas de forma determinística.
+Seis linhas de rua em cada eixo (`STREET_LINES = [-180, -110, -40, 40, 110, 180]`)
+formam **5 × 5 superquadras**. No centro ficam a **praça** com o monumento (o
+símbolo da Bezalel), a **Sede** ao norte, o **Laboratório de IA** a leste, o
+**Centro de Produtos** a oeste e o **parque de chegada** ao sul. Em volta há dois
+anéis: o *midtown*, com prédios médios, e o *skyline*, com as torres altas do
+horizonte.
 
-### Cadastrar um edifício ou local
+**Torres compostas** (`TOWER_VARIANTS`) em seis linguagens arquitetônicas, cada
+uma com silhueta própria: torre de vidro com aletas, escalonada, lâmina
+residencial, corporativa alta com heliponto, edifício médio com terraço e o
+"marco do horizonte". Cada uma tem pódio, corpo com aletas ou faixas de laje,
+recuos e coroamento (antena, heliponto, equipamentos, jardim ou agulha), além
+de faixa de LED em algumas. Há também **passarelas** envidraçadas entre torres
+vizinhas e **telões** nas esquinas do anel central, que mostram os produtos
+reais do site.
 
-- **Edifício**: acrescente um `BuildingSpec` em `world/city.ts` (centro,
-  fachada, `solids` = volumes de colisão) e desenhe-o em `scene/Landmarks.tsx`
-  com as mesmas medidas. Os testes conferem que nenhum volume invade rua ou
-  calçada.
-- **Ponto de interesse**: acrescente um `PlaceSpec` em `PLACES` (heliponto,
-  direção de chegada, altitude, alcance) e o texto em `universe-content.ts`
-  (`places`). Marcador, painel, menu Locais, mapa 2D e piloto automático passam
-  a incluí-lo sozinhos; um teste confere que o piloto automático chega lá sem
-  bater, partindo de qualquer outro local.
-- **Produto**: crie a página (rota + `meta` no i18n) e acrescente uma entrada em
-  `world/products.ts`. Nome e descrição vêm dos metadados da própria página;
-  um teste confere que a rota existe. Nada de produto inventado.
+Tudo sai de dados: cena, mapa 2D, colisões, trânsito e corredores aéreos. Para
+**cadastrar** algo:
 
-## Controles
+- **Edifício institucional**: um `BuildingSpec` em `city.ts`, com os volumes de
+  colisão, desenhado em `Landmarks.tsx` com as mesmas medidas.
+- **Ponto de interesse**: um `PlaceSpec` em `PLACES` e o texto em
+  `universe-content.ts`. O marcador, o painel, o menu Locais, o mapa 2D, o
+  transporte rápido e o piloto automático passam a incluí-lo sozinhos.
+- **Quadra ou distrito novo**: acrescente a linha de rua em `STREET_LINES` ou o
+  distrito em `DISTRICTS`. As torres são geradas por quadra, com passo próprio
+  em cada eixo.
+- **Produto**: a página real do site e uma entrada em `products.ts`.
 
-Câmera em **terceira pessoa**, atrás do carro. A escolha (em vez da primeira
-pessoa) mostra o carro e a arquitetura em volta, não dá enjoo em quem gira a
-câmera e funciona igual com mouse e toque.
+Os testes conferem que nenhum edifício, torre, telão ou passarela invade rua
+ou calçada e que as torres não se sobrepõem.
 
-| Ação | Teclado | Mouse / toque |
-|---|---|---|
-| Acelerar / frear e dar ré | W, S ou ↑, ↓ | joystick para cima / baixo |
-| Virar | A, D ou ←, → | joystick para os lados |
-| Subir / descer | Espaço ou R / C ou F | botões Subir / Descer |
-| Turbo | Shift | botão Turbo |
-| Entrar no local próximo | E | botão "Entrar" que aparece no HUD |
-| Voltar ao início | H | botão "Voltar ao início" |
-| Olhar em volta / aproximar | — | arrastar / roda ou pinça |
-| Abrir um edifício | — | clicar ou tocar nele |
+## Jogador: a pé, entrar, dirigir, sair
 
-Quem não quer pilotar usa **Locais**: escolhe um destino e o **piloto
-automático** leva o carro até lá (sobe acima do que houver no caminho, segue
-reto e desce no heliponto). Qualquer comando manual devolve o controle. Com
-**movimento reduzido**, o piloto automático leva direto ao destino e o trânsito
-fica parado.
+Máquina de estados em `runtime.ts`:
 
-**Celular**: botão de **tela cheia** (o palco ocupa a tela, sem o cabeçalho do
-site). Com o celular em pé, o palco sugere deitar o aparelho e oferece "Tela
-cheia na horizontal", que também trava a orientação onde o navegador permite
-(Chrome do Android). O aviso não bloqueia: "Continuar assim" o dispensa. Onde
-não há tela cheia de elementos (Safari do iPhone), o botão não aparece.
+```
+a pé ──E perto de um veículo──▶ entrando (0,55 s) ──▶ dirigindo
+  ▲                                                     │ E
+  └──────── saindo (0,5 s) ◀── (freia / pousa) ◀────────┘
+```
 
-Colisões: o carro é uma esfera de 2,2 m. Ele não entra em nenhum volume da
-cidade: sai pela face mais próxima ou pousa no telhado se vier de cima. Há
-chão, teto (90 m) e limite lateral. A câmera também não entra em prédios:
-sobe acima do telhado.
+- **A pé**: WASD em relação à câmera, Shift corre. A aceleração e a
+  desaceleração são suaves. O jogador colide com prédios, veículos
+  estacionados e o trânsito, e respeita os limites da cidade.
+- **Indicação**: perto de um veículo (dentro do comprimento + 1,4 m), o HUD
+  mostra "E · Entrar: Sedã Aurora". Perto de um local, mostra "Abrir: …". O
+  mesmo botão serve ao toque.
+- **Entrar**: o avatar some no carro e a câmera passa da distância de
+  caminhada para a de condução, com transição amortecida. O HUD troca o modo
+  ("Dirigindo: …"), mostra o velocímetro e a ação "Sair do veículo".
+- **Sair**: o carro freia sozinho até parar (o voador pousa). Depois, o jogador
+  aparece num **ponto livre**: primeiro pelo lado do motorista (esquerdo),
+  depois pelo passageiro, por trás e pela frente. Cada ponto é conferido contra
+  paredes, outros veículos e o trânsito. Se nenhum estiver livre, o jogador
+  continua no carro e o HUD avisa. O veículo fica no mundo, parado onde ficou.
 
-## Trânsito
+Veículos estacionados: três no parque de chegada (um de cada modelo), o carro
+voador no heliponto e mais três perto dos edifícios.
 
-Rotas descritas por dados (`ROUTES` em `world/traffic.ts`): sequências de
-cruzamentos que viram laços na faixa da direita, com esquinas arredondadas.
-A simulação roda em **passo fixo de 1/30 s**, independente da taxa de quadros,
-e é **determinística**. A cena interpola entre os passos e desenha todos os
-veículos com 4 `InstancedMesh`.
+## Carros e direção
 
-Regras sem física:
-- quem está na mesma rota segue o da frente pela distância ao longo do laço;
-- de rotas diferentes, quem está à frente na trajetória conta como obstáculo;
-- cada cruzamento é uma **zona exclusiva** (um semáforo implícito): só entra
-  quem está mais perto, com desempate por id, e quem já está dentro não espera
-  por quem ficou retido na linha de parada.
+Três modelos **procedurais** com desenho próprio (`carModels.ts`). Não é o
+mesmo modelo com outra cor:
 
-Os testes rodam 10 minutos simulados nos dois níveis de qualidade e conferem:
-nenhuma sobreposição, ninguém parado por mais de 20 s e todos andando.
+| | Sedã Aurora | Esportivo Vento | Táxi autônomo |
+|---|---|---|---|
+| Silhueta | capô longo, para-brisa inclinado, teto em arco | perfil baixo, cabine recuada, traseira *ducktail* | cápsula alta, estufa de vidro ampla |
+| Detalhes | colunas, friso cromado, câmeras no lugar dos retrovisores | aerofólio, entradas de ar, difusor, aros de 10 raios | letreiro e lidar no teto, porta de correr, frisos dourados |
+| Máx. | 115 km/h | 158 km/h | 90 km/h |
 
-**Veículos voadores** já cabem no modelo (`kind: 'air'` e `altitude` em
-`RouteSpec`). Nesta fase só há rotas terrestres, e o voo é o do visitante.
+A carroceria é um perfil lateral extrudado com chanfro, com arcos de roda
+recortados. Faróis, lanternas e para-choques são montados na **superfície real**
+da carroceria, calculada a partir do perfil (`surfaceZ`), porque o chanfro
+incha o perfil e números fixos deixariam as peças enterradas na pintura. Os
+pneus têm ombros arredondados. Materiais: pintura com verniz (*clearcoat*) nas
+qualidades média e alta, vidro escurecido, borracha, cromo e lanternas que acendem mais
+forte ao frear.
+
+**Direção** (`vehicles.ts`): estilo arcade, no padrão dos jogos de mundo
+aberto, para ninguém precisar de manual:
+
+- W acelera. S freia e, com o carro parado, engata a ré. Ao soltar tudo, o
+  carro perde velocidade aos poucos.
+- O esterço diminui com a velocidade e o volante volta sozinho ao centro.
+- **Modelo de bicicleta**: o giro vale velocidade × tan(esterço) ÷
+  entre-eixos, então o carro gira em torno do eixo traseiro e não escorrega de
+  lado sem motivo.
+- **Freio de mão** (Espaço): reduz a aderência e solta a traseira nas curvas
+  fechadas. É o único caso de escorregamento lateral.
+- **Colisões**: o carro são três círculos ao longo do comprimento. De frente,
+  ele perde quase toda a velocidade; de raspão, só um pouco.
+- **Controle (gamepad)**: analógico esquerdo vira; RT acelera; LT freia; A
+  entra e sai; B é o freio de mão.
+- **Celular**: o joystick vira volante, com pedais (acelerar, frear/ré) e
+  freio de mão sob o polegar direito.
+
+Não há motor de física: o modelo cinemático acima basta para um carro
+controlável e previsível, e é testado sem navegador.
+
+## Câmera
+
+Terceira pessoa nos três modos, sempre amortecida (sem saltos):
+
+- **A pé**: atrás do ombro, a 6,5 m. Arrastar gira; a roda ou a pinça
+  aproxima.
+- **Dirigindo**: atrás do carro, a 8,6 m. A distância aumenta com a velocidade
+  e o campo de visão abre até +16° em alta velocidade. Um giro manual da
+  câmera volta sozinho para trás do carro.
+- **Transição**: ao entrar ou sair, a câmera desliza de uma posição para a
+  outra no mesmo laço.
+- **Não atravessa prédios**: a câmera percorre o caminho do jogador até a
+  posição desejada e para antes do primeiro volume.
+- **Movimento reduzido**: sem variação do campo de visão e sem tremor nas
+  batidas.
+
+## Trânsito terrestre
+
+`traffic.ts`: rotas descritas por dados (laços de cruzamentos na faixa da
+direita, com esquinas arredondadas). São **11 rotas**: anel da praça, anel
+médio e avenida de contorno nos dois sentidos, laços em frente aos três
+edifícios e duas travessias de ponta a ponta. A simulação roda em **passo fixo
+de 1/30 s** e é determinística.
+
+- Os três modelos circulam com velocidades de cruzeiro diferentes por modelo
+  (táxi 0,9×, esportivo 1,12×) e ±5% por motorista.
+- **Seguimento**: na mesma rota, o carro mede a distância exata ao da frente
+  ao longo do laço. Entre rotas diferentes, conta quem está à frente na faixa.
+- **Frenagem cinemática**: a velocidade-alvo é √(2·a·d), com a = 4,5 m/s²
+  (menos que a frenagem máxima de 10 m/s²). Assim o carro sempre consegue
+  parar a tempo, atrás de outro ou na linha de parada.
+- **Cruzamentos** são zonas exclusivas, como um semáforo implícito. A linha de
+  parada fica 1,5 m antes da zona. Quem já não consegue parar ocupa a zona.
+  Entre os que esperam, passa **quem chegou antes**, depois quem está mais
+  perto.
+- O trânsito **freia para o jogador**, a pé ou dirigindo, na faixa à frente.
+
+Os testes simulam 10 minutos em cada qualidade: nenhum carro encosta em outro,
+ninguém fica parado mais de 20 s (o máximo medido é 10,7 s, na alta) e todos
+avançam.
+
+## Trânsito aéreo
+
+`air.ts`: **corredores sobre as avenidas**. As ruas não têm prédios, então
+nenhum voo atravessa construção, e um teste confere isso amostrando cada rota
+contra todos os sólidos da cidade.
+
+- **Separação vertical por eixo**: leste-oeste a 30 m e 42 m, norte-sul a 56 m
+  e 68 m. Drones de serviço voam a 15 m no anel médio. Rotas que se cruzam
+  ficam a pelo menos 10 m de altura uma da outra (testado).
+- Cada rota é um circuito: vai por uma avenida, faz o retorno além da borda da
+  cidade e volta pela paralela. Na mesma rota, todos voam à mesma velocidade e
+  igualmente espaçados.
+- **Quatro classes** com modelo próprio: táxi aéreo (cápsula envidraçada com
+  quatro rotores carenados), particular (fuselagem em cunha, asas curtas, dois
+  propulsores), cargueiro (contêiner sob uma estrutura de quatro rotores) e
+  drone de serviço. As luzes de navegação seguem a convenção da aviação
+  (vermelha à esquerda, verde à direita, branca na cauda) e piscam. Os voadores
+  inclinam nas curvas.
+- A pose de cada voador é função do tempo (sem estado acumulado): é barata e
+  determinística.
+
+O jogador pilota só o carro voador da versão 1. O tipo `VehicleKind = 'air'` e
+os modelos já permitem pilotar outros voadores no futuro.
 
 ## Qualidade gráfica
 
-| | Alta | Baixa |
-|---|---|---|
-| Resolução | até 1,75× (dpr) | 1× |
-| Antisserrilhado | sim | não |
-| Sombras | sim (luar, PCF, 2048²) | não |
-| Texturas | 512–1024 px | 256–512 px |
-| Torres no horizonte | 80 | 40 |
-| Árvores / postes | densos | metade |
-| Veículos | 22 | 8 |
+Escolhida no HUD (Baixa / Média / Alta) e guardada na sessão. A seleção
+automática usa o nível do aparelho (`useDeviceProfile`: núcleos, memória,
+toque, economia de dados), sem teste de desempenho na abertura. Se a média ou
+a alta ficar abaixo de ~28 fps por alguns segundos, a cena desce um nível e
+avisa.
 
-- **Ponto de partida**: aparelho forte começa na alta; os demais, na baixa.
-- **Troca**: o botão de qualidade no HUD troca a qualquer momento, e a escolha
-  fica na sessão.
-- **Rebaixamento automático**: se a alta ficar abaixo de ~28 fps por alguns
-  segundos, a cena muda para a baixa e avisa.
-- **Pausar animações**: congela o trânsito e as animações ambientes.
-- **Custo**: trocar a qualidade recria o canvas, descartando e recriando todos
-  os recursos da GPU de forma previsível. Objetos repetidos (ruas,
-  cruzamentos, árvores, postes, torres, veículos, aletas) são instanciados;
-  quadras e calçadas são geometrias mescladas. Não há pós-processamento.
+| | Baixa | Média | Alta |
+|---|---|---|---|
+| Resolução (dpr) | 0,85 | 1–1,25 | 1–1,75 |
+| Antisserrilhado | não | sim | sim |
+| Sombras | não | 1024² | 2048² (torres também projetam) |
+| Distância visível / névoa | 300 / 280 m | 420 / 380 m | 600 / 520 m |
+| Torres / passarelas | 76 / 0 | 156 / 10 | 176 / 10 |
+| Carros / voadores | 13 / 9 | 25 / 19 | 39 / 28 |
+| Pintura dos carros | padrão | com verniz (*clearcoat*) | com verniz (*clearcoat*) |
+| Texturas | 512 px | 512 px | 1024 px |
 
-## Reaproveitado do projeto
+Trocar a qualidade recria o canvas, descartando e recriando os recursos da GPU.
 
-- **Do laboratório, extraído para `components/three/`**: mapa de reflexos
-  (`EnvironmentMap`), vigias de desempenho e de perda de contexto
-  (`watchers.tsx`), `SceneBoundary` e o joystick de toque, agora genérico. O
-  laboratório passou a usar esses módulos, com o mesmo comportamento.
-- **Também do laboratório**: `makeCanvasTexture`, `drawLabel` e
-  `makeGlowTexture` (texturas em canvas); o padrão de câmera amortecida, de
-  arraste/pinça e de "estado mutável fora do React" do `Player`;
-  `STATION_ORDER` (as seis colunas do Laboratório de IA são os seis agentes do
-  site).
-- **Do site**: `hasWebGL`/`useDeviceProfile` (detecção e nível do aparelho),
-  `Dialog` (painéis e orientação), tokens de cor da marca, i18n, `curated()`
-  (contagem real de cursos), `demoAgents` (nomes e funções no painel do
-  laboratório).
+## Otimizações
 
-## Executar, testar e publicar
+- **Instanciamento**: torres (por parte e material), carros e voadores do
+  trânsito, árvores, postes e aletas.
+- **Geometrias e materiais compartilhados**: os modelos dos carros são
+  construídos uma vez e servem ao trânsito e aos carros do jogador. As peças de
+  cada material são mescladas numa geometria só.
+- **Simulação separada do desenho**: o trânsito roda em passo fixo e a cena
+  interpola entre os passos. O HUD lê o estado 5× por segundo, não a cada
+  quadro.
+- **Desmontagem**: sair do Universe desmonta o canvas, o laço de quadros para,
+  o gancho de testes é removido e geometrias e materiais são descartados
+  (testado no navegador).
+- **Sem pós-processamento**: sem *bloom* e sem *motion blur*. Nenhuma imagem é
+  baixada; as texturas são desenhadas em canvas.
+
+## Recursos externos
+
+**Nenhum.** Todos os modelos (carros, voadores, edifícios e o avatar) são
+procedurais, feitos com geometrias do three.js, e todas as texturas são
+desenhadas em canvas. Nenhum modelo ou textura de terceiros foi incorporado, e
+não há questão de licença além das bibliotecas já usadas pelo site (three.js e
+React Three Fiber, licença MIT).
+
+## Executar e testar
 
 ```bash
 npm run dev                  # http://localhost:5173/site_bezalel/universe/
 npm run check                # tipos, lint, testes de unidade e build
 npm run build:pages && npm run test:e2e   # navegador (inclui auditoria axe)
-npm run check:budget         # tamanhos (UniverseScene, UniversePage, textures)
+npm run check:budget         # tamanhos
 ```
 
-- **Testes de unidade** (`tests/unit/universe.test.ts`): planta da cidade,
-  produtos ligados a rotas reais, determinismo e segurança do trânsito,
-  colisões e limites do voo, e piloto automático entre todos os locais.
-- **Testes de navegador** (`tests/e2e/smoke.spec.ts`, `a11y.spec.ts`): mapa 2D,
-  entrada no 3D com a orientação, abertura de um local pelo teclado com o link
-  para o laboratório, aviso de girar no celular, e axe na entrada, no mapa, no
-  HUD e no painel, nos dois temas.
-- **Publicação**: igual ao resto do site. Avançar a `main` dispara o deploy no
-  GitHub Pages; `/universe` é pré-renderizada e entra no sitemap.
+- **Unidade** (`tests/unit/universe.test.ts`, 36 testes): cidade (grade,
+  nenhuma invasão de rua, torres sem sobreposição, densidade por qualidade,
+  passarelas), produtos e textos, trânsito terrestre (determinismo, modelos e
+  velocidades, 10 minutos sem colisão por qualidade, frear para o jogador),
+  trânsito aéreo (nenhuma rota atravessa edifício, separação vertical, quatro
+  classes, quantidade por qualidade), direção (aceleração, freio e ré, virar,
+  freio de mão, parede, saída segura), a pé (inércia, correr, colisões),
+  entrar e sair e voo.
+- **Navegador** (`tests/e2e/smoke.spec.ts`): atalho do laboratório; andar →
+  perto do carro → entrar → acelerar, virar, frear → sair num lugar livre →
+  carro continua lá → andar de novo; painel de um local pelo teclado; troca de
+  qualidade (o canvas é recriado); sair sem deixar laço de quadros ativo;
+  celular (aviso de girar, joystick, volante, pedais, acelerador move o carro).
+  `a11y.spec.ts` audita o mapa, o HUD e o painel nos dois temas.
+
+Nos testes de navegador, `localStorage['bz-universe-debug'] = '1'` expõe
+`window.__bzUniverse` (ler o estado e posicionar o jogador ou um veículo). Só
+existe com essa chave.
 
 ## Limitações conhecidas
 
-- **Desempenho real não medido**: os testes rodam com WebGL por software
-  (SwiftShader), que é lento e não diz nada sobre FPS em aparelho real. Ainda
-  falta medir em um celular intermediário e em um computador modesto: abrir
-  `/universe`, entrar no 3D e observar se o rebaixamento automático dispara.
-- **Colisão simplificada**: volumes retangulares. Árvores, postes, marquises e
-  pórticos não são sólidos, e o carro pode passar por eles em voo baixo.
-- **Trânsito sem pedestres**: carros não reagem ao carro do visitante, e não há
-  semáforos visíveis (as zonas de cruzamento são invisíveis).
-- **Fora do HUD na tela cheia**: os avisos (toasts) do site não aparecem; os
-  painéis aparecem normalmente.
-- **Fora desta fase**: interiores dos edifícios, avatares, multiplayer,
-  veículos voadores no trânsito e espaços de parceiros.
+- **Desempenho real não medido**: os testes usam WebGL por software
+  (SwiftShader), que não diz nada sobre FPS em aparelho real. Falta medir num
+  celular intermediário e num computador modesto.
+- **Modelos procedurais não equivalem a modelos AAA**: as silhuetas, os
+  materiais e as luzes são próprios e coerentes, mas não há superfícies
+  esculpidas, interiores detalhados nem texturas pintadas. Chegar a esse nível
+  exige modelos feitos num programa de modelagem (glTF), com licença própria.
+- **Colisão simplificada**: volumes retangulares e círculos. Árvores, postes e
+  marquises não são sólidos.
+- **Trânsito**: sem semáforos visíveis (os cruzamentos são zonas invisíveis),
+  sem troca de faixa e sem ultrapassagem. Os carros do trânsito freiam para o
+  jogador, mas não desviam.
+- **Pedestres**: não há (por decisão de escopo: nada de multidões genéricas).
+- **Pilotar outros voadores**: fora desta fase (só o carro voador do jogador).
+- **Tela cheia**: os avisos (toasts) do site não aparecem nela.
+
+## Próximos passos
+
+1. Medir o FPS em aparelhos reais e ajustar os níveis de qualidade com base
+   nessas medidas.
+2. Modelos glTF próprios (encomendados ou modelados) para os carros e as
+   torres-marco, com LOD.
+3. Semáforos visíveis ligados às zonas de cruzamento e troca de faixa.
+4. Interiores: saguão da Sede e salão do Laboratório.
+5. Pilotar táxis aéreos usando os corredores existentes.
+6. Ciclo dia/noite suave e reflexos de chão molhado na qualidade alta.

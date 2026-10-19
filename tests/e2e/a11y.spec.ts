@@ -88,9 +88,9 @@ for (const theme of THEMES) {
 
   test(`a11y: Universe — HUD do 3D e painel de um local — tema ${theme}`, async ({ page }) => {
     test.setTimeout(90_000);
-    await page.addInitScript(() => localStorage.setItem('bz-universe-help-v1', 'seen'));
+    await page.addInitScript(() => localStorage.setItem('bz-universe-help-v2', 'seen'));
     await ready(page, 'universe/', theme);
-    const enter = page.getByRole('button', { name: 'Pilotar em 3D' });
+    const enter = page.getByRole('button', { name: 'Explorar em 3D' });
     test.skip(await enter.isDisabled(), 'WebGL indisponível neste navegador de teste.');
     await enter.click();
     await expect(page.locator('section[data-universe-stage] canvas')).toBeVisible({ timeout: 30_000 });

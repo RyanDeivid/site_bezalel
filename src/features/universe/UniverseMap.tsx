@@ -1,8 +1,8 @@
 import { usePreferences } from '@/app/preferences-context';
 import { universeContent } from './universe-content';
-import { blockBounds, BUILDINGS, DISTRICTS, PLACES, PLAZA_RADIUS, ROAD_WIDTH, STREET_LINES, towerSolid, type TowerSpec } from './world/city';
+import { BILLBOARDS, BLOCKS, blockBounds, BUILDINGS, DISTRICTS, PLACES, PLAZA_RADIUS, ROAD_WIDTH, STREET_LINES, towerSolids, type TowerSpec } from './world/city';
 
-const HALF = 150;
+const HALF = 200;
 const LAWN = new Set(DISTRICTS.map((d) => d.block.join(',')));
 
 /**
@@ -16,8 +16,8 @@ export function UniverseMap({ towers }: { towers: TowerSpec[] }) {
   return (
     <svg viewBox={`${-HALF} ${-HALF} ${HALF * 2} ${HALF * 2}`} className="w-full" role="group" aria-label={t.map.label}>
       <rect x={-HALF} y={-HALF} width={HALF * 2} height={HALF * 2} fill="var(--bg-abyss)" />
-      {[0, 1, 2].flatMap((bx) =>
-        [0, 1, 2].map((bz) => {
+      {Array.from({ length: BLOCKS }, (_, bx) =>
+        Array.from({ length: BLOCKS }, (_, bz) => {
           const b = blockBounds(bx, bz);
           return (
             <rect
@@ -37,23 +37,26 @@ export function UniverseMap({ towers }: { towers: TowerSpec[] }) {
       <g aria-hidden>
         {STREET_LINES.map((v) => (
           <g key={v}>
-            <rect x={STREET_LINES[0] - ROAD_WIDTH / 2} y={v - ROAD_WIDTH / 2} width={STREET_LINES[3] - STREET_LINES[0] + ROAD_WIDTH} height={ROAD_WIDTH} fill="var(--surface-2)" />
-            <rect x={v - ROAD_WIDTH / 2} y={STREET_LINES[0] - ROAD_WIDTH / 2} width={ROAD_WIDTH} height={STREET_LINES[3] - STREET_LINES[0] + ROAD_WIDTH} fill="var(--surface-2)" />
+            <rect x={STREET_LINES[0] - ROAD_WIDTH / 2} y={v - ROAD_WIDTH / 2} width={STREET_LINES[STREET_LINES.length - 1]! - STREET_LINES[0] + ROAD_WIDTH} height={ROAD_WIDTH} fill="var(--surface-2)" />
+            <rect x={v - ROAD_WIDTH / 2} y={STREET_LINES[0] - ROAD_WIDTH / 2} width={ROAD_WIDTH} height={STREET_LINES[STREET_LINES.length - 1]! - STREET_LINES[0] + ROAD_WIDTH} fill="var(--surface-2)" />
           </g>
         ))}
         {STREET_LINES.map((v) => (
           <g key={`l${v}`} stroke="var(--accent)" strokeOpacity={0.5} strokeWidth={0.5} strokeDasharray="3 3">
-            <line x1={STREET_LINES[0]} y1={v} x2={STREET_LINES[3]} y2={v} />
-            <line x1={v} y1={STREET_LINES[0]} x2={v} y2={STREET_LINES[3]} />
+            <line x1={STREET_LINES[0]} y1={v} x2={STREET_LINES[STREET_LINES.length - 1]} y2={v} />
+            <line x1={v} y1={STREET_LINES[0]} x2={v} y2={STREET_LINES[STREET_LINES.length - 1]} />
           </g>
         ))}
       </g>
       <circle cx={0} cy={0} r={PLAZA_RADIUS} fill="var(--surface-2)" stroke="var(--accent)" strokeOpacity={0.7} strokeWidth={0.8} />
       <circle cx={0} cy={0} r={11} fill="none" stroke="var(--info, #3987e5)" strokeOpacity={0.5} strokeWidth={3} />
       {towers.map((tw, i) => {
-        const s = towerSolid(tw);
+        const s = towerSolids(tw)[0]!;
         return <rect key={i} x={s.minX} y={s.minZ} width={s.maxX - s.minX} height={s.maxZ - s.minZ} fill="var(--line-strong)" opacity={0.45} />;
       })}
+      {BILLBOARDS.map((b, i) => (
+        <circle key={`b${i}`} cx={b.x} cy={b.z} r={2.2} fill="var(--accent)" opacity={0.6} />
+      ))}
       {BUILDINGS.flatMap((b) =>
         b.solids.map((s, i) => (
           <rect key={`${b.id}${i}`} x={s.minX} y={s.minZ} width={s.maxX - s.minX} height={s.maxZ - s.minZ} rx={1} fill="var(--accent)" fillOpacity={0.12 + i * 0.12} stroke="var(--accent)" strokeWidth={0.6} />

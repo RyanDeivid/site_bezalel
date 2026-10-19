@@ -53,7 +53,7 @@ export const common = {
     insights: 'Insights',
     agents: 'Agentes',
     lab: 'Laboratório',
-    universe: 'Bezalel Universe',
+    universe: 'Universe',
     assistant: 'Sol',
     assistantLong: 'Assistente Sol',
     about: 'Sobre',

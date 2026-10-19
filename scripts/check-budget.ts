@@ -23,8 +23,10 @@ const BUDGET = {
   // Sob demanda. three.js fica num chunk compartilhado pela Forja (home) e
   // pelo laboratório; cada um soma só o próprio código por cima dele.
   three: 200,
-  // `textures` = React Three Fiber + as texturas em canvas, compartilhados pelo laboratório e pelo Universe.
-  lazy: { scene: 30, textures: 70, LabScene: 100, UniverseScene: 60, UniversePage: 30, InsightsPage: 130 },
+  lazy: { scene: 30, LabScene: 100, UniverseScene: 60, UniversePage: 30, InsightsPage: 130 },
+  // Download total de cada experiência 3D: o chunk dela e tudo o que ele importa
+  // (three.js, React Three Fiber, texturas, robôs), menos o que a primeira carga já trouxe.
+  experience: { LabScene: 300, UniverseScene: 320 },
 };
 
 const gz = async (file: string) => gzipSync(await readFile(file)).length / KB;
@@ -59,6 +61,32 @@ async function main() {
     const file = assets.find((f) => f.startsWith(`${name}-`) && f.endsWith('.js'));
     if (file) results.push([`${name} (sob demanda)`, await gz(join(dist, 'assets', file)), limit]);
     else missing.push(name);
+  }
+
+  // Grafo de imports entre chunks (para somar o download de cada experiência).
+  const jsFiles = assets.filter((f) => f.endsWith('.js'));
+  const importsOf = async (f: string) => [...(await readFile(join(dist, 'assets', f), 'utf8')).matchAll(/(?:from|import)\s*\(?\s*["']\.\/([^"']+\.js)["']/g)].map((m) => m[1]!);
+  const closure = async (start: string) => {
+    const seen = new Set<string>();
+    const stack = [start];
+    while (stack.length) {
+      const f = stack.pop()!;
+      if (seen.has(f) || !jsFiles.includes(f)) continue;
+      seen.add(f);
+      stack.push(...(await importsOf(f)));
+    }
+    return seen;
+  };
+  const entryFile = jsFiles.find((f) => /^index-/.test(f));
+  const initial = entryFile ? await closure(entryFile) : new Set<string>();
+  for (const [name, limit] of Object.entries(BUDGET.experience)) {
+    const file = jsFiles.find((f) => f.startsWith(`${name}-`));
+    if (!file) {
+      missing.push(name);
+      continue;
+    }
+    const extra = [...(await closure(file))].filter((f) => !initial.has(f));
+    results.push([`${name} (download total)`, (await Promise.all(extra.map((f) => gz(join(dist, 'assets', f))))).reduce((a, b) => a + b, 0), limit]);
   }
 
   let failed = missing.length > 0;

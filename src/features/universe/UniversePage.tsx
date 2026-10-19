@@ -1,5 +1,5 @@
-import { ArrowDown, ArrowUp, Box, Check, CircleAlert, Gauge, HelpCircle, Home, LogOut, Map as MapIcon, MapPin, Maximize, Minimize, Pause, Play, Smartphone, Sparkles, TriangleAlert, Zap } from 'lucide-react';
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { Box, Car, Check, CircleAlert, Footprints, Gauge, HelpCircle, Home, LogOut, Map as MapIcon, MapPin, Maximize, Minimize, Pause, Play, Plane, Smartphone, TriangleAlert } from 'lucide-react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePreferences } from '@/app/preferences-context';
 import { BezalelMark } from '@/components/brand/BezalelMark';
 import { Badge } from '@/components/ui/Badge';
@@ -7,7 +7,6 @@ import { Button, ButtonLink, IconButton } from '@/components/ui/Button';
 import { Dialog } from '@/components/ui/Dialog';
 import { ProcessingIndicator } from '@/components/ui/StateView';
 import { useToast } from '@/components/ui/toast-context';
-import { Joystick } from '@/components/three/Joystick';
 import { SceneBoundary } from '@/components/three/SceneBoundary';
 import { curated } from '@/data/catalog/store';
 import { demoAgents } from '@/data/demo/agents';
@@ -20,22 +19,22 @@ import { cn } from '@/lib/cn';
 import { readSession, readStorage, writeSession, writeStorage } from '@/lib/storage';
 import type { LandmarkTexts } from './scene/Landmarks';
 import { PlaceBody } from './PlacePanel';
+import { TouchControls } from './TouchControls';
 import { universeContent } from './universe-content';
 import { UniverseMap } from './UniverseMap';
-import { citySolids, PLACES, placeById, skylineTowers, type PlaceId } from './world/city';
-import { planAutopilot } from './world/flight';
+import { cityTowers, citySolids, PLACES, type PlaceId, type Quality } from './world/city';
 import { PRODUCTS, productText } from './world/products';
-import { cancelAutopilot, createUniverseRuntime, type UniverseRuntime } from './world/runtime';
+import { attachDebug, cancelAutopilot, clearNotice, createUniverseRuntime, goToPlace, requestExit, tryEnter, vehicleById } from './world/runtime';
 
-// three.js + R3F + a cidade só são baixados quando o visitante escolhe pilotar em 3D.
+// three.js + R3F + a cidade só são baixados quando o visitante escolhe explorar em 3D.
 const UniverseScene = lazy(() => import('./scene/UniverseScene'));
 
 type Mode = 'launcher' | '3d' | '2d';
-type Quality = 'high' | 'low';
 const MODE_KEY = 'bz-universe-mode';
 const QUALITY_KEY = 'bz-universe-quality';
-const HELP_KEY = 'bz-universe-help-v1';
+const HELP_KEY = 'bz-universe-help-v2';
 const ROTATE_KEY = 'bz-universe-rotate-dismissed';
+const QUALITIES: Quality[] = ['low', 'medium', 'high'];
 
 function savedMode(): Mode {
   const saved = readSession(MODE_KEY);
@@ -44,29 +43,18 @@ function savedMode(): Mode {
   return 'launcher';
 }
 
-/** Leva o carro até um local: voo com piloto automático ou, com movimento reduzido, direto. */
-function sendTo(rt: UniverseRuntime, id: PlaceId, quality: Quality, instant: boolean) {
-  const p = placeById(id);
-  const to = { x: p.pad.x, z: p.pad.z, y: p.padAltitude, yaw: p.padHeading };
-  const c = rt.craft;
-  if (instant) {
-    Object.assign(c, { x: to.x, y: to.y, z: to.z, yaw: to.yaw, speed: 0, climb: 0, turnRate: 0 });
-    rt.autopilot = null;
-    rt.camera.orbit = 0;
-    return;
-  }
-  rt.autopilot = { ...planAutopilot(c, to, citySolids(quality)), place: id };
-}
+/** Seleção automática simples e verificável: o nível do aparelho (núcleos, memória, toque, economia de dados). */
+const autoQuality = (tier: 'low' | 'medium' | 'high'): Quality => tier;
 
-const holdButton = (rt: UniverseRuntime, key: 'up' | 'down' | 'boost') => ({
-  onPointerDown: (e: ReactPointerEvent<HTMLButtonElement>) => {
-    e.currentTarget.setPointerCapture(e.pointerId);
-    rt.buttons[key] = true;
-  },
-  onPointerUp: () => (rt.buttons[key] = false),
-  onPointerCancel: () => (rt.buttons[key] = false),
-  onContextMenu: (e: React.MouseEvent) => e.preventDefault(),
-});
+interface Hud {
+  mode: 'foot' | 'car' | 'hover';
+  /** Transição de entrada/saída em andamento. */
+  busy: boolean;
+  vehicle: string | null;
+  kmh: number;
+  alt: number;
+  notice: 'blocked' | 'braking' | 'landing' | null;
+}
 
 export default function UniversePage() {
   const { m, locale, reducedMotion } = usePreferences();
@@ -81,15 +69,17 @@ export default function UniversePage() {
   const mode: Mode = chosenMode ?? (isClient ? savedMode() : 'launcher');
   const [quality, setQualityState] = useState<Quality>(() => {
     const saved = readSession(QUALITY_KEY);
-    return saved === 'high' || saved === 'low' ? saved : device.tier === 'high' ? 'high' : 'low';
+    return saved === 'high' || saved === 'medium' || saved === 'low' ? saved : autoQuality(device.tier);
   });
   const [effects, setEffects] = useState(!reducedMotion);
   const [near, setNear] = useState<PlaceId | null>(null);
+  const [nearVehicle, setNearVehicle] = useState<string | null>(null);
   const [open, setOpen] = useState<PlaceId | null>(null);
   const [placesOpen, setPlacesOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [flying, setFlying] = useState<PlaceId | null>(null);
   const [runtime] = useState(createUniverseRuntime);
+  const solids = useMemo(() => citySolids(quality), [quality]);
 
   const setMode = useCallback((next: Mode) => {
     if (next !== 'launcher') writeSession(MODE_KEY, next);
@@ -111,50 +101,64 @@ export default function UniversePage() {
   };
 
   const published = useMemo(() => curated().filter((c) => c.publicationStatus === 'published'), []);
-  const towers = useMemo(() => skylineTowers('low'), []);
+  const mapTowers = useMemo(() => cityTowers('low'), []);
   const facts = t.panel.facts(demoAgents.length, published.length);
+  const liveProducts = useMemo(() => PRODUCTS.filter((p) => p.status === 'live').map((p) => productText(p, m)), [m]);
   const texts: LandmarkTexts = useMemo(
     () => ({
       names: Object.fromEntries(PLACES.map((p) => [p.id, t.places[p.id].name])) as Record<PlaceId, string>,
       labPanel: { title: t.places['ai-lab'].name, lines: demoAgents.map((a) => `${a.name} — ${a.role[locale]}`), footer: t.panel.labFooter(published.length) },
-      productsPanel: { title: t.places['products-center'].name, lines: PRODUCTS.filter((p) => p.status === 'live').map((p) => productText(p, m).title), footer: t.panel.productsFooter },
+      productsPanel: { title: t.places['products-center'].name, lines: liveProducts.map((p) => p.title), footer: t.panel.productsFooter },
       hqSign: 'Bezalel',
       productsSign: t.places['products-center'].kicker,
     }),
-    [t, m, locale, published.length],
+    [t, locale, published.length, liveProducts],
   );
+  const billboards = useMemo(() => liveProducts.map((p) => ({ title: p.title, line: p.description.split(/[.:—]/)[0]!.slice(0, 60) })), [liveProducts]);
 
-  const flyTo = useCallback(
+  /** "Ir até aqui": voo automático (no carro voador) ou transporte rápido. */
+  const goTo = useCallback(
     (id: PlaceId) => {
       setOpen(null);
       setPlacesOpen(false);
-      sendTo(runtime, id, quality, reducedMotion);
-      setFlying(reducedMotion ? null : id);
+      const r = goToPlace(runtime, id, solids, reducedMotion);
+      setFlying(r === 'flying' ? id : null);
     },
-    [runtime, quality, reducedMotion],
+    [runtime, solids, reducedMotion],
   );
   const takeControl = () => {
     cancelAutopilot(runtime);
     setFlying(null);
   };
 
-  // E abre o local próximo; H volta ao início (só no 3D, fora de campos e diálogos).
+  /** Ação contextual (E, botão A do controle ou o botão central do HUD): entrar, sair ou abrir o local. */
+  const interact = useCallback(() => {
+    if (open || helpOpen) return;
+    if (runtime.mode === 'driving') return requestExit(runtime);
+    if (runtime.mode !== 'foot') return;
+    if (tryEnter(runtime)) return;
+    if (runtime.near) setOpen(runtime.near);
+  }, [runtime, open, helpOpen]);
+
   useEffect(() => {
     if (mode !== '3d') return;
     const onKey = (e: KeyboardEvent) => {
       if (open || helpOpen || (e.target as HTMLElement | null)?.closest('input, textarea, select, dialog')) return;
       const k = e.key.toLowerCase();
-      if (k === 'e' && runtime.near) setOpen(runtime.near);
-      else if (k === 'h') flyTo('arrival');
+      if (k === 'e' && !e.repeat) interact();
+      else if (k === 'h') goTo('arrival');
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [mode, open, helpOpen, runtime, flyTo]);
+  }, [mode, open, helpOpen, interact, goTo]);
 
-  // O palco ocupa a tela abaixo do cabeçalho fixo: ao entrar, rola até que a faixa
-  // de demonstração (acima do cabeçalho) saia de vista e nada fique cortado.
+  // Gancho de inspeção só para os testes de navegador (ativado por localStorage).
+  useEffect(() => {
+    if (mode !== '3d' || readStorage('bz-universe-debug') !== '1') return;
+    return attachDebug(runtime);
+  }, [mode, runtime]);
+
   const stageRef = useRef<HTMLElement>(null);
-  // Tela cheia do palco (sem o cabeçalho do site) e, no celular, a sugestão de deitar o aparelho.
   const fullscreen = useFullscreen(stageRef);
   const canFullscreen = isClient && fullscreenSupported();
   const portrait = useMediaQuery('(orientation: portrait)');
@@ -174,13 +178,40 @@ export default function UniversePage() {
     return () => cancelAnimationFrame(id);
   }, [mode]);
 
-  // Velocidade e altitude no HUD (4× por segundo: não precisa de mais).
-  const [telemetry, setTelemetry] = useState({ alt: 0, kmh: 0 });
+  // Estado do HUD (modo, veículo, velocidade, avisos) — lido do jogo 5× por segundo, não a cada quadro.
+  const [hud, setHud] = useState<Hud>({ mode: 'foot', busy: false, vehicle: null, kmh: 0, alt: 0, notice: null });
   useEffect(() => {
     if (mode !== '3d') return;
-    const id = setInterval(() => setTelemetry({ alt: Math.round(runtime.craft.y), kmh: Math.round(Math.abs(runtime.craft.speed) * 3.6) }), 250);
+    const id = setInterval(() => {
+      const v = vehicleById(runtime, runtime.active);
+      const inVehicle = runtime.mode === 'driving' && v;
+      const speed = !inVehicle ? 0 : v.kind === 'car' ? v.car.speed : v.craft.speed;
+      setHud((prev) => {
+        const next: Hud = {
+          mode: inVehicle ? (v.kind === 'car' ? 'car' : 'hover') : 'foot',
+          busy: runtime.mode === 'entering' || runtime.mode === 'exiting',
+          vehicle: v?.id ?? null,
+          kmh: Math.round(Math.abs(speed) * 3.6),
+          alt: inVehicle && v.kind === 'hover' ? Math.round(v.craft.y) : 0,
+          notice: runtime.notice,
+        };
+        return JSON.stringify(next) === JSON.stringify(prev) ? prev : next;
+      });
+    }, 200);
     return () => clearInterval(id);
   }, [mode, runtime]);
+  // O aviso de "sem espaço para descer" some sozinho.
+  useEffect(() => {
+    if (hud.notice !== 'blocked') return;
+    const id = setTimeout(() => clearNotice(runtime), 2800);
+    return () => clearTimeout(id);
+  }, [hud.notice, runtime]);
+
+  const vehicleName = (id: string | null) => (id ? (t.vehicles[id] ?? id) : '');
+  const modeLabel = hud.mode === 'car' ? t.hud.modes.car(vehicleName(hud.vehicle)) : hud.mode === 'hover' ? t.hud.modes.hover : t.hud.modes.foot;
+  const ModeIcon = hud.mode === 'car' ? Car : hud.mode === 'hover' ? Plane : Footprints;
+  // Ação principal do momento (o mesmo que a tecla E).
+  const action = hud.busy ? null : hud.mode !== 'foot' ? t.hud.exitVehicle : nearVehicle ? t.hud.enter(vehicleName(nearVehicle)) : near && !open ? t.hud.near(t.places[near].name) : null;
 
   const header = (
     <div className="container-page flex flex-wrap items-end justify-between gap-4 py-8">
@@ -268,6 +299,7 @@ export default function UniversePage() {
         <section
           ref={stageRef}
           data-universe-stage
+          data-player-mode={hud.mode}
           aria-label={t.title}
           className={cn('relative overflow-hidden bg-bg-abyss', fullscreen.active ? 'h-[100dvh]' : 'h-[calc(100dvh-var(--header-h))] min-h-[min(560px,calc(100dvh-var(--header-h)))]')}
         >
@@ -291,14 +323,18 @@ export default function UniversePage() {
                 runtime={runtime}
                 quality={quality}
                 effects={effects}
+                calmCamera={reducedMotion}
                 inputEnabled={!open && !helpOpen}
                 near={near}
                 texts={texts}
+                billboards={billboards}
                 onSelect={setOpen}
                 onNearChange={setNear}
+                onNearVehicleChange={setNearVehicle}
                 onAutopilotEnd={() => setFlying(null)}
+                onInteract={interact}
                 onLowPerformance={() => {
-                  setQuality('low');
+                  setQuality(quality === 'high' ? 'medium' : 'low');
                   notify({ tone: 'info', message: t.hud.lowFps });
                 }}
                 onContextLost={() => {
@@ -309,14 +345,17 @@ export default function UniversePage() {
             </Suspense>
           </SceneBoundary>
 
-          {/* HUD superior: identidade + locais | ajustes */}
+          {/* HUD superior: identidade, modo atual e locais | ajustes */}
           <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-3 md:p-4">
             <div className="flex flex-col items-start gap-2">
               <div className="glass pointer-events-auto flex items-center gap-3 rounded-xl px-3 py-2">
                 <BezalelMark className="size-6 text-fg" />
                 <div className="leading-tight">
                   <p className="text-sm font-semibold">Bezalel Universe</p>
-                  <p className="font-mono text-[0.68rem] uppercase tracking-wider text-fg-subtle">{t.hud.badge}</p>
+                  <p className="flex items-center gap-1.5 text-xs text-fg-muted" role="status">
+                    <ModeIcon aria-hidden className="size-3.5 text-accent-text" />
+                    {modeLabel}
+                  </p>
                 </div>
               </div>
               <div className="pointer-events-auto">
@@ -340,13 +379,24 @@ export default function UniversePage() {
               </div>
             </div>
             <div className="pointer-events-auto flex flex-wrap justify-end gap-1.5">
-              <div className="glass flex gap-1 rounded-xl p-1">
+              <div className="glass flex items-center gap-1 rounded-xl p-1">
                 <IconButton label={effects ? t.hud.pause : t.hud.resume} onClick={() => setEffects((v) => !v)} active={!effects} size="sm">
                   {effects ? <Pause className="size-4" /> : <Play className="size-4" />}
                 </IconButton>
-                <IconButton label={quality === 'high' ? t.hud.qualityLow : t.hud.qualityHigh} onClick={() => setQuality(quality === 'high' ? 'low' : 'high')} active={quality === 'low'} size="sm">
-                  {quality === 'high' ? <Sparkles className="size-4" /> : <Gauge className="size-4" />}
-                </IconButton>
+                <div role="radiogroup" aria-label={t.hud.quality} className="flex items-center rounded-lg border border-line px-0.5">
+                  {QUALITIES.map((q) => (
+                    <button
+                      key={q}
+                      type="button"
+                      role="radio"
+                      aria-checked={quality === q}
+                      onClick={() => setQuality(q)}
+                      className={cn('h-7 rounded-md px-2 text-xs transition-colors', quality === q ? 'bg-accent-soft font-semibold text-fg' : 'text-fg-muted hover:text-fg')}
+                    >
+                      {t.hud.qualityNames[q]}
+                    </button>
+                  ))}
+                </div>
                 <IconButton label={t.hud.help} onClick={() => setHelpOpen(true)} size="sm">
                   <HelpCircle className="size-4" />
                 </IconButton>
@@ -365,9 +415,13 @@ export default function UniversePage() {
             </div>
           </div>
 
-          {/* Centro inferior: piloto automático ou convite para entrar no local próximo */}
-          {/* No toque, acima do joystick e dos botões; no desktop, rente ao rodapé. */}
-          <div className={cn('absolute left-1/2 -translate-x-1/2', device.coarse ? 'bottom-44 landscape:bottom-4' : 'bottom-24 md:bottom-6')}>
+          {/* Centro inferior: piloto automático, aviso ou a ação do momento */}
+          <div className={cn('absolute left-1/2 flex -translate-x-1/2 flex-col items-center gap-2', device.coarse ? 'bottom-28 landscape:bottom-4' : 'bottom-6')}>
+            {hud.notice && (
+              <p className="glass rounded-lg px-3 py-1.5 text-sm" role="status">
+                {t.hud.notices[hud.notice]}
+              </p>
+            )}
             {flying ? (
               <div className="glass page-enter flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm shadow-3" role="status">
                 <span>{t.hud.flying(t.places[flying].name)}</span>
@@ -376,57 +430,57 @@ export default function UniversePage() {
                 </Button>
               </div>
             ) : (
-              near &&
-              !open && (
-                <button type="button" onClick={() => setOpen(near)} className="page-enter glass flex items-center gap-3 rounded-xl border border-accent/60 px-4 py-2.5 text-sm shadow-3">
+              action && (
+                <button type="button" onClick={interact} className="page-enter glass flex items-center gap-3 rounded-xl border border-accent/60 px-4 py-2.5 text-sm shadow-3">
                   <span className="kbd hidden md:inline">{t.hud.pressE}</span>
                   <span className="font-mono text-xs uppercase text-fg-subtle md:hidden">{t.hud.tap}</span>
-                  <span className="font-medium">{t.hud.near(t.places[near].name)}</span>
+                  <span className="font-medium">{action}</span>
                 </button>
               )
             )}
           </div>
 
-          {/* Controles: joystick + subir/descer/turbo no toque; dica de teclas no desktop */}
-          <div className="absolute bottom-4 left-4 flex items-end gap-3">
-            {device.coarse ? (
-              <>
-                <Joystick runtime={runtime} label={t.hud.joystick} />
-                <div className="flex flex-col gap-2">
-                  {(
-                    [
-                      ['up', t.hud.up, <ArrowUp key="u" className="size-5" />],
-                      ['down', t.hud.down, <ArrowDown key="d" className="size-5" />],
-                      ['boost', t.hud.boost, <Zap key="b" className="size-5" />],
-                    ] as const
-                  ).map(([key, label, icon]) => (
-                    <button key={key} type="button" aria-label={label} className="glass grid size-12 touch-none select-none place-items-center rounded-full border border-line-strong" {...holdButton(runtime, key)}>
-                      {icon}
-                    </button>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <div className="glass hidden max-w-xs rounded-xl px-3 py-2.5 text-xs text-fg-muted md:block">
-                <p>
-                  <span className="kbd">W</span> <span className="kbd">A</span> <span className="kbd">S</span> <span className="kbd">D</span> · <span className="kbd">Espaço</span>/<span className="kbd">C</span> · <span className="kbd">E</span>
-                </p>
-                <button type="button" onClick={() => setHelpOpen(true)} className="mt-1 underline underline-offset-2 hover:text-fg">
-                  {t.hud.help}
-                </button>
-              </div>
-            )}
-          </div>
+          {/* Painel do veículo: velocidade (e altitude, no voador) */}
+          {hud.mode !== 'foot' && (
+            <div className={cn('glass absolute rounded-xl px-4 py-2 text-right', device.coarse ? 'right-4 top-24' : 'bottom-6 right-4')} aria-hidden>
+              <p className="font-mono text-2xl font-semibold tabular-nums">{hud.kmh}</p>
+              <p className="font-mono text-[0.65rem] uppercase tracking-wider text-fg-subtle">km/h{hud.mode === 'hover' ? ` · ${t.hud.altitude(hud.alt)}` : ''}</p>
+            </div>
+          )}
 
-          {/* Direita inferior: telemetria e voltar ao início */}
-          <div className="absolute bottom-4 right-4 flex flex-col items-end gap-2">
-            <p className="glass rounded-lg px-3 py-1.5 font-mono text-xs text-fg-muted" aria-hidden>
-              ALT {t.hud.altitude(telemetry.alt)} · {telemetry.kmh} km/h
-            </p>
-            <Button variant="secondary" size="sm" className="glass" onClick={() => flyTo('arrival')} iconLeft={<Home className="size-4" />}>
-              {t.hud.home}
-            </Button>
-          </div>
+          {/* Controles: toque (por modo) ou dica de teclado no desktop */}
+          {device.coarse ? (
+            !hud.busy && <TouchControls runtime={runtime} mode={hud.mode} labels={t.hud} />
+          ) : (
+            <div className="glass absolute bottom-4 left-4 hidden max-w-xs rounded-xl px-3 py-2.5 text-xs text-fg-muted md:block">
+              <p>
+                {hud.mode === 'foot' ? (
+                  <>
+                    <span className="kbd">WASD</span> · <span className="kbd">Shift</span> · <span className="kbd">E</span>
+                  </>
+                ) : hud.mode === 'car' ? (
+                  <>
+                    <span className="kbd">W</span>/<span className="kbd">S</span> · <span className="kbd">A</span>/<span className="kbd">D</span> · <span className="kbd">Espaço</span> · <span className="kbd">E</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="kbd">WASD</span> · <span className="kbd">Espaço</span>/<span className="kbd">C</span> · <span className="kbd">E</span>
+                  </>
+                )}
+              </p>
+              <button type="button" onClick={() => setHelpOpen(true)} className="mt-1 underline underline-offset-2 hover:text-fg">
+                {t.hud.help}
+              </button>
+            </div>
+          )}
+
+          {!device.coarse && hud.mode === 'foot' && (
+            <div className="absolute bottom-4 right-4">
+              <Button variant="secondary" size="sm" className="glass" onClick={() => goTo('arrival')} iconLeft={<Home className="size-4" />}>
+                {t.hud.home}
+              </Button>
+            </div>
+          )}
           {!effects && (
             <p className="glass absolute left-1/2 top-4 -translate-x-1/2 rounded-full px-3 py-1 text-xs text-fg-muted" role="status">
               {t.hud.paused}
@@ -481,7 +535,7 @@ export default function UniversePage() {
                 )}
               </div>
               <div className="mt-6 rounded-2xl border border-line bg-bg-deep p-3 lg:sticky lg:top-[calc(var(--header-h)+1rem)]">
-                <UniverseMap towers={towers} />
+                <UniverseMap towers={mapTowers} />
               </div>
             </div>
             <div className="lg:col-span-7">{placeCards}</div>
@@ -489,9 +543,9 @@ export default function UniversePage() {
         </>
       )}
 
-      {/* Painel do local (3D) */}
+      {/* Painel do local */}
       <Dialog open={open !== null} onClose={() => setOpen(null)} variant="drawer" title={open ? t.places[open].name : ''} description={open ? t.places[open].kicker : undefined}>
-        {open && <PlaceBody id={open} facts={facts} onFly={mode === '3d' && open !== near ? () => flyTo(open) : undefined} />}
+        {open && <PlaceBody id={open} facts={facts} onFly={mode === '3d' && open !== near ? () => goTo(open) : undefined} />}
       </Dialog>
 
       {/* Orientação (primeira entrada e botão "Controles") */}
@@ -507,20 +561,22 @@ export default function UniversePage() {
         }
       >
         <div className="space-y-4 text-sm">
-          <div>
-            <h3 className="font-mono text-xs uppercase tracking-[0.16em] text-fg-subtle">{t.help.keyboard}</h3>
-            <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5">
-              {t.help.keys.map(([k, v]) => (
-                <div key={k} className="contents">
-                  <dt>
-                    <span className="kbd">{k}</span>
-                  </dt>
-                  <dd className="text-fg-muted">{v}</dd>
-                </div>
-              ))}
-            </dl>
-          </div>
-          <p className="text-fg-muted">{t.help.mouse}</p>
+          {[...t.help.sections, { title: '', keys: t.help.general }].map((sec, i) => (
+            <div key={i}>
+              {sec.title && <h3 className="font-mono text-xs uppercase tracking-[0.16em] text-fg-subtle">{sec.title}</h3>}
+              <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5">
+                {sec.keys.map(([k, v]) => (
+                  <div key={k} className="contents">
+                    <dt>
+                      <span className="kbd">{k}</span>
+                    </dt>
+                    <dd className="text-fg-muted">{v}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          ))}
+          <p className="text-fg-muted">{t.help.gamepad}</p>
           <p className="text-fg-muted">{t.help.touch}</p>
           <p>{t.help.places}</p>
         </div>

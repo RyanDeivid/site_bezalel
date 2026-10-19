@@ -52,7 +52,7 @@ export const common: Widen<typeof base> = {
     insights: 'Insights',
     agents: 'Agents',
     lab: 'Lab',
-    universe: 'Bezalel Universe',
+    universe: 'Universe',
     assistant: 'Sol',
     assistantLong: 'Sol assistant',
     about: 'About',

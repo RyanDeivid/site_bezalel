@@ -91,7 +91,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
       ['/insights', m.nav.insights],
       ['/agents', m.nav.agents],
       ['/lab', m.nav.lab],
-      ['/universe', m.nav.universe],
+      ['/universe', m.meta.universe.title],
       ['/assistant', m.nav.assistantLong],
       ['/about', m.nav.about],
       ['/methodology', m.nav.methodology],
