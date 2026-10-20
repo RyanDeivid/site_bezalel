@@ -16,29 +16,34 @@ export interface AirModel {
   slots: Map<AirSlot, THREE.BufferGeometry>;
 }
 
+/** Divisões das curvas: cheias no modelo de perto, poucas no de longe (definido por `build`). */
+let low = false;
+const seg = (n: number) => (low ? Math.max(4, Math.round(n / 3)) : n);
+
 const prep = (g: THREE.BufferGeometry) => {
   g.deleteAttribute('uv');
   return g.index ? g.toNonIndexed() : g;
 };
 const box = (w: number, h: number, d: number, x = 0, y = 0, z = 0) => prep(new THREE.BoxGeometry(w, h, d).translate(x, y, z));
-const sphere = (r: number, sx: number, sy: number, sz: number, x = 0, y = 0, z = 0, seg = 20) => prep(new THREE.SphereGeometry(r, seg, Math.round(seg * 0.6)).scale(sx, sy, sz).translate(x, y, z));
-const ring = (r: number, tube: number, x: number, y: number, z: number) => prep(new THREE.TorusGeometry(r, tube, 8, 28).rotateX(Math.PI / 2).translate(x, y, z));
-const disc = (r: number, x: number, y: number, z: number) => prep(new THREE.CircleGeometry(r, 20).rotateX(-Math.PI / 2).translate(x, y, z));
+const sphere = (r: number, sx: number, sy: number, sz: number, x = 0, y = 0, z = 0, n = 20) => prep(new THREE.SphereGeometry(r, seg(n), Math.max(3, Math.round(seg(n) * 0.6))).scale(sx, sy, sz).translate(x, y, z));
+const ring = (r: number, tube: number, x: number, y: number, z: number) => prep(new THREE.TorusGeometry(r, tube, low ? 3 : 8, seg(28)).rotateX(Math.PI / 2).translate(x, y, z));
+const disc = (r: number, x: number, y: number, z: number) => prep(new THREE.CircleGeometry(r, seg(20)).rotateX(-Math.PI / 2).translate(x, y, z));
 const cyl = (r1: number, r2: number, h: number, x = 0, y = 0, z = 0, rot?: 'x' | 'z') => {
-  const g = new THREE.CylinderGeometry(r1, r2, h, 16);
+  const g = new THREE.CylinderGeometry(r1, r2, h, seg(16));
   if (rot === 'x') g.rotateX(Math.PI / 2);
   if (rot === 'z') g.rotateZ(Math.PI / 2);
   return prep(g.translate(x, y, z));
 };
 
-function build(cls: AirClass): AirModel {
+function build(cls: AirClass, far = false): AirModel {
+  low = far;
   const slots = new Map<AirSlot, THREE.BufferGeometry[]>();
   const add = (slot: AirSlot, ...g: THREE.BufferGeometry[]) => slots.set(slot, [...(slots.get(slot) ?? []), ...g]);
   if (cls === 'taxi') {
     // Táxi aéreo: cápsula com cabine envidraçada e quatro rotores carenados nos braços.
     add('hull', sphere(1, 1.25, 0.8, 2.3), box(0.9, 0.35, 0.5, 0, -0.55, -1.6));
     add('glass', sphere(1, 0.95, 0.62, 1.25, 0, 0.32, 0.65));
-    add('gold', prep(new THREE.TorusGeometry(1, 0.03, 6, 40).rotateX(Math.PI / 2).scale(1.27, 1, 2.32).translate(0, -0.05, 0)));
+    add('gold', prep(new THREE.TorusGeometry(1, 0.03, low ? 3 : 6, seg(40)).rotateX(Math.PI / 2).scale(1.27, 1, 2.32).translate(0, -0.05, 0)));
     for (const [x, z] of [
       [1.9, 1.3],
       [-1.9, 1.3],
@@ -61,7 +66,7 @@ function build(cls: AirClass): AirModel {
     add('frame', box(0.12, 0.7, 0.9, 0, 0.45, -2.0));
     for (const s of [1, -1]) {
       add('hull', cyl(0.38, 0.32, 1.7, s * 1.25, 0.05, -1.5, 'x'));
-      add('thrust', prep(new THREE.CircleGeometry(0.3, 18).rotateY(Math.PI).translate(s * 1.25, 0.05, -2.36)));
+      add('thrust', prep(new THREE.CircleGeometry(0.3, seg(18)).rotateY(Math.PI).translate(s * 1.25, 0.05, -2.36)));
       add('gold', cyl(0.4, 0.4, 0.08, s * 1.25, 0.05, -0.66, 'x'));
     }
     add('navRed', sphere(0.08, 1, 1, 1, -2.1, -0.05, -0.6, 8));
@@ -109,6 +114,7 @@ function build(cls: AirClass): AirModel {
     merged.set(slot, mergeGeometries(list)!);
     list.forEach((g) => g.dispose());
   }
+  low = false;
   return { slots: merged };
 }
 
@@ -120,6 +126,52 @@ export function buildAirModels(): Record<AirClass, AirModel> {
 
 export function disposeAirModels(models: Record<AirClass, AirModel>) {
   Object.values(models).forEach((m) => m.slots.forEach((g) => g.dispose()));
+}
+
+/** Voador de longe em três malhas: casco (material da classe), o resto (cor por vértice) e as luzes. */
+export interface FarAirModel {
+  hull: THREE.BufferGeometry;
+  rest: THREE.BufferGeometry;
+  lights: THREE.BufferGeometry;
+}
+
+const FAR_COLORS: Partial<Record<AirSlot, string>> = { glass: '#0a1322', frame: '#0e1219', gold: '#c7a86a', sign: '#c7a86a', thrust: '#7fa6f5', navRed: '#ff4a3d', navGreen: '#3dff8a', navWhite: '#ffffff' };
+const LIGHT_SLOTS = new Set<AirSlot>(['thrust', 'navRed', 'navGreen', 'navWhite']);
+
+const painted = (g: THREE.BufferGeometry, hex: string) => {
+  const out = g.clone();
+  const c = new THREE.Color(hex).convertSRGBToLinear();
+  const n = out.attributes.position!.count;
+  const colors = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) colors.set([c.r, c.g, c.b], i * 3);
+  out.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  return out;
+};
+
+/**
+ * Os quatro voadores de longe: um terço das divisões nas curvas e 3 chamadas de
+ * desenho por classe em vez de ~8. Os rotores translúcidos ficam de fora (de
+ * longe não se veem) e as luzes não piscam.
+ */
+export function buildFarAirModels(): Record<AirClass, FarAirModel> {
+  const out = {} as Record<AirClass, FarAirModel>;
+  for (const cls of AIR_CLASSES) {
+    const m = build(cls, true);
+    const rest: THREE.BufferGeometry[] = [];
+    const lights: THREE.BufferGeometry[] = [];
+    for (const [slot, geo] of m.slots) {
+      if (slot === 'hull' || slot === 'rotor') continue;
+      (LIGHT_SLOTS.has(slot) ? lights : rest).push(painted(geo, FAR_COLORS[slot] ?? '#555a62'));
+    }
+    out[cls] = { hull: m.slots.get('hull')!.clone(), rest: mergeGeometries(rest)!, lights: mergeGeometries(lights)! };
+    [...rest, ...lights].forEach((g) => g.dispose());
+    m.slots.forEach((g) => g.dispose());
+  }
+  return out;
+}
+
+export function disposeFarAirModels(models: Record<AirClass, FarAirModel>) {
+  Object.values(models).forEach((m) => [m.hull, m.rest, m.lights].forEach((g) => g.dispose()));
 }
 
 /** Pintura de cada classe (a mesma linguagem da marca: pérola, marinho, grafite). */

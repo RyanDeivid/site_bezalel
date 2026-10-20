@@ -5,30 +5,59 @@ import { makeGlowTexture } from '@/features/lab/scene/textures';
 import type { PlayerVehicle, UniverseRuntime } from '../world/runtime';
 import { CAR_SPECS, type CarClass } from '../world/vehicles';
 import type { UniverseAssets } from './assets';
-import type { CarMaterials, CarModel, CarSlot } from './carModels';
+import type { CarMaterials, CarModel, CarSlot, FarCarModel } from './carModels';
 
 interface Props {
   runtime: UniverseRuntime;
   models: Record<CarClass, CarModel>;
+  farModels: Record<CarClass, FarCarModel>;
   materials: CarMaterials;
   assets: UniverseAssets;
   effects: boolean;
+  /** Até que distância da câmera (m) o carro estacionado usa o modelo detalhado. */
+  lodDistance: number;
 }
 
 /** Veículos que o jogador pode usar: os carros (com volante e suspensão visíveis) e o carro voador. */
-export function PlayerVehicles({ runtime, models, materials, assets, effects }: Props) {
+export function PlayerVehicles({ runtime, models, farModels, materials, assets, effects, lodDistance }: Props) {
   return (
     <>
       {runtime.vehicles.map((v) =>
-        v.kind === 'car' ? <PlayerCar key={v.id} vehicle={v} model={models[v.cls]} materials={materials} /> : <HoverCar key={v.id} vehicle={v} assets={assets} effects={effects} />,
+        v.kind === 'car' ? (
+          <PlayerCar key={v.id} runtime={runtime} vehicle={v} model={models[v.cls]} far={farModels[v.cls]} materials={materials} lodDistance={lodDistance} />
+        ) : (
+          <HoverCar key={v.id} vehicle={v} assets={assets} effects={effects} />
+        ),
       )}
     </>
   );
 }
 
-function PlayerCar({ vehicle, model, materials }: { vehicle: Extract<PlayerVehicle, { kind: 'car' }>; model: CarModel; materials: CarMaterials }) {
+/**
+ * Carro do jogador. Perto da câmera (ou sendo dirigido), o modelo detalhado com
+ * volante, suspensão e lanterna de freio; longe, a versão de 3 malhas (de ~20
+ * chamadas de desenho, contando as sombras, para 3).
+ */
+function PlayerCar({
+  runtime,
+  vehicle,
+  model,
+  far,
+  materials,
+  lodDistance,
+}: {
+  runtime: UniverseRuntime;
+  vehicle: Extract<PlayerVehicle, { kind: 'car' }>;
+  model: CarModel;
+  far: FarCarModel;
+  materials: CarMaterials;
+  lodDistance: number;
+}) {
   const spec = CAR_SPECS[vehicle.cls];
   const root = useRef<THREE.Group>(null);
+  const detailed = useRef<THREE.Group>(null);
+  const simple = useRef<THREE.Group>(null);
+  const near = useRef(true);
   const body = useRef<THREE.Group>(null);
   const wheels = useRef<Array<THREE.Group | null>>([]);
   const spinners = useRef<Array<THREE.Group | null>>([]);
@@ -44,13 +73,19 @@ function PlayerCar({ vehicle, model, materials }: { vehicle: Extract<PlayerVehic
   const pitch = useRef(0);
   const roll = useRef(0);
 
-  useFrame((_, rawDt) => {
+  useFrame(({ camera }, rawDt) => {
     const dt = Math.min(rawDt, 0.05);
     const c = vehicle.car;
     if (root.current) {
       root.current.position.set(c.x, c.y, c.z);
       root.current.rotation.y = c.heading;
     }
+    // Nível de detalhe (com margem, para não trocar na fronteira); o carro em uso é sempre o detalhado.
+    const d2 = (c.x - camera.position.x) ** 2 + (c.z - camera.position.z) ** 2;
+    near.current = runtime.active === vehicle.id || (near.current ? d2 < (lodDistance * 1.12) ** 2 : d2 < lodDistance ** 2);
+    if (detailed.current) detailed.current.visible = near.current;
+    if (simple.current) simple.current.visible = !near.current;
+    if (!near.current) return;
     // Suspensão: mergulha ao frear, "senta" ao acelerar, inclina na curva.
     const accel = (c.speed - prevSpeed.current) / Math.max(dt, 1e-3);
     prevSpeed.current = c.speed;
@@ -66,19 +101,26 @@ function PlayerCar({ vehicle, model, materials }: { vehicle: Extract<PlayerVehic
   const material = (slot: CarSlot) => (slot === 'paint' ? own.paint : slot === 'tail' ? own.tail : materials[slot]);
   return (
     <group ref={root}>
-      <group ref={body}>
-        {[...model.slots.entries()].map(([slot, geo]) => (
-          <mesh key={slot} geometry={geo} material={material(slot)} castShadow={slot === 'paint'} />
+      <group ref={detailed}>
+        <group ref={body}>
+          {[...model.slots.entries()].map(([slot, geo]) => (
+            <mesh key={slot} geometry={geo} material={material(slot)} castShadow={slot === 'paint'} />
+          ))}
+        </group>
+        {model.wheels.map((p, i) => (
+          <group key={i} ref={(g) => void (wheels.current[i] = g)} position={p}>
+            <group ref={(g) => void (spinners.current[i] = g)}>
+              <mesh geometry={model.tire} material={materials.tire} castShadow />
+              <mesh geometry={model.rim} material={materials.rim} />
+            </group>
+          </group>
         ))}
       </group>
-      {model.wheels.map((p, i) => (
-        <group key={i} ref={(g) => void (wheels.current[i] = g)} position={p}>
-          <group ref={(g) => void (spinners.current[i] = g)}>
-            <mesh geometry={model.tire} material={materials.tire} castShadow />
-            <mesh geometry={model.rim} material={materials.rim} />
-          </group>
-        </group>
-      ))}
+      <group ref={simple} visible={false}>
+        <mesh geometry={far.paint} material={own.paint} />
+        <mesh geometry={far.rest} material={materials.farRest} />
+        <mesh geometry={far.lights} material={materials.farLights} />
+      </group>
     </group>
   );
 }

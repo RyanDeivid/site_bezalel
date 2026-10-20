@@ -1,19 +1,23 @@
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useThree } from '@react-three/fiber';
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
-import { EnvironmentMap } from '@/components/three/EnvironmentMap';
-import { ContextLossWatcher, PerformanceWatch } from '@/components/three/watchers';
+import { readStorage } from '@/lib/storage';
+import { ContextLossWatcher } from '@/components/three/watchers';
 import { cityTowers, citySolids, skybridges, type PlaceId, type Quality } from '../world/city';
 import { QUALITY_CONFIG } from './quality';
 import type { UniverseRuntime } from '../world/runtime';
 import { AirTraffic } from './AirTraffic';
 import { useUniverseAssets, type UniverseAssets } from './assets';
+import { PerformanceGovernor } from './PerformanceGovernor';
 import { Avatar } from './Avatar';
 import { Billboards, Skybridges, Towers } from './Buildings';
-import { buildCarModels, createCarMaterials, disposeCarMaterials, disposeCarModels } from './carModels';
+import { buildCarModels, buildFarCarModels, createCarMaterials, disposeCarMaterials, disposeCarModels, disposeFarCarModels } from './carModels';
 import { City } from './City';
 import { Landmarks, type LandmarkTexts } from './Landmarks';
+import { PerfProbe } from './PerfProbe';
+import { Warmup } from './Warmup';
 import { PlayerController } from './PlayerController';
+import { Sun } from './Sun';
 import { Traffic } from './Traffic';
 import { PlayerVehicles } from './Vehicles';
 
@@ -34,8 +38,19 @@ export interface UniverseSceneProps {
   onNearVehicleChange: (id: string | null) => void;
   onAutopilotEnd: () => void;
   onInteract: () => void;
+  /** Desempenho baixo mesmo com a resolução no piso: descer um nível. */
   onLowPerformance: () => void;
+  /** Folga de sobra (nenhum quadro atrasado na resolução máxima): pode subir um nível. */
+  onHeadroom: () => void;
+  /** A página permite subir de nível (modo Auto e há nível acima ainda não reprovado). */
+  canUpgrade: boolean;
+  /** O nível atual foi alcançado subindo: em período de prova. */
+  probation: boolean;
   onContextLost: () => void;
+  /** Sonda de desempenho dos testes (`bz-universe-debug`). */
+  debug?: boolean;
+  /** Shaders compilados e texturas enviadas: o laço de quadros começou. */
+  onReady: () => void;
 }
 
 /** Céu em domo + estrelas fixas (determinísticas). */
@@ -72,48 +87,53 @@ function Sky({ assets, quality }: { assets: UniverseAssets; quality: Quality }) 
 function World(props: UniverseSceneProps) {
   const { quality, effects, runtime } = props;
   const cfg = QUALITY_CONFIG[quality];
-  const assets = useUniverseAssets(quality);
+  const maxAniso = useThree((s) => s.gl.capabilities.getMaxAnisotropy());
+  const assets = useUniverseAssets(quality, Math.min(cfg.anisotropy, maxAniso));
   const towers = useMemo(() => cityTowers(quality), [quality]);
   const bridges = useMemo(() => skybridges(towers), [towers]);
   const solids = useMemo(() => citySolids(quality), [quality]);
   // Modelos e materiais dos carros: construídos uma vez, compartilhados por trânsito, voadores e carros do jogador.
   const carModels = useMemo(() => buildCarModels(), []);
+  const farCarModels = useMemo(() => buildFarCarModels(), []);
   const carMaterials = useMemo(() => createCarMaterials(quality), [quality]);
   useEffect(() => () => disposeCarModels(carModels), [carModels]);
+  useEffect(() => () => disposeFarCarModels(farCarModels), [farCarModels]);
   useEffect(() => () => disposeCarMaterials(carMaterials), [carMaterials]);
-  const half = 230;
   return (
     <>
       <color attach="background" args={['#070d17']} />
       <fog attach="fog" args={['#0c1730', 120, cfg.fog]} />
-      <EnvironmentMap intensity={cfg.envIntensity} />
+      {/* O mapa de reflexos é gerado no Warmup, sem travar a página. */}
       <Sky assets={assets} quality={quality} />
       <hemisphereLight args={['#9fb8e0', '#0b1322', 0.85]} />
       <ambientLight intensity={0.22} />
-      {/* Luar frio (sombras no médio e no alto) e um contraluz quente, discreto */}
-      <directionalLight
-        position={[-120, 170, 90]}
-        intensity={1.25}
-        color="#cfd9ff"
-        castShadow={cfg.shadows > 0}
-        shadow-mapSize={[cfg.shadows || 512, cfg.shadows || 512]}
-        shadow-camera-left={-half}
-        shadow-camera-right={half}
-        shadow-camera-top={half}
-        shadow-camera-bottom={-half}
-        shadow-camera-far={520}
-        shadow-bias={-0.0006}
-      />
+      {/* Luar frio (sombras que acompanham a câmera, no médio e no alto) e um contraluz quente, discreto */}
+      <Sun mapSize={cfg.shadows} range={cfg.shadowRange} every={cfg.shadowEvery} />
       <directionalLight position={[140, 50, -150]} intensity={0.4} color="#f2e8d5" />
-      <City assets={assets} quality={quality} />
-      <Towers assets={assets} quality={quality} towers={towers} />
-      <Skybridges assets={assets} bridges={bridges} />
-      <Billboards assets={assets} messages={props.billboards} animate={effects} />
-      <Landmarks assets={assets} quality={quality} effects={effects} near={props.near} texts={props.texts} onSelect={props.onSelect} />
-      <Traffic quality={quality} running={effects} runtime={runtime} models={carModels} materials={carMaterials} />
-      <AirTraffic quality={quality} running={effects} materials={carMaterials} />
-      <PlayerVehicles runtime={runtime} models={carModels} materials={carMaterials} assets={assets} effects={effects} />
-      <Avatar runtime={runtime} effects={effects} />
+      {/* Grupos com nome: a sonda de desempenho liga e desliga cada parte para medir o custo dela. */}
+      <group name="city">
+        <City assets={assets} quality={quality} />
+      </group>
+      <group name="towers">
+        <Towers assets={assets} quality={quality} towers={towers} />
+        <Skybridges assets={assets} bridges={bridges} />
+      </group>
+      <group name="billboards">
+        <Billboards assets={assets} messages={props.billboards} animate={effects} />
+      </group>
+      <group name="landmarks">
+        <Landmarks assets={assets} quality={quality} effects={effects} near={props.near} texts={props.texts} onSelect={props.onSelect} />
+      </group>
+      <group name="traffic">
+        <Traffic quality={quality} running={effects} runtime={runtime} models={carModels} farModels={farCarModels} materials={carMaterials} lodDistance={cfg.carLod} shadows={quality !== 'low'} />
+      </group>
+      <group name="air">
+        <AirTraffic quality={quality} running={effects} materials={carMaterials} lodDistance={cfg.airLod} />
+      </group>
+      <group name="player">
+        <PlayerVehicles runtime={runtime} models={carModels} farModels={farCarModels} materials={carMaterials} assets={assets} effects={effects} lodDistance={cfg.carLod * 0.6} />
+        <Avatar runtime={runtime} effects={effects} />
+      </group>
       <PlayerController
         runtime={runtime}
         solids={solids}
@@ -137,21 +157,33 @@ function World(props: UniverseSceneProps) {
  */
 export default function UniverseScene(props: UniverseSceneProps) {
   const cfg = QUALITY_CONFIG[props.quality];
+  // Resolução: começa no que a tela pede (dentro da faixa do nível) e a AdaptiveResolution ajusta.
+  // Só o Ultra sobe além da tela (superamostragem), e só se o aparelho aguentar.
+  const device = typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1;
+  const startDpr = Math.max(cfg.dprMin, Math.min(cfg.dprMax, device));
+  const maxDpr = props.quality === 'ultra' ? cfg.dprMax : startDpr;
   return (
     <Canvas
       key={props.quality}
+      // Parado até o Warmup compilar os shaders e enviar as texturas (sem tela congelada na entrada).
+      frameloop="never"
       shadows={cfg.shadows > 0 ? 'percentage' : false}
-      dpr={cfg.dpr}
+      dpr={startDpr}
       gl={{ antialias: cfg.antialias, powerPreference: 'high-performance', alpha: false, preserveDrawingBuffer: false }}
       camera={{ fov: 55, near: 0.2, far: cfg.far, position: [0, 6, 100] }}
       onCreated={({ gl }) => {
         gl.toneMappingExposure = 1.15;
+        // Ler o log de cada shader no primeiro uso força o navegador a esperar a compilação (e só serve
+        // para depurar): ligado no desenvolvimento, desligado no site publicado.
+        gl.debug.checkShaderErrors = import.meta.env.DEV;
       }}
       className="!absolute inset-0"
     >
       <World {...props} />
-      {props.quality !== 'low' && <PerformanceWatch onLow={props.onLowPerformance} />}
+      <Warmup envIntensity={QUALITY_CONFIG[props.quality].envIntensity} envSize={QUALITY_CONFIG[props.quality].envSize} onReady={props.onReady} />
+      <PerformanceGovernor min={cfg.dprMin} max={maxDpr} canUpgrade={props.canUpgrade} probation={props.probation} onLow={props.onLowPerformance} onHeadroom={props.onHeadroom} off={props.debug && readStorage('bz-universe-governor') === 'off'} debug={props.debug} />
       <ContextLossWatcher onLost={props.onContextLost} />
+      {props.debug && <PerfProbe />}
     </Canvas>
   );
 }

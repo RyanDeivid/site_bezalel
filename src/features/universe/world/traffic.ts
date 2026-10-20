@@ -41,21 +41,21 @@ export interface Route {
 
 export const ROUTES: RouteSpec[] = [
   // Anel em volta da praça, nos dois sentidos.
-  { id: 'plaza-ring-cw', kind: 'ground', nodes: [[2, 2], [3, 2], [3, 3], [2, 3]], vehicles: { high: 4, medium: 3, low: 2 } },
-  { id: 'plaza-ring-ccw', kind: 'ground', nodes: [[2, 3], [3, 3], [3, 2], [2, 2]], vehicles: { high: 3, medium: 2, low: 1 } },
+  { id: 'plaza-ring-cw', kind: 'ground', nodes: [[2, 2], [3, 2], [3, 3], [2, 3]], vehicles: { ultra: 4, high: 4, medium: 3, low: 2 } },
+  { id: 'plaza-ring-ccw', kind: 'ground', nodes: [[2, 3], [3, 3], [3, 2], [2, 2]], vehicles: { ultra: 3, high: 3, medium: 2, low: 1 } },
   // Anel médio (em volta das quadras institucionais).
-  { id: 'midtown-cw', kind: 'ground', nodes: [[1, 1], [4, 1], [4, 4], [1, 4]], vehicles: { high: 5, medium: 3, low: 2 } },
-  { id: 'midtown-ccw', kind: 'ground', nodes: [[1, 4], [4, 4], [4, 1], [1, 1]], vehicles: { high: 4, medium: 3, low: 1 } },
+  { id: 'midtown-cw', kind: 'ground', nodes: [[1, 1], [4, 1], [4, 4], [1, 4]], vehicles: { ultra: 6, high: 5, medium: 3, low: 2 } },
+  { id: 'midtown-ccw', kind: 'ground', nodes: [[1, 4], [4, 4], [4, 1], [1, 1]], vehicles: { ultra: 5, high: 4, medium: 3, low: 1 } },
   // Avenida de contorno da cidade.
-  { id: 'outer-cw', kind: 'ground', nodes: [[0, 0], [5, 0], [5, 5], [0, 5]], vehicles: { high: 6, medium: 4, low: 2 } },
-  { id: 'outer-ccw', kind: 'ground', nodes: [[0, 5], [5, 5], [5, 0], [0, 0]], vehicles: { high: 5, medium: 3, low: 1 } },
+  { id: 'outer-cw', kind: 'ground', nodes: [[0, 0], [5, 0], [5, 5], [0, 5]], vehicles: { ultra: 8, high: 6, medium: 4, low: 2 } },
+  { id: 'outer-ccw', kind: 'ground', nodes: [[0, 5], [5, 5], [5, 0], [0, 0]], vehicles: { ultra: 7, high: 5, medium: 3, low: 1 } },
   // Laços de quadra: passam pela frente da sede, do laboratório e do centro de produtos.
-  { id: 'hq-loop', kind: 'ground', nodes: [[2, 1], [3, 1], [3, 2], [2, 2]], vehicles: { high: 2, medium: 1, low: 1 } },
-  { id: 'lab-loop', kind: 'ground', nodes: [[3, 2], [4, 2], [4, 3], [3, 3]], vehicles: { high: 2, medium: 1, low: 1 } },
-  { id: 'products-loop', kind: 'ground', nodes: [[1, 3], [2, 3], [2, 2], [1, 2]], vehicles: { high: 2, medium: 1, low: 0 } },
+  { id: 'hq-loop', kind: 'ground', nodes: [[2, 1], [3, 1], [3, 2], [2, 2]], vehicles: { ultra: 3, high: 2, medium: 1, low: 1 } },
+  { id: 'lab-loop', kind: 'ground', nodes: [[3, 2], [4, 2], [4, 3], [3, 3]], vehicles: { ultra: 3, high: 2, medium: 1, low: 1 } },
+  { id: 'products-loop', kind: 'ground', nodes: [[1, 3], [2, 3], [2, 2], [1, 2]], vehicles: { ultra: 3, high: 2, medium: 1, low: 0 } },
   // Travessias: atravessam a cidade de ponta a ponta pelas avenidas do centro.
-  { id: 'cross-north-south', kind: 'ground', nodes: [[2, 0], [3, 0], [3, 5], [2, 5]], vehicles: { high: 3, medium: 2, low: 1 } },
-  { id: 'cross-east-west', kind: 'ground', nodes: [[0, 2], [5, 2], [5, 3], [0, 3]], vehicles: { high: 3, medium: 2, low: 1 } },
+  { id: 'cross-north-south', kind: 'ground', nodes: [[2, 0], [3, 0], [3, 5], [2, 5]], vehicles: { ultra: 3, high: 3, medium: 2, low: 1 } },
+  { id: 'cross-east-west', kind: 'ground', nodes: [[0, 2], [5, 2], [5, 3], [0, 3]], vehicles: { ultra: 3, high: 3, medium: 2, low: 1 } },
 ];
 
 const CORNER_RADIUS = 5;

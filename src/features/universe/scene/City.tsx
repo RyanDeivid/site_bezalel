@@ -181,22 +181,26 @@ export function City({ assets, quality }: { assets: UniverseAssets; quality: Qua
     [roadGeo, crossGeo, sidewalks, lawns, corners, paths],
   );
 
+  // Ordem de desenho do chão, de cima para baixo (praça e jardins → calçadas → cruzamentos → ruas →
+  // terreno), depois de prédios e veículos (ordem 0). As camadas se sobrepõem; desenhando a de cima
+  // primeiro, o teste de profundidade descarta os pixels de baixo antes de calcular o material e as
+  // sombras deles. Medido no Intel Iris Xe: o chão era a parte mais cara do quadro.
   return (
     <group>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} material={m.ground} receiveShadow>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} material={m.ground} receiveShadow renderOrder={6}>
         <planeGeometry args={[420, 420]} />
       </mesh>
-      <instancedMesh ref={roadRef} args={[roadGeo, m.road, roadMatrices.length]} receiveShadow />
-      <instancedMesh ref={crossRef} args={[crossGeo, m.intersection, crossMatrices.length]} receiveShadow />
-      <mesh geometry={sidewalks} material={m.sidewalk} receiveShadow />
-      <mesh geometry={lawns} material={m.lawn} receiveShadow />
-      <mesh geometry={corners} material={m.corner} receiveShadow />
+      <instancedMesh ref={roadRef} args={[roadGeo, m.road, roadMatrices.length]} receiveShadow renderOrder={5} />
+      <instancedMesh ref={crossRef} args={[crossGeo, m.intersection, crossMatrices.length]} receiveShadow renderOrder={4} />
+      <mesh geometry={sidewalks} material={m.sidewalk} receiveShadow renderOrder={3} />
+      <mesh geometry={lawns} material={m.lawn} receiveShadow renderOrder={2} />
+      <mesh geometry={corners} material={m.corner} receiveShadow renderOrder={2} />
 
       {/* Praça: piso, espelho d'água e caminhos */}
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.36, 0]} material={m.plaza} receiveShadow>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.36, 0]} material={m.plaza} receiveShadow renderOrder={1}>
         <circleGeometry args={[PLAZA_RADIUS, hi ? 96 : 48]} />
       </mesh>
-      <mesh geometry={paths} material={m.path} receiveShadow />
+      <mesh geometry={paths} material={m.path} receiveShadow renderOrder={1} />
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.37, 0]} material={m.water}>
         <ringGeometry args={[9.4, 12.6, hi ? 96 : 48]} />
       </mesh>

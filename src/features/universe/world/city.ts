@@ -14,7 +14,10 @@
 export type DistrictId = 'plaza' | 'hq' | 'ai-lab' | 'products' | 'arrival' | 'midtown' | 'skyline';
 export type BuildingId = 'bezalel-hq' | 'ai-lab' | 'products-center';
 export type PlaceId = BuildingId | 'plaza' | 'arrival';
-export type Quality = 'low' | 'medium' | 'high';
+export type Quality = 'low' | 'medium' | 'high' | 'ultra';
+/** Ordem dos níveis de qualidade (para "a partir do alto", por exemplo). */
+export const QUALITY_LEVELS: Quality[] = ['low', 'medium', 'high', 'ultra'];
+export const atLeast = (q: Quality, level: Quality) => QUALITY_LEVELS.indexOf(q) >= QUALITY_LEVELS.indexOf(level);
 
 export interface Point2 {
   x: number;

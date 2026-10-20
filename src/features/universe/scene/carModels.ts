@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import type { Quality } from '../world/city';
 import { CAR_SPECS, type CarClass } from '../world/vehicles';
 
 /**
@@ -90,18 +91,35 @@ const cyl = (r: number, h: number, x: number, y: number, z: number, seg = 16) =>
 /** Os dois lados (x positivo e negativo) de uma peça. */
 const mirrored = (make: (s: 1 | -1) => THREE.BufferGeometry) => [make(1), make(-1)];
 
-function wheel(r: number, sporty: boolean) {
-  const tire = new THREE.CylinderGeometry(r, r, 0.27, 28).rotateZ(Math.PI / 2);
+/**
+ * Roda: pneu com ombros arredondados e aro com raios. A versão de longe é um
+ * cilindro simples com um cubo no centro (a roda quase some sob a carroceria).
+ * Os segmentos foram medidos: a roda era ~60% dos triângulos de cada carro.
+ */
+function wheel(r: number, sporty: boolean, far: boolean) {
+  if (far) {
+    const tire = new THREE.CylinderGeometry(r, r, 0.27, 10).rotateZ(Math.PI / 2);
+    const rim = new THREE.CylinderGeometry(r * 0.6, r * 0.6, 0.29, 8).rotateZ(Math.PI / 2);
+    [tire, rim].forEach((g) => g.deleteAttribute('uv'));
+    return { tire, rim };
+  }
+  const tire = new THREE.CylinderGeometry(r, r, 0.27, 22).rotateZ(Math.PI / 2);
   // Ombros do pneu: um toro achatado de cada lado arredonda o perfil.
-  const shoulders = mirrored((s) => new THREE.TorusGeometry(r - 0.05, 0.05, 6, 28).rotateY(Math.PI / 2).translate(0.12 * s, 0, 0));
+  const shoulders = mirrored((s) => new THREE.TorusGeometry(r - 0.05, 0.05, 4, 22).rotateY(Math.PI / 2).translate(0.12 * s, 0, 0));
   const spokes = sporty ? 10 : 5;
-  const rimParts: THREE.BufferGeometry[] = [new THREE.CylinderGeometry(r * 0.66, r * 0.66, 0.2, 24).rotateZ(Math.PI / 2), new THREE.CylinderGeometry(r * 0.17, r * 0.17, 0.3, 12).rotateZ(Math.PI / 2)];
+  const rimParts: THREE.BufferGeometry[] = [new THREE.CylinderGeometry(r * 0.66, r * 0.66, 0.2, 18).rotateZ(Math.PI / 2), new THREE.CylinderGeometry(r * 0.17, r * 0.17, 0.3, 8).rotateZ(Math.PI / 2)];
   for (let i = 0; i < spokes; i++) rimParts.push(new THREE.BoxGeometry(0.05, r * 0.56, sporty ? 0.035 : 0.06).translate(0.11, r * 0.3, 0).rotateX((i / spokes) * Math.PI * 2));
   [tire, ...shoulders, ...rimParts].forEach((g) => g.deleteAttribute('uv'));
   return { tire: mergeGeometries([tire, ...shoulders])!, rim: mergeGeometries(rimParts)! };
 }
 
-function build(cls: CarClass): CarModel {
+/**
+ * Monta um modelo. `far` = versão de longe (nível de detalhe): o mesmo perfil e
+ * as mesmas peças, sem o chanfro da extrusão e com poucas divisões nas curvas
+ * — a silhueta e as luzes continuam iguais, com ~5% dos triângulos.
+ */
+function build(cls: CarClass, far = false): CarModel {
+  const ex = (shape: THREE.Shape, width: number, bevel: number, segments = 10) => (far ? extrude(shape, width, 0, 4) : extrude(shape, width, bevel, segments));
   const spec = CAR_SPECS[cls];
   const w = spec.width;
   const slots = new Map<CarSlot, THREE.BufferGeometry[]>();
@@ -115,7 +133,7 @@ function build(cls: CarClass): CarModel {
 
   if (cls === 'sedan') {
     // Sedã: capô longo, para-brisa inclinado, teto em arco, traseira curta.
-    const bevel = 0.22;
+    const bevel = far ? 0 : 0.22;
     arcR = arcFor(bevel);
     const body = profile([-2.35, 0.42], [
           { line: [-2.38, 0.8] },
@@ -131,11 +149,11 @@ function build(cls: CarClass): CarModel {
           { arc: [-wb, 0.36, arcR] },
           { line: [-2.35, 0.42] },
         ]);
-    add('paint', extrude(body, w, bevel, 14));
+    add('paint', ex(body, w, bevel, 14));
     const front = (y: number, out = 0.012) => surfaceZ(body, bevel, y, true) + out;
     const rear = (y: number, out = 0.012) => surfaceZ(body, bevel, y, false) - out;
-    add('glass', extrude(profile([-1.25, 1.0], [{ line: [-0.92, 1.33] }, { quad: [[-0.68, 1.45], [-0.3, 1.46]] }, { line: [0.36, 1.46] }, { quad: [[0.72, 1.44], [1.06, 0.98]] }]), w * 0.86, 0.05));
-    add('paint', extrude(profile([-0.82, 1.42], [{ quad: [[-0.6, 1.48], [-0.3, 1.49]] }, { line: [0.36, 1.49] }, { quad: [[0.6, 1.48], [0.74, 1.42]] }]), w * 0.8, 0.03));
+    add('glass', ex(profile([-1.25, 1.0], [{ line: [-0.92, 1.33] }, { quad: [[-0.68, 1.45], [-0.3, 1.46]] }, { line: [0.36, 1.46] }, { quad: [[0.72, 1.44], [1.06, 0.98]] }]), w * 0.86, 0.05));
+    add('paint', ex(profile([-0.82, 1.42], [{ quad: [[-0.6, 1.48], [-0.3, 1.49]] }, { line: [0.36, 1.49] }, { quad: [[0.6, 1.48], [0.74, 1.42]] }]), w * 0.8, 0.03));
     // Colunas B (pintadas) e friso cromado da linha de cintura.
     add('paint', ...mirrored((s) => box(0.03, 0.42, 0.1, s * w * 0.43, 1.22, -0.18)));
     add('chrome', ...mirrored((s) => box(0.025, 0.035, 2.2, s * (w / 2 - 0.05), 1.02, -0.1)));
@@ -146,7 +164,7 @@ function build(cls: CarClass): CarModel {
     tailY = 0.88;
   } else if (cls === 'sport') {
     // Esportivo: perfil baixo, capô longo e afilado, cabine recuada, traseira "ducktail".
-    const bevel = 0.18;
+    const bevel = far ? 0 : 0.18;
     arcR = arcFor(bevel);
     const body = profile([-2.27, 0.36], [
           { line: [-2.3, 0.66] },
@@ -161,10 +179,10 @@ function build(cls: CarClass): CarModel {
           { arc: [-wb, 0.3, arcR] },
           { line: [-2.27, 0.36] },
         ]);
-    add('paint', extrude(body, w, bevel, 12));
+    add('paint', ex(body, w, bevel, 12));
     const front = (y: number, out = 0.012) => surfaceZ(body, bevel, y, true) + out;
     const rear = (y: number, out = 0.012) => surfaceZ(body, bevel, y, false) - out;
-    add('glass', extrude(profile([-1.15, 0.84], [{ quad: [[-0.55, 1.12], [-0.1, 1.14]] }, { line: [0.25, 1.14] }, { quad: [[0.55, 1.1], [0.95, 0.8]] }]), w * 0.78, 0.05));
+    add('glass', ex(profile([-1.15, 0.84], [{ quad: [[-0.55, 1.12], [-0.1, 1.14]] }, { line: [0.25, 1.14] }, { quad: [[0.55, 1.1], [0.95, 0.8]] }]), w * 0.78, 0.05));
     // Aerofólio sobre dois suportes.
     add('trim', box(w * 0.92, 0.05, 0.36, 0, 1.06, -2.0), ...mirrored((s) => box(0.05, 0.2, 0.12, s * w * 0.32, 0.95, -2.0)));
     add('gold', box(w * 0.92, 0.02, 0.04, 0, 1.09, -1.82));
@@ -178,7 +196,7 @@ function build(cls: CarClass): CarModel {
     tailY = 0.72;
   } else {
     // Táxi autônomo: cápsula alta, estufa de vidro ampla, teto com letreiro e sensor.
-    const bevel = 0.16;
+    const bevel = far ? 0 : 0.16;
     arcR = arcFor(bevel);
     const body = profile([-2.18, 0.42], [
           { line: [-2.22, 0.98] },
@@ -192,10 +210,10 @@ function build(cls: CarClass): CarModel {
           { arc: [-wb, 0.36, arcR] },
           { line: [-2.18, 0.42] },
         ]);
-    add('paint', extrude(body, w, bevel));
+    add('paint', ex(body, w, bevel));
     const front = (y: number, out = 0.012) => surfaceZ(body, bevel, y, true) + out;
     const rear = (y: number, out = 0.012) => surfaceZ(body, bevel, y, false) - out;
-    add('glass', extrude(profile([-2.0, 1.12], [{ line: [-1.96, 1.66] }, { quad: [[-1.92, 1.78], [-1.6, 1.79]] }, { line: [0.7, 1.79] }, { quad: [[1.12, 1.76], [1.62, 1.12]] }]), w * 0.9, 0.06));
+    add('glass', ex(profile([-2.0, 1.12], [{ line: [-1.96, 1.66] }, { quad: [[-1.92, 1.78], [-1.6, 1.79]] }, { line: [0.7, 1.79] }, { quad: [[1.12, 1.76], [1.62, 1.12]] }]), w * 0.9, 0.06));
     add('paint', box(w * 0.82, 0.06, 2.3, 0, 1.82, -0.45));
     add('gold', ...mirrored((s) => box(0.025, 0.06, 3.6, s * (w / 2 - 0.02), 1.0, -0.2)));
     // Letreiro e sensor (lidar) no teto.
@@ -220,7 +238,7 @@ function build(cls: CarClass): CarModel {
     list.forEach((g) => g.dispose());
     nonIndexed.forEach((g) => g.dispose());
   }
-  const { tire, rim } = wheel(r, cls === 'sport');
+  const { tire, rim } = wheel(r, cls === 'sport', far);
   const tx = w / 2 - 0.2;
   return {
     slots: merged,
@@ -236,9 +254,9 @@ function build(cls: CarClass): CarModel {
   };
 }
 
-/** Os três modelos, construídos uma vez e compartilhados por trânsito e carros do jogador. */
-export function buildCarModels(): Record<CarClass, CarModel> {
-  return { sedan: build('sedan'), sport: build('sport'), taxi: build('taxi') };
+/** Os três modelos, construídos uma vez e compartilhados por trânsito e carros do jogador. `far` = versão de longe. */
+export function buildCarModels(far = false): Record<CarClass, CarModel> {
+  return { sedan: build('sedan', far), sport: build('sport', far), taxi: build('taxi', far) };
 }
 
 export function disposeCarModels(models: Record<CarClass, CarModel>) {
@@ -250,7 +268,7 @@ export function disposeCarModels(models: Record<CarClass, CarModel>) {
 }
 
 /** Materiais automotivos (PBR): pintura com verniz, vidro escuro espelhado, borracha, aro metálico. */
-export function createCarMaterials(quality: 'low' | 'medium' | 'high') {
+export function createCarMaterials(quality: Quality) {
   const physical = quality !== 'low';
   const paint = physical
     ? new THREE.MeshPhysicalMaterial({ color: '#ffffff', metalness: 0.55, roughness: 0.32, clearcoat: 1, clearcoatRoughness: 0.07, envMapIntensity: 1.15 })
@@ -280,6 +298,9 @@ export function createCarMaterials(quality: 'low' | 'medium' | 'high') {
     sensor: new THREE.MeshBasicMaterial({ color: '#7fa6f5', toneMapped: false }),
     tire: new THREE.MeshStandardMaterial({ color: '#121417', metalness: 0, roughness: 0.92 }),
     rim: new THREE.MeshStandardMaterial({ color: '#a7afb9', metalness: 1, roughness: 0.25, envMapIntensity: 1.3 }),
+    // Versão de longe: tudo o que não é pintura nem luz numa malha só, com a cor por vértice.
+    farRest: new THREE.MeshStandardMaterial({ vertexColors: true, metalness: 0.55, roughness: 0.4, envMapIntensity: 1.2 }),
+    farLights: new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false }),
     signTex,
   };
 }
@@ -293,4 +314,67 @@ export function disposeCarMaterials(m: CarMaterials) {
 /** Material de cada slot (a pintura é a mesma para todos: a cor vem por instância ou por cópia). */
 export function slotMaterial(m: CarMaterials, slot: CarSlot): THREE.Material {
   return m[slot];
+}
+
+/** Carro de longe em três malhas: pintura (cor por instância ou por cópia), o resto e as luzes. */
+export interface FarCarModel {
+  paint: THREE.BufferGeometry;
+  rest: THREE.BufferGeometry;
+  lights: THREE.BufferGeometry;
+}
+
+/** Cor de cada peça na malha única da versão de longe (a mesma dos materiais de perto). */
+const FAR_COLORS: Record<string, string> = {
+  glass: '#0a1322',
+  trim: '#0e1219',
+  chrome: '#cfd5dc',
+  gold: '#c7a86a',
+  sign: '#c7a86a',
+  sensor: '#7fa6f5',
+  tire: '#121417',
+  rim: '#a7afb9',
+  head: '#f6f1e7',
+  tail: '#e0452a',
+};
+
+const painted = (g: THREE.BufferGeometry, hex: string) => {
+  const out = g.index ? g.toNonIndexed() : g.clone();
+  const c = new THREE.Color(hex).convertSRGBToLinear();
+  const n = out.attributes.position!.count;
+  const colors = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) colors.set([c.r, c.g, c.b], i * 3);
+  out.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  return out;
+};
+
+/**
+ * Os três modelos de longe, já juntados: 3 chamadas de desenho por carro em vez
+ * de 15 (7 peças + 8 de rodas). As rodas ficam paradas (de longe não se vê o
+ * giro). Cada chamada custa ~23 µs de CPU no Intel Iris Xe.
+ */
+export function buildFarCarModels(): Record<CarClass, FarCarModel> {
+  const base = buildCarModels(true);
+  const out = {} as Record<CarClass, FarCarModel>;
+  for (const cls of Object.keys(base) as CarClass[]) {
+    const m = base[cls];
+    const rest: THREE.BufferGeometry[] = [];
+    const lights: THREE.BufferGeometry[] = [];
+    for (const [slot, geo] of m.slots) {
+      if (slot === 'paint') continue;
+      (slot === 'head' || slot === 'tail' ? lights : rest).push(painted(geo, FAR_COLORS[slot] ?? '#555a62'));
+    }
+    for (const [x, y, z] of m.wheels) {
+      rest.push(painted(m.tire.clone().translate(x, y, z), FAR_COLORS.tire!));
+      rest.push(painted(m.rim.clone().translate(x, y, z), FAR_COLORS.rim!));
+    }
+    const paint = m.slots.get('paint')!;
+    out[cls] = { paint: paint.index ? paint.toNonIndexed() : paint.clone(), rest: mergeGeometries(rest)!, lights: mergeGeometries(lights)! };
+    [...rest, ...lights].forEach((g) => g.dispose());
+  }
+  disposeCarModels(base);
+  return out;
+}
+
+export function disposeFarCarModels(models: Record<CarClass, FarCarModel>) {
+  for (const m of Object.values(models)) [m.paint, m.rest, m.lights].forEach((g) => g.dispose());
 }

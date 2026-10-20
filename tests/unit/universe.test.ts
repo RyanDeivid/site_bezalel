@@ -33,7 +33,7 @@ import { createTraffic, CRUISE_SPEED, ROUTES, sampleRoute, stepTraffic, TRAFFIC_
 import { CAR_SPECS, createCar, exitSpot, NO_DRIVE, stepCar, stopInput } from '@/features/universe/world/vehicles';
 import { createWalker, PERSON_RADIUS, RUN_SPEED, stepWalker, WALK_SPEED, walkerSpeed } from '@/features/universe/world/walker';
 
-const QUALITIES: Quality[] = ['low', 'medium', 'high'];
+const QUALITIES: Quality[] = ['low', 'medium', 'high', 'ultra'];
 const inside = (x: number, z: number, s: Solid, margin = 0) => x > s.minX - margin && x < s.maxX + margin && z > s.minZ - margin && z < s.maxZ + margin;
 /** Distância de um valor à linha de rua mais próxima. */
 const toStreet = (v: number) => Math.min(...STREET_LINES.map((l) => Math.abs(v - l)));
@@ -66,6 +66,10 @@ describe('Universe — cidade', () => {
     const n = QUALITIES.map((q) => cityTowers(q).length);
     expect(n[0]).toBeLessThan(n[1]!);
     expect(n[1]).toBeLessThan(n[2]!);
+    // O ultra já usa a grade cheia de torres do alto; o que ele acrescenta é trânsito, alcance e nitidez.
+    expect(n[3]).toBe(n[2]);
+    const cars = QUALITIES.map((q) => createTraffic(q).vehicles.length);
+    for (let i = 1; i < cars.length; i++) expect(cars[i]).toBeGreaterThan(cars[i - 1]!);
   });
 
   it('passarelas ligam duas torres vizinhas, no alto', () => {
@@ -226,8 +230,7 @@ describe('Universe — trânsito aéreo', () => {
 
   it('a qualidade muda a quantidade de voadores', () => {
     const n = QUALITIES.map((q) => createAirTraffic(q).vehicles.length);
-    expect(n[0]).toBeLessThan(n[1]!);
-    expect(n[1]).toBeLessThan(n[2]!);
+    for (let i = 1; i < n.length; i++) expect(n[i]).toBeGreaterThan(n[i - 1]!);
   });
 });
 

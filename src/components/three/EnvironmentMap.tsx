@@ -9,13 +9,13 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
  * refletem algo coerente sem baixar imagens. Usado pelo laboratório e pelo
  * Universe.
  */
-export function EnvironmentMap({ intensity }: { intensity: number }) {
+export function EnvironmentMap({ intensity, size = 256, blur = 0.04 }: { intensity: number; /** Lado do cubo (px): 128 custa ~4× menos para gerar. */ size?: number; blur?: number }) {
   const gl = useThree((s) => s.gl);
   const scene = useThree((s) => s.scene);
   useEffect(() => {
     const pmrem = new THREE.PMREMGenerator(gl);
     const room = new RoomEnvironment();
-    const env = pmrem.fromScene(room, 0.04).texture;
+    const env = pmrem.fromScene(room, blur, 0.1, 100, { size }).texture;
     scene.environment = env;
     scene.environmentIntensity = intensity;
     room.dispose();
@@ -24,6 +24,7 @@ export function EnvironmentMap({ intensity }: { intensity: number }) {
       scene.environment = null;
       env.dispose();
     };
-  }, [gl, scene, intensity]);
+  }, [gl, scene, intensity, size, blur]);
   return null;
 }
+

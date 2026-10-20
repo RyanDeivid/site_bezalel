@@ -723,7 +723,8 @@ const aurora = (s: UniverseProbe) => s.vehicles.find((v) => v.id === 'aurora')!;
 
 test('Universe 3D: anda, entra no carro, dirige, sai em lugar seguro e volta a andar', async ({ page, isMobile }) => {
   test.skip(isMobile, 'O fluxo com teclado é coberto no desktop (o celular tem teste próprio).');
-  test.setTimeout(120_000);
+  // Sem placa de vídeo (CI), o jogo roda em câmera lenta: cada quadro avança no máximo 50 ms.
+  test.setTimeout(240_000);
   const errors = trackErrors(page);
   const state = await enterUniverse3d(page);
   const stage = page.locator('section[data-universe-stage]');
@@ -732,7 +733,7 @@ test('Universe 3D: anda, entra no carro, dirige, sai em lugar seguro e volta a a
   const start = (await state()).walker;
   await page.mouse.move(640, 400);
   await page.keyboard.down('w');
-  await expect.poll(async () => { const w = (await state()).walker; return Math.hypot(w.x - start.x, w.z - start.z); }, { timeout: 15_000 }).toBeGreaterThan(1.5);
+  await expect.poll(async () => { const w = (await state()).walker; return Math.hypot(w.x - start.x, w.z - start.z); }, { timeout: 30_000 }).toBeGreaterThan(1.5);
   await page.keyboard.up('w');
   // O trânsito autônomo está na cena (os corpos dele entram nas colisões do jogador).
   expect((await state()).traffic).toBeGreaterThan(0);
@@ -747,18 +748,18 @@ test('Universe 3D: anda, entra no carro, dirige, sai em lugar seguro e volta a a
   // Acelera (W), vira (D) e freia (S).
   const car0 = aurora(await state());
   await page.keyboard.down('w');
-  await expect.poll(async () => aurora(await state()).speed, { timeout: 15_000 }).toBeGreaterThan(3);
+  await expect.poll(async () => aurora(await state()).speed, { timeout: 30_000 }).toBeGreaterThan(3);
   await page.keyboard.down('d');
-  await expect.poll(async () => Math.abs(aurora(await state()).heading - car0.heading), { timeout: 15_000 }).toBeGreaterThan(0.05);
+  await expect.poll(async () => Math.abs(aurora(await state()).heading - car0.heading), { timeout: 30_000 }).toBeGreaterThan(0.05);
   await page.keyboard.up('d');
   await page.keyboard.up('w');
   // S freia e, com o carro parado, engata a ré: velocidade (com sinal) abaixo de 0,5 = parou ou já está em ré.
   await page.keyboard.down('s');
-  await expect.poll(async () => aurora(await state()).speed, { timeout: 15_000 }).toBeLessThan(0.5);
+  await expect.poll(async () => aurora(await state()).speed, { timeout: 30_000 }).toBeLessThan(0.5);
   await page.keyboard.up('s');
   // Sai (E): volta a pé, ao lado do carro, que continua no mundo, parado onde ficou.
   await page.keyboard.press('e');
-  await expect(stage).toHaveAttribute('data-player-mode', 'foot', { timeout: 15_000 });
+  await expect(stage).toHaveAttribute('data-player-mode', 'foot', { timeout: 30_000 });
   await expect.poll(async () => (await state()).mode, { timeout: 10_000 }).toBe('foot');
   const after = await state();
   const car = aurora(after);
@@ -769,7 +770,7 @@ test('Universe 3D: anda, entra no carro, dirige, sai em lugar seguro e volta a a
   // Volta a andar; o carro fica.
   const parked = after.walker;
   await page.keyboard.down('w');
-  await expect.poll(async () => { const w = (await state()).walker; return Math.hypot(w.x - parked.x, w.z - parked.z); }, { timeout: 15_000 }).toBeGreaterThan(1);
+  await expect.poll(async () => { const w = (await state()).walker; return Math.hypot(w.x - parked.x, w.z - parked.z); }, { timeout: 30_000 }).toBeGreaterThan(1);
   await page.keyboard.up('w');
   expect(aurora(await state())).toMatchObject({ x: car.x, z: car.z });
   expect(errors.filter((e) => !/GPU|WebGL|GL_/.test(e))).toEqual([]);

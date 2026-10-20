@@ -1,4 +1,4 @@
-import { STREET_LINES } from './city';
+import { STREET_LINES, type Quality } from './city';
 
 /**
  * Trânsito aéreo: corredores sobre as avenidas (ruas não têm prédios — por
@@ -28,19 +28,19 @@ export interface AirRouteSpec {
   /** Deslocamento lateral do corredor em relação ao eixo da avenida (m). */
   offset: number;
   speed: number;
-  count: { low: number; medium: number; high: number };
+  count: Record<Quality, number>;
 }
 
 export const AIR_ROUTES: AirRouteSpec[] = [
-  { id: 'ew-north-30', cls: 'taxi', axis: 'ew', a: 1, b: 2, altitude: 30, offset: 0, speed: 22, count: { low: 2, medium: 3, high: 4 } },
-  { id: 'ew-south-30', cls: 'private', axis: 'ew', a: 4, b: 3, altitude: 30, offset: 0, speed: 26, count: { low: 1, medium: 2, high: 3 } },
-  { id: 'ew-north-42', cls: 'cargo', axis: 'ew', a: 2, b: 1, altitude: 42, offset: 2, speed: 16, count: { low: 1, medium: 2, high: 2 } },
-  { id: 'ew-south-42', cls: 'taxi', axis: 'ew', a: 3, b: 4, altitude: 42, offset: 2, speed: 22, count: { low: 1, medium: 2, high: 3 } },
-  { id: 'ns-west-56', cls: 'private', axis: 'ns', a: 1, b: 2, altitude: 56, offset: 0, speed: 26, count: { low: 1, medium: 2, high: 3 } },
-  { id: 'ns-east-56', cls: 'taxi', axis: 'ns', a: 4, b: 3, altitude: 56, offset: 0, speed: 22, count: { low: 1, medium: 2, high: 3 } },
-  { id: 'ns-west-68', cls: 'taxi', axis: 'ns', a: 2, b: 1, altitude: 68, offset: 2, speed: 22, count: { low: 0, medium: 1, high: 2 } },
-  { id: 'ns-east-68', cls: 'cargo', axis: 'ns', a: 3, b: 4, altitude: 68, offset: 2, speed: 16, count: { low: 0, medium: 1, high: 2 } },
-  { id: 'drones-midtown', cls: 'drone', axis: 'ring', a: 1, b: 4, altitude: 15, offset: 0, speed: 12, count: { low: 2, medium: 4, high: 6 } },
+  { id: 'ew-north-30', cls: 'taxi', axis: 'ew', a: 1, b: 2, altitude: 30, offset: 0, speed: 22, count: { low: 2, medium: 3, high: 4, ultra: 5 } },
+  { id: 'ew-south-30', cls: 'private', axis: 'ew', a: 4, b: 3, altitude: 30, offset: 0, speed: 26, count: { low: 1, medium: 2, high: 3, ultra: 4 } },
+  { id: 'ew-north-42', cls: 'cargo', axis: 'ew', a: 2, b: 1, altitude: 42, offset: 2, speed: 16, count: { low: 1, medium: 2, high: 2, ultra: 3 } },
+  { id: 'ew-south-42', cls: 'taxi', axis: 'ew', a: 3, b: 4, altitude: 42, offset: 2, speed: 22, count: { low: 1, medium: 2, high: 3, ultra: 4 } },
+  { id: 'ns-west-56', cls: 'private', axis: 'ns', a: 1, b: 2, altitude: 56, offset: 0, speed: 26, count: { low: 1, medium: 2, high: 3, ultra: 4 } },
+  { id: 'ns-east-56', cls: 'taxi', axis: 'ns', a: 4, b: 3, altitude: 56, offset: 0, speed: 22, count: { low: 1, medium: 2, high: 3, ultra: 4 } },
+  { id: 'ns-west-68', cls: 'taxi', axis: 'ns', a: 2, b: 1, altitude: 68, offset: 2, speed: 22, count: { low: 0, medium: 1, high: 2, ultra: 3 } },
+  { id: 'ns-east-68', cls: 'cargo', axis: 'ns', a: 3, b: 4, altitude: 68, offset: 2, speed: 16, count: { low: 0, medium: 1, high: 2, ultra: 3 } },
+  { id: 'drones-midtown', cls: 'drone', axis: 'ring', a: 1, b: 4, altitude: 15, offset: 0, speed: 12, count: { low: 2, medium: 4, high: 6, ultra: 8 } },
 ];
 
 export interface AirPoint {
@@ -140,7 +140,7 @@ export interface AirVehicle {
   phase: number;
 }
 
-export function createAirTraffic(quality: 'low' | 'medium' | 'high', specs: AirRouteSpec[] = AIR_ROUTES) {
+export function createAirTraffic(quality: Quality, specs: AirRouteSpec[] = AIR_ROUTES) {
   const routes = specs.map(buildAirRoute);
   const vehicles: AirVehicle[] = [];
   routes.forEach((r, i) => {

@@ -1,6 +1,7 @@
 import { useFrame } from '@react-three/fiber';
-import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { BILLBOARDS, TOWER_VARIANTS, type Quality, type Skybridge, type TowerSpec } from '../world/city';
 import type { UniverseAssets } from './assets';
 import { PALETTE } from './textures';
@@ -34,65 +35,81 @@ function slotMaterial(slot: Slot, assets: UniverseAssets): THREE.Material {
 
 const SHADOW_SLOTS = new Set<Slot>(['concrete', 'facadeA', 'facadeB', 'facadeC', 'darkGlass']);
 
-/** Torres da cidade: uma InstancedMesh por (linguagem × material), todas estáticas. */
+/**
+ * Torres da cidade, estáticas: as torres de cada quadrante da cidade (4) são
+ * juntadas numa malha por material, com as posições já aplicadas. Antes era uma
+ * InstancedMesh por (linguagem × material), cobrindo a cidade inteira: ~38
+ * malhas, desenhadas duas vezes (imagem e sombra), sem nunca ficar fora da
+ * visão. Agora são até 4 × 8, e os quadrantes fora da visão (ou da área das
+ * sombras) não são desenhados.
+ */
 export function Towers({ assets, quality, towers }: { assets: UniverseAssets; quality: Quality; towers: TowerSpec[] }) {
   const detail = quality !== 'low';
-  const groups = useMemo(
-    () =>
-      TOWER_VARIANTS.map((v, variant) => ({
-        items: towers.filter((t) => t.variant === variant),
-        geos: buildTowerGeometry(v, detail),
-      })).filter((g) => g.items.length > 0),
-    [towers, detail],
-  );
-  useEffect(() => () => groups.forEach((g) => g.geos.forEach((geo) => geo.dispose())), [groups]);
+  const chunks = useMemo(() => {
+    const byVariant = TOWER_VARIANTS.map((v) => buildTowerGeometry(v, detail));
+    const out: Array<{ slot: Slot; geo: THREE.BufferGeometry }> = [];
+    const m = new THREE.Matrix4();
+    for (const qx of [-1, 1])
+      for (const qz of [-1, 1]) {
+        const inQuadrant = towers.filter((t) => Math.sign(t.x || 1) === qx && Math.sign(t.z || 1) === qz);
+        const parts = new Map<Slot, THREE.BufferGeometry[]>();
+        for (const t of inQuadrant) {
+          m.makeRotationY(t.rotation).setPosition(t.x, 0.3, t.z);
+          for (const [slot, geo] of byVariant[t.variant]!) parts.set(slot, [...(parts.get(slot) ?? []), geo.clone().applyMatrix4(m)]);
+        }
+        for (const [slot, list] of parts) {
+          const geo = mergeGeometries(list)!;
+          geo.computeBoundingSphere();
+          out.push({ slot, geo });
+          list.forEach((g) => g.dispose());
+        }
+      }
+    byVariant.forEach((map) => map.forEach((g) => g.dispose()));
+    return out;
+  }, [towers, detail]);
+  useEffect(() => () => chunks.forEach((c) => c.geo.dispose()), [chunks]);
+  const shadow = quality !== 'low';
   return (
     <>
-      {groups.flatMap((g, gi) => [...g.geos.entries()].map(([slot, geo]) => <TowerSlot key={`${gi}-${slot}`} geo={geo} material={slotMaterial(slot, assets)} items={g.items} shadow={quality === 'high' && SHADOW_SLOTS.has(slot)} />))}
+      {chunks.map((c, i) => (
+        <mesh key={i} geometry={c.geo} material={slotMaterial(c.slot, assets)} castShadow={shadow && SHADOW_SLOTS.has(c.slot)} receiveShadow={shadow && SHADOW_SLOTS.has(c.slot)} />
+      ))}
     </>
   );
 }
 
-function TowerSlot({ geo, material, items, shadow }: { geo: THREE.BufferGeometry; material: THREE.Material; items: TowerSpec[]; shadow: boolean }) {
-  const ref = useRef<THREE.InstancedMesh>(null);
-  useLayoutEffect(() => {
-    const mesh = ref.current;
-    if (!mesh) return;
-    const m = new THREE.Matrix4();
-    items.forEach((t, i) => mesh.setMatrixAt(i, m.makeRotationY(t.rotation).setPosition(t.x, 0.3, t.z)));
-    mesh.instanceMatrix.needsUpdate = true;
-    mesh.computeBoundingSphere();
-  }, [items]);
-  return <instancedMesh ref={ref} args={[geo, material, items.length]} castShadow={shadow} receiveShadow={shadow} />;
-}
-
-/** Passarelas envidraçadas entre torres (tubo de vidro com piso e filetes de luz). */
+/**
+ * Passarelas envidraçadas entre torres (tubo de vidro com piso, teto e filetes
+ * de luz): todas as passarelas numa malha por material — 3 chamadas de desenho
+ * em vez de 5 por passarela.
+ */
 export function Skybridges({ assets, bridges }: { assets: UniverseAssets; bridges: Skybridge[] }) {
   const m = assets.materials;
+  const geos = useMemo(() => {
+    const steel: THREE.BufferGeometry[] = [];
+    const glass: THREE.BufferGeometry[] = [];
+    const glow: THREE.BufferGeometry[] = [];
+    for (const b of bridges) {
+      const len = Math.abs(b.b.x - b.a.x);
+      const cx = (b.a.x + b.b.x) / 2;
+      const y = b.y + 0.3;
+      steel.push(new THREE.BoxGeometry(len, 0.3, b.width).translate(cx, y + 0.15, b.a.z), new THREE.BoxGeometry(len, 0.2, b.width + 0.2).translate(cx, y + 2.95, b.a.z));
+      glass.push(new THREE.BoxGeometry(len, 2.6, b.width).translate(cx, y + 1.6, b.a.z));
+      for (const s of [-1, 1]) glow.push(new THREE.BoxGeometry(len, 0.06, 0.06).translate(cx, y + 0.32, b.a.z + (s * b.width) / 2));
+    }
+    const merge = (list: THREE.BufferGeometry[]) => {
+      const g = list.length ? mergeGeometries(list) : null;
+      list.forEach((x) => x.dispose());
+      return g;
+    };
+    return { steel: merge(steel), glass: merge(glass), glow: merge(glow) };
+  }, [bridges]);
+  useEffect(() => () => Object.values(geos).forEach((g) => g?.dispose()), [geos]);
   return (
     <>
-      {bridges.map((b, i) => {
-        const len = Math.abs(b.b.x - b.a.x);
-        const cx = (b.a.x + b.b.x) / 2;
-        return (
-          <group key={i} position={[cx, b.y + 0.3, b.a.z]}>
-            <mesh material={m.steel} position={[0, 0.15, 0]}>
-              <boxGeometry args={[len, 0.3, b.width]} />
-            </mesh>
-            <mesh material={m.glass} position={[0, 1.6, 0]}>
-              <boxGeometry args={[len, 2.6, b.width]} />
-            </mesh>
-            <mesh material={m.steel} position={[0, 2.95, 0]}>
-              <boxGeometry args={[len, 0.2, b.width + 0.2]} />
-            </mesh>
-            {[-1, 1].map((s) => (
-              <mesh key={s} material={m.glowBlue} position={[0, 0.32, (s * b.width) / 2]}>
-                <boxGeometry args={[len, 0.06, 0.06]} />
-              </mesh>
-            ))}
-          </group>
-        );
-      })}
+      {geos.steel && <mesh geometry={geos.steel} material={m.steel} />}
+      {geos.glass && <mesh geometry={geos.glass} material={m.glass} />}
+      {geos.glow && <mesh geometry={geos.glow} material={m.glowBlue} />}
     </>
   );
 }

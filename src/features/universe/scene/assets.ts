@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 import { facadeTextures, intersectionTexture, stonePanelTexture, storefrontTextures, layersTexture, padTexture, PALETTE, paverTexture, plazaTexture, roadTexture, skyTexture } from './textures';
 
-import type { Quality } from '../world/city';
+import { atLeast, type Quality } from '../world/city';
 
 export type { Quality };
 
@@ -11,10 +11,10 @@ export type { Quality };
  * compartilhados por todos os objetos (poucos materiais = menos trocas de
  * estado na GPU). Tudo é descartado ao sair da cena ou trocar a qualidade.
  */
-export function createUniverseAssets(quality: Quality) {
-  // Médio e alto usam texturas maiores; o alto, as maiores de todas.
+export function createUniverseAssets(quality: Quality, anisotropy = 1) {
+  // Médio, alto e ultra usam texturas maiores; alto e ultra, as maiores de todas.
   const hi = quality !== 'low';
-  const tex = quality === 'high' ? 1024 : 512;
+  const tex = atLeast(quality, 'high') ? 1024 : 512;
   const facadeA = facadeTextures(hi ? 512 : 256, 11, 0.8);
   const facadeB = facadeTextures(hi ? 512 : 256, 29, 0.55);
   const facadeC = facadeTextures(hi ? 512 : 256, 43, 0.92);
@@ -38,6 +38,9 @@ export function createUniverseAssets(quality: Quality) {
     stoneDark: stonePanelTexture(hi ? 512 : 256, PALETTE.surface, 'rgba(199,168,106,0.22)'),
     stoneLight: stonePanelTexture(hi ? 512 : 256, '#bfb49c', 'rgba(16,27,43,0.28)'),
   };
+  // Filtragem anisotrópica: chão, ruas e fachadas continuam nítidos vistos de lado (custo pequeno na GPU).
+  for (const t of Object.values(textures).flatMap((v) => (v instanceof THREE.Texture ? [v] : Object.values(v as Record<string, THREE.Texture>))))
+    if (t instanceof THREE.Texture) t.anisotropy = anisotropy;
   const std = (p: THREE.MeshStandardMaterialParameters) => new THREE.MeshStandardMaterial(p);
   const basic = (color: string, extra: THREE.MeshBasicMaterialParameters = {}) => new THREE.MeshBasicMaterial({ color, toneMapped: false, ...extra });
   const facade = (f: { map: THREE.Texture; emissive: THREE.Texture }, tint = '#ffffff') =>
@@ -111,8 +114,8 @@ export function createUniverseAssets(quality: Quality) {
 
 export type UniverseAssets = ReturnType<typeof createUniverseAssets>;
 
-export function useUniverseAssets(quality: Quality): UniverseAssets {
-  const assets = useMemo(() => createUniverseAssets(quality), [quality]);
+export function useUniverseAssets(quality: Quality, anisotropy = 1): UniverseAssets {
+  const assets = useMemo(() => createUniverseAssets(quality, anisotropy), [quality, anisotropy]);
   useEffect(() => () => assets.dispose(), [assets]);
   return assets;
 }

@@ -1,12 +1,13 @@
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { AGENT_HEX } from '@/components/agents/AgentGlyph';
 import { drawLabel, makeCanvasTexture } from '@/features/lab/scene/textures';
 import { STATION_ORDER } from '@/features/lab/layout';
-import { cubeOnVertex, MONUMENT, PLACES, type PlaceId } from '../world/city';
+import { atLeast, cubeOnVertex, MONUMENT, PLACES, type PlaceId } from '../world/city';
 import type { Quality, UniverseAssets } from './assets';
 import { boxWithMeterUVs, panelTexture, PALETTE, signTexture } from './textures';
+import { mergeStatic } from './staticMerge';
 
 export interface LandmarkTexts {
   names: Record<PlaceId, string>;
@@ -76,7 +77,7 @@ function useDisposable<T extends { dispose: () => void }>(t: T): T {
 
 export function Landmarks({ assets, quality, effects, near, texts, onSelect }: Props) {
   const m = assets.materials;
-  const hi = quality === 'high';
+  const hi = atLeast(quality, 'high');
   const cube = useMarkCube(assets);
   useEffect(() => () => {
     cube.geo.dispose();
@@ -105,7 +106,7 @@ export function Landmarks({ assets, quality, effects, near, texts, onSelect }: P
     [local, lattice],
   );
 
-  const tex = assets.quality === 'high' ? 1 : 0.5;
+  const tex = atLeast(assets.quality, 'high') ? 1 : 0.5;
   const hqSign = useDisposable(useMemo(() => signTexture(texts.hqSign, 1024 * tex, 160 * tex), [texts.hqSign, tex]));
   const productsSign = useDisposable(useMemo(() => signTexture(texts.productsSign, 1024 * tex, 160 * tex), [texts.productsSign, tex]));
   const labPanel = useDisposable(useMemo(() => panelTexture(texts.labPanel.title, texts.labPanel.lines, texts.labPanel.footer, PALETTE.blueSoft), [texts.labPanel]));
@@ -162,8 +163,13 @@ export function Landmarks({ assets, quality, effects, near, texts, onSelect }: P
 
   const octa = (r: number) => Array.from({ length: 8 }, (_, i) => ({ x: r * Math.sin((i * Math.PI) / 4), z: r * Math.cos((i * Math.PI) / 4) }));
 
+  // Peças estáticas juntadas numa malha por material (menos chamadas de desenho); as animadas
+  // e os marcadores dos locais têm `userData.dynamic` e ficam como estão.
+  const root = useRef<THREE.Group>(null);
+  useLayoutEffect(() => (root.current ? mergeStatic(root.current) : undefined), [quality, geos, hqSign, productsSign, labPanel, productsPanel]);
+
   return (
-    <group>
+    <group ref={root}>
       {/* ---------------- Sede Bezalel ---------------- */}
       <group {...pointer(onSelect, 'bezalel-hq')}>
         <mesh geometry={geos.hqPodium} material={m.podiumDark} position={[0, 4.8, -80]} castShadow={hi} receiveShadow />
@@ -208,7 +214,7 @@ export function Landmarks({ assets, quality, effects, near, texts, onSelect }: P
         </mesh>
         <group position={[0, 60.2 + cubeOnVertex(CROWN).height / 2, -82]}>
           <MarkCube size={CROWN} cube={cube} />
-          <mesh ref={halo} rotation={[Math.PI / 2, 0, 0]} material={m.glowGold}>
+          <mesh ref={halo} rotation={[Math.PI / 2, 0, 0]} material={m.glowGold} userData={{ dynamic: true }}>
             <torusGeometry args={[cubeOnVertex(CROWN).radius + 1.2, 0.09, 6, hi ? 128 : 64]} />
           </mesh>
         </group>
@@ -270,7 +276,7 @@ export function Landmarks({ assets, quality, effects, near, texts, onSelect }: P
         <mesh material={m.steel} position={[80, 21.3, 0]}>
           <cylinderGeometry args={[0.18, 0.3, 6, 6]} />
         </mesh>
-        <mesh ref={beacon} material={m.glowBlue} position={[80, 24.4, 0]}>
+        <mesh ref={beacon} material={m.glowBlue} position={[80, 24.4, 0]} userData={{ dynamic: true }}>
           <sphereGeometry args={[0.35, 12, 8]} />
         </mesh>
         {/* Pórtico de entrada (oeste) */}
@@ -341,7 +347,7 @@ export function Landmarks({ assets, quality, effects, near, texts, onSelect }: P
         <mesh material={m.glowGold} position={[0, MONUMENT.pedestal + 0.3, 0]} rotation={[Math.PI / 2, 0, Math.PI / 8]}>
           <torusGeometry args={[3.45 / Math.cos(Math.PI / 8), 0.07, 3, 8]} />
         </mesh>
-        <group ref={monument} position={[0, MONUMENT_Y, 0]}>
+        <group ref={monument} position={[0, MONUMENT_Y, 0]} userData={{ dynamic: true }}>
           <MarkCube size={MONUMENT.size} cube={cube} />
         </group>
         <pointLight position={[0, MONUMENT.pedestal + 1.2, 0]} color={PALETTE.gold} intensity={hi ? 60 : 30} distance={34} decay={1.6} />
@@ -401,7 +407,7 @@ function PlaceMarker(props: {
   }, [props.name, props.scale]);
   useEffect(() => () => label.dispose(), [label]);
   return (
-    <group position={[props.x, 0, props.z]} {...pointer(props.onSelect, props.place)}>
+    <group position={[props.x, 0, props.z]} {...pointer(props.onSelect, props.place)} userData={{ dynamic: true }}>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, props.ground, 0]} material={m.pad}>
         <circleGeometry args={[5, 48]} />
       </mesh>

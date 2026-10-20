@@ -34,7 +34,17 @@ const MODE_KEY = 'bz-universe-mode';
 const QUALITY_KEY = 'bz-universe-quality';
 const HELP_KEY = 'bz-universe-help-v2';
 const ROTATE_KEY = 'bz-universe-rotate-dismissed';
-const QUALITIES: Quality[] = ['low', 'medium', 'high'];
+const QUALITIES: Quality[] = ['low', 'medium', 'high', 'ultra'];
+/** Nível em que a qualidade automática está (a sessão lembra o que o aparelho aguentou). */
+const AUTO_LEVEL_KEY = 'bz-universe-auto-level';
+/** Primeiro nível que já ficou pesado nesta sessão: o modo Auto não volta a subir até ele. */
+const AUTO_CEILING_KEY = 'bz-universe-auto-ceiling';
+/** Nível alcançado subindo, ainda em período de prova. */
+const AUTO_TRIAL_KEY = 'bz-universe-auto-trial';
+type QualityChoice = 'auto' | Quality;
+const isQuality = (v: unknown): v is Quality => QUALITIES.includes(v as Quality);
+const below = (q: Quality) => QUALITIES[Math.max(0, QUALITIES.indexOf(q) - 1)]!;
+const above = (q: Quality): Quality | null => QUALITIES[QUALITIES.indexOf(q) + 1] ?? null;
 
 function savedMode(): Mode {
   const saved = readSession(MODE_KEY);
@@ -43,7 +53,12 @@ function savedMode(): Mode {
   return 'launcher';
 }
 
-/** Seleção automática simples e verificável: o nível do aparelho (núcleos, memória, toque, economia de dados). */
+/**
+ * Ponto de partida da qualidade automática, simples e verificável: o nível do
+ * aparelho (núcleos, memória, toque, economia de dados). Daí em diante o modo
+ * Auto desce se pesar e sobe — até o Ultra, só em aparelho forte — se sobrar
+ * fôlego (scene/AutoQuality.tsx).
+ */
 const autoQuality = (tier: 'low' | 'medium' | 'high'): Quality => tier;
 
 interface Hud {
@@ -67,10 +82,35 @@ export default function UniversePage() {
 
   const [chosenMode, setModeState] = useState<Mode | null>(null);
   const mode: Mode = chosenMode ?? (isClient ? savedMode() : 'launcher');
-  const [quality, setQualityState] = useState<Quality>(() => {
+  // Escolha do visitante: um nível fixo ou "Auto" (padrão).
+  const [choice, setChoice] = useState<QualityChoice>(() => {
     const saved = readSession(QUALITY_KEY);
-    return saved === 'high' || saved === 'medium' || saved === 'low' ? saved : autoQuality(device.tier);
+    return isQuality(saved) ? saved : 'auto';
   });
+  const [autoLevel, setAutoLevelState] = useState<Quality>(() => {
+    const saved = readSession(AUTO_LEVEL_KEY);
+    return isQuality(saved) ? saved : autoQuality(device.tier);
+  });
+  const [ceiling, setCeiling] = useState<Quality | null>(() => {
+    const saved = readSession(AUTO_CEILING_KEY);
+    return isQuality(saved) ? saved : null;
+  });
+  const [trial, setTrial] = useState<Quality | null>(() => {
+    const saved = readSession(AUTO_TRIAL_KEY);
+    return isQuality(saved) ? saved : null;
+  });
+  const quality: Quality = choice === 'auto' ? autoLevel : choice;
+  const probation = choice === 'auto' && trial === autoLevel;
+  const setTrialLevel = (q: Quality | null) => {
+    writeSession(AUTO_TRIAL_KEY, q ?? '');
+    setTrial(q);
+  };
+  const setAutoLevel = (q: Quality) => {
+    writeSession(AUTO_LEVEL_KEY, q);
+    setAutoLevelState(q);
+  };
+  const next = above(quality);
+  const canUpgrade = choice === 'auto' && next !== null && (ceiling === null || QUALITIES.indexOf(next) < QUALITIES.indexOf(ceiling)) && (next !== 'ultra' || device.tier === 'high');
   const [effects, setEffects] = useState(!reducedMotion);
   const [near, setNear] = useState<PlaceId | null>(null);
   const [nearVehicle, setNearVehicle] = useState<string | null>(null);
@@ -79,15 +119,19 @@ export default function UniversePage() {
   const [helpOpen, setHelpOpen] = useState(false);
   const [flying, setFlying] = useState<PlaceId | null>(null);
   const [runtime] = useState(createUniverseRuntime);
+  const [debug] = useState(() => readStorage('bz-universe-debug') === '1');
+  // A cena só aparece depois de preparada (shaders e texturas); trocar a qualidade recria o canvas.
+  const [readyQuality, setReadyQuality] = useState<Quality | null>(null);
+  const sceneReady = readyQuality === quality;
   const solids = useMemo(() => citySolids(quality), [quality]);
 
   const setMode = useCallback((next: Mode) => {
     if (next !== 'launcher') writeSession(MODE_KEY, next);
     setModeState(next);
   }, []);
-  const setQuality = (q: Quality) => {
+  const setQuality = (q: QualityChoice) => {
     writeSession(QUALITY_KEY, q);
-    setQualityState(q);
+    setChoice(q);
   };
 
   // Orientação na primeira entrada no 3D (depois, fica no botão "Controles").
@@ -142,9 +186,9 @@ export default function UniversePage() {
 
   // Gancho de inspeção só para os testes de navegador (ativado por localStorage).
   useEffect(() => {
-    if (mode !== '3d' || readStorage('bz-universe-debug') !== '1') return;
+    if (mode !== '3d' || !debug) return;
     return attachDebug(runtime);
-  }, [mode, runtime]);
+  }, [mode, runtime, debug]);
 
   const stageRef = useRef<HTMLElement>(null);
   const fullscreen = useFullscreen(stageRef);
@@ -340,10 +384,27 @@ export default function UniversePage() {
                 onNearVehicleChange={setNearVehicle}
                 onAutopilotEnd={() => setFlying(null)}
                 onInteract={interact}
+                canUpgrade={canUpgrade}
+                probation={probation}
                 onLowPerformance={() => {
-                  setQuality(quality === 'high' ? 'medium' : 'low');
-                  notify({ tone: 'info', message: t.hud.lowFps });
+                  if (quality === 'low') return;
+                  // No Auto, o nível que pesou vira o teto da sessão; num nível fixo, a escolha desce um.
+                  if (choice === 'auto') {
+                    writeSession(AUTO_CEILING_KEY, quality);
+                    setCeiling(quality);
+                    setAutoLevel(below(quality));
+                    setTrialLevel(null);
+                  } else setQuality(below(quality));
+                  notify({ tone: 'info', message: probation ? t.hud.trialFailed(t.hud.qualityNames[quality]) : t.hud.lowFps });
                 }}
+                onHeadroom={() => {
+                  if (!canUpgrade || !next) return;
+                  setAutoLevel(next);
+                  setTrialLevel(next);
+                  notify({ tone: 'info', message: t.hud.highFps(t.hud.qualityNames[next]) });
+                }}
+                debug={debug}
+                onReady={() => setReadyQuality(quality)}
                 onContextLost={() => {
                   notify({ tone: 'error', message: t.hud.lost });
                   setMode('2d');
@@ -351,6 +412,15 @@ export default function UniversePage() {
               />
             </Suspense>
           </SceneBoundary>
+          {/* Enquanto o Warmup prepara a cena (o canvas ainda não desenha): a mesma tela do carregamento. */}
+          {!sceneReady && (
+            <div className="absolute inset-0 z-[1] grid place-items-center bg-bg-abyss" role="status" aria-live="polite">
+              <div className="flex flex-col items-center gap-4">
+                <BezalelMark animated className="size-16 text-fg" />
+                <ProcessingIndicator label={t.launcher.preparing} />
+              </div>
+            </div>
+          )}
 
           {/* HUD superior: identidade, modo atual e locais | ajustes */}
           <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-3 md:p-4">
@@ -391,14 +461,27 @@ export default function UniversePage() {
                   {effects ? <Pause className="size-4" /> : <Play className="size-4" />}
                 </IconButton>
                 <div role="radiogroup" aria-label={t.hud.quality} className="flex items-center rounded-lg border border-line px-0.5">
+                  <button
+                    type="button"
+                    role="radio"
+                    aria-checked={choice === 'auto'}
+                    title={t.hud.qualityAutoNow(t.hud.qualityNames[quality])}
+                    onClick={() => setQuality('auto')}
+                    className={cn('h-7 rounded-md px-2 text-xs transition-colors', choice === 'auto' ? 'bg-accent-soft font-semibold text-fg' : 'text-fg-muted hover:text-fg')}
+                  >
+                    {t.hud.qualityAuto}
+                  </button>
                   {QUALITIES.map((q) => (
                     <button
                       key={q}
                       type="button"
                       role="radio"
-                      aria-checked={quality === q}
+                      aria-checked={choice === q}
                       onClick={() => setQuality(q)}
-                      className={cn('h-7 rounded-md px-2 text-xs transition-colors', quality === q ? 'bg-accent-soft font-semibold text-fg' : 'text-fg-muted hover:text-fg')}
+                      className={cn(
+                        'h-7 rounded-md px-2 text-xs transition-colors',
+                        choice === q ? 'bg-accent-soft font-semibold text-fg' : choice === 'auto' && quality === q ? 'text-fg underline decoration-accent underline-offset-4' : 'text-fg-muted hover:text-fg',
+                      )}
                     >
                       {t.hud.qualityNames[q]}
                     </button>
