@@ -38,6 +38,9 @@ export function PlayerVehicles({ runtime, models, farModels, materials, assets, 
  * volante, suspensão e lanterna de freio; longe, a versão de 3 malhas (de ~20
  * chamadas de desenho, contando as sombras, para 3).
  */
+const BRAKE_ON = new THREE.Color('#ff5a3a').multiplyScalar(3.6);
+const BRAKE_OFF = new THREE.Color('#d8452a').multiplyScalar(1.7);
+
 function PlayerCar({
   runtime,
   vehicle,
@@ -95,7 +98,8 @@ function PlayerCar({
     if (body.current) body.current.rotation.set(pitch.current, 0, roll.current);
     wheels.current.forEach((w, i) => w && (w.rotation.y = i < 2 ? -c.steer : 0));
     spinners.current.forEach((s) => s && (s.rotation.x = c.wheelSpin));
-    own.tail.color.set(c.braking ? '#ff5a3a' : '#a8341f');
+    // Freio: a lanterna acende mais forte (HDR: com o brilho ligado, ela "estoura").
+    own.tail.color.copy(c.braking ? BRAKE_ON : BRAKE_OFF);
   });
 
   const material = (slot: CarSlot) => (slot === 'paint' ? own.paint : slot === 'tail' ? own.tail : materials[slot]);

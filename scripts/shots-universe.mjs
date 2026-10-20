@@ -30,6 +30,10 @@ const VIEWS = {
   air: { cam: [6, 22, 52], at: [0, 40, -40], fov: 55 },
   'air-close': { cam: [-46, 31, 40], at: [-40, 30, 20], fov: 50 },
   traffic: { cam: [44, 2.2, 52], at: [37, 1, 20], fov: 50 },
+  midtown: { cam: [-42, 16, 42], at: [-75, 18, 75], fov: 55 },
+  'midtown-street': { cam: [-46, 1.8, 50], at: [-75, 10, 60], fov: 60 },
+  skyline: { cam: [10, 34, 70], at: [-140, 40, -110], fov: 55 },
+  'towers-close': { cam: [-108, 34, -104], at: [-145, 45, -145], fov: 55 },
 };
 
 const browser = await chromium.launch({ channel: process.env.PW_CHANNEL ?? 'msedge', args: ['--ignore-gpu-blocklist'] });

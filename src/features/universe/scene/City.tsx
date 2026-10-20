@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { BLOCKS, blockBounds, BUILDINGS, DISTRICTS, PLACES, PLAZA_RADIUS, ROAD_WIDTH, SIDEWALK, STREET_LINES } from '../world/city';
@@ -40,7 +40,7 @@ function treeFree(x: number, z: number): boolean {
   return true;
 }
 
-export function City({ assets, quality }: { assets: UniverseAssets; quality: Quality }) {
+export function City({ assets, quality, pools }: { assets: UniverseAssets; quality: Quality; /** Poças de luz dos postes no chão (médio para cima). */ pools: boolean }) {
   const m = assets.materials;
   // Médio e alto: mobiliário urbano denso; baixo: metade.
   const hi = quality !== 'low';
@@ -135,6 +135,57 @@ export function City({ assets, quality }: { assets: UniverseAssets; quality: Qua
       }
     return out;
   }, [hi]);
+  // ---- Meio-fio: borda de concreto claro em volta de cada calçada (uma malha só) ----
+  const curbs = useMemo(() => {
+    const parts: THREE.BufferGeometry[] = [];
+    for (let bx = 0; bx < BLOCKS; bx++)
+      for (let bz = 0; bz < BLOCKS; bz++) {
+        const b = blockBounds(bx, bz);
+        const x0 = b.minX - SIDEWALK;
+        const x1 = b.maxX + SIDEWALK;
+        const z0 = b.minZ - SIDEWALK;
+        const z1 = b.maxZ + SIDEWALK;
+        const w = x1 - x0;
+        const d = z1 - z0;
+        parts.push(new THREE.BoxGeometry(w, 0.26, 0.24).translate((x0 + x1) / 2, 0.13, z0), new THREE.BoxGeometry(w, 0.26, 0.24).translate((x0 + x1) / 2, 0.13, z1));
+        parts.push(new THREE.BoxGeometry(0.24, 0.26, d).translate(x0, 0.13, (z0 + z1) / 2), new THREE.BoxGeometry(0.24, 0.26, d).translate(x1, 0.13, (z0 + z1) / 2));
+      }
+    const g = mergeGeometries(parts)!;
+    parts.forEach((p) => p.dispose());
+    return g;
+  }, []);
+  const curbMat = useMemo(() => new THREE.MeshStandardMaterial({ color: '#8b8d92', roughness: 0.82, metalness: 0 }), []);
+
+  // ---- Poças de luz: um disco aditivo no chão da rua, à frente de cada poste ----
+  const poolRef = useRef<THREE.InstancedMesh>(null);
+  const poolM = useMemo(() => lamps.map((l) => compose(l.x + Math.sin(l.r) * 3.2, 0.055, l.z + Math.cos(l.r) * 3.2, 0, 1, 1, 1)), [lamps]);
+  useInstanceMatrices(poolRef, poolM);
+  const pool = useMemo(() => {
+    const c = document.createElement('canvas');
+    c.width = c.height = 128;
+    const ctx = c.getContext('2d')!;
+    const g = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+    g.addColorStop(0, 'rgba(255,214,160,1)');
+    g.addColorStop(0.35, 'rgba(255,200,140,0.55)');
+    g.addColorStop(1, 'rgba(255,190,130,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, 128, 128);
+    const texture = new THREE.CanvasTexture(c);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, color: new THREE.Color(0.42, 0.36, 0.3), toneMapped: false });
+    return { texture, material, geometry: new THREE.PlaneGeometry(10, 10).rotateX(-Math.PI / 2) };
+  }, []);
+  useEffect(
+    () => () => {
+      curbs.dispose();
+      curbMat.dispose();
+      pool.texture.dispose();
+      pool.material.dispose();
+      pool.geometry.dispose();
+    },
+    [curbs, curbMat, pool],
+  );
+
   const poleRef = useRef<THREE.InstancedMesh>(null);
   const headRef = useRef<THREE.InstancedMesh>(null);
   const poleM = useMemo(() => lamps.map((l) => compose(l.x, 3.2, l.z)), [lamps]);
@@ -193,6 +244,8 @@ export function City({ assets, quality }: { assets: UniverseAssets; quality: Qua
       <instancedMesh ref={roadRef} args={[roadGeo, m.road, roadMatrices.length]} receiveShadow renderOrder={5} />
       <instancedMesh ref={crossRef} args={[crossGeo, m.intersection, crossMatrices.length]} receiveShadow renderOrder={4} />
       <mesh geometry={sidewalks} material={m.sidewalk} receiveShadow renderOrder={3} />
+      <mesh geometry={curbs} material={curbMat} receiveShadow castShadow={hi} />
+      {pools && <instancedMesh ref={poolRef} args={[pool.geometry, pool.material, poolM.length]} renderOrder={7} frustumCulled={false} />}
       <mesh geometry={lawns} material={m.lawn} receiveShadow renderOrder={2} />
       <mesh geometry={corners} material={m.corner} receiveShadow renderOrder={2} />
 

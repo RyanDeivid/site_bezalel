@@ -10,12 +10,15 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
  * roda sob a tela de carregamento, depois de ela pintar, e antes de compilar o
  * resto da cena — o mapa muda os shaders de todos os materiais.
  */
-export async function createEnvironmentAsync(gl: THREE.WebGLRenderer, { size = 256, blur = 0.04 }: { size?: number; blur?: number } = {}): Promise<THREE.Texture> {
+export async function createEnvironmentAsync(
+  gl: THREE.WebGLRenderer,
+  { size = 256, blur = 0.04, scene }: { size?: number; blur?: number; /** Cena a refletir (padrão: o estúdio do three). Quem chama descarta. */ scene?: THREE.Scene } = {},
+): Promise<THREE.Texture> {
   await new Promise<void>((r) => requestAnimationFrame(() => r()));
   const pmrem = new THREE.PMREMGenerator(gl);
-  const room = new RoomEnvironment();
-  const env = pmrem.fromScene(room, blur, 0.1, 100, { size }).texture;
-  room.dispose();
+  const source = scene ?? new RoomEnvironment();
+  const env = pmrem.fromScene(source, blur, 0.1, 100, { size }).texture;
+  if (!scene) (source as RoomEnvironment).dispose();
   pmrem.dispose();
   return env;
 }

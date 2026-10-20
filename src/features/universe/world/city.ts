@@ -214,7 +214,14 @@ export const billboardSolid = (b: Billboard): Solid => box(b.x, b.z, 1.6, 1.6, b
 
 
 
-export type TowerMaterial = 'concrete' | 'facadeA' | 'facadeB' | 'facadeC' | 'frame' | 'darkGlass';
+/**
+ * Materiais de fachada: cada um é um sistema construtivo, não só uma cor —
+ * pele de vidro com montantes (azul-esverdeado ou bronze), concreto claro com
+ * janelas recortadas, pedra grafite com janelas em fenda, painéis metálicos
+ * com janelas em fita, vidro escuro e o embasamento de lojas. As alturas são
+ * múltiplos de 3,5 m (um andar), para os andares baterem com a textura.
+ */
+export type TowerMaterial = 'glassBlue' | 'glassBronze' | 'whiteConcrete' | 'charcoal' | 'metalPanel' | 'darkGlass' | 'storefront';
 
 /** Um volume da torre (empilhados de baixo para cima, centrados no eixo, com deslocamento opcional). */
 export interface TowerPart {
@@ -222,83 +229,89 @@ export interface TowerPart {
   d: number;
   h: number;
   material: TowerMaterial;
+  /** Forma da planta: retângulo, cantos chanfrados (octógono) ou redonda. A colisão usa a caixa w × d. */
+  shape?: 'box' | 'chamfer' | 'round';
   /** Deslocamento do centro em relação ao eixo da torre (recuos assimétricos). */
   dx?: number;
   dz?: number;
-  /** Detalhes que dão profundidade à fachada. */
+  /** Detalhes da fachada (só perto: o anel de fora usa a versão econômica). */
   fins?: boolean;
-  bands?: boolean;
+  balconies?: boolean;
+  diagrid?: boolean;
+  /** Arestas verticais de LED (cor de destaque). */
+  led?: 'cyan' | 'amber';
 }
 
 export interface TowerVariant {
   name: string;
   parts: TowerPart[];
-  /** Coroamento: antena, heliponto, equipamentos ou faixa de luz. */
-  roof: 'antenna' | 'helipad' | 'units' | 'garden' | 'spire';
-  /** Faixa vertical de LED (assinatura de luz da torre). */
-  led?: boolean;
+  /** Coroamento: aletas que passam do teto, topo inclinado, anel de luz, mastro com luz de sinalização, jardim, heliponto ou equipamentos. */
+  roof: 'crownFins' | 'slope' | 'ring' | 'antenna' | 'garden' | 'helipad' | 'units' | 'none';
 }
 
 /**
- * Seis linguagens arquitetônicas, cada uma com silhueta própria (não é a
- * mesma caixa com outra cor). Pegadas de até 15 m: cabem nas células de 17 m.
+ * Sete famílias arquitetônicas, cada uma com silhueta, sistema de fachada e
+ * coroamento próprios (não é a mesma caixa com outra cor). Pegadas de até
+ * 15 m: cabem nas células de 17 m.
  */
 export const TOWER_VARIANTS: TowerVariant[] = [
   {
-    name: 'torre de vidro com aletas',
+    name: 'lâmina de vidro azul (cantos chanfrados, aletas)',
     parts: [
-      { w: 14, d: 14, h: 6, material: 'concrete' },
-      { w: 10, d: 10, h: 44, material: 'facadeA', fins: true },
-      { w: 7, d: 7, h: 6, material: 'frame' },
+      { w: 15, d: 15, h: 6, material: 'storefront' },
+      { w: 12, d: 12, h: 56, material: 'glassBlue', shape: 'chamfer', fins: true },
     ],
-    roof: 'antenna',
-    led: true,
+    roof: 'crownFins',
   },
   {
-    name: 'escalonada',
+    name: 'residencial branco em terraços',
     parts: [
-      { w: 15, d: 13, h: 8, material: 'concrete' },
-      { w: 12, d: 11, h: 26, material: 'facadeB', bands: true },
-      { w: 9, d: 8, h: 16, material: 'facadeA', dx: 1, dz: -1 },
-    ],
-    roof: 'spire',
-  },
-  {
-    name: 'lâmina residencial',
-    parts: [
-      { w: 15, d: 10, h: 5, material: 'concrete' },
-      { w: 13, d: 8, h: 34, material: 'facadeC', bands: true },
-    ],
-    roof: 'units',
-  },
-  {
-    name: 'torre corporativa alta',
-    parts: [
-      { w: 14, d: 14, h: 5, material: 'concrete' },
-      { w: 12, d: 12, h: 58, material: 'darkGlass', fins: true },
-      { w: 10, d: 10, h: 3, material: 'frame' },
-    ],
-    roof: 'helipad',
-    led: true,
-  },
-  {
-    name: 'edifício médio com terraço',
-    parts: [
-      { w: 14, d: 14, h: 18, material: 'facadeC', bands: true },
-      { w: 10, d: 14, h: 6, material: 'facadeB', dx: -2 },
+      { w: 15, d: 12, h: 17.5, material: 'whiteConcrete', balconies: true },
+      { w: 12, d: 10, h: 14, material: 'whiteConcrete', balconies: true, dx: 1 },
+      { w: 9, d: 8, h: 10.5, material: 'whiteConcrete', balconies: true, dx: 2 },
     ],
     roof: 'garden',
   },
   {
-    name: 'marco do horizonte',
+    name: 'monólito grafite com arestas de LED',
     parts: [
-      { w: 13, d: 13, h: 8, material: 'concrete' },
-      { w: 11, d: 11, h: 52, material: 'facadeA', fins: true },
-      { w: 8, d: 8, h: 18, material: 'darkGlass' },
-      { w: 5, d: 5, h: 6, material: 'frame' },
+      { w: 12, d: 12, h: 4, material: 'storefront' },
+      { w: 11, d: 11, h: 45.5, material: 'charcoal', led: 'cyan' },
     ],
-    roof: 'spire',
-    led: true,
+    roof: 'ring',
+  },
+  {
+    name: 'torre redonda com diagrid',
+    parts: [
+      { w: 15, d: 15, h: 5, material: 'storefront', shape: 'round' },
+      { w: 13, d: 13, h: 66.5, material: 'glassBronze', shape: 'round', diagrid: true },
+    ],
+    roof: 'ring',
+  },
+  {
+    name: 'comercial médio com fitas de janelas',
+    parts: [
+      { w: 15, d: 14, h: 6, material: 'storefront' },
+      { w: 15, d: 13, h: 17.5, material: 'metalPanel' },
+    ],
+    roof: 'units',
+  },
+  {
+    name: 'torre escalonada de bronze',
+    parts: [
+      { w: 13, d: 13, h: 31.5, material: 'glassBronze', shape: 'chamfer', fins: true },
+      { w: 10, d: 10, h: 24.5, material: 'glassBronze', shape: 'chamfer' },
+      { w: 7, d: 7, h: 14, material: 'darkGlass', shape: 'chamfer', led: 'amber' },
+    ],
+    roof: 'antenna',
+  },
+  {
+    name: 'lâmina corporativa escura',
+    parts: [
+      { w: 15, d: 11, h: 5, material: 'storefront' },
+      { w: 14, d: 9, h: 52.5, material: 'darkGlass', fins: true },
+    ],
+    roof: 'slope',
   },
 ];
 
@@ -310,6 +323,10 @@ export interface TowerSpec {
   variant: number;
   /** 0 ou π/2 (as pegadas continuam alinhadas aos eixos). */
   rotation: number;
+  /** Anel da cidade: em volta da praça (região de demonstração, detalhe completo) ou o horizonte (versão econômica). */
+  ring: 'midtown' | 'skyline';
+  /** Semente da variação de fachada (que janelas estão acesas). */
+  seed: number;
 }
 
 function rng(seed: number) {
@@ -321,9 +338,13 @@ function rng(seed: number) {
 }
 
 const CENTRAL = new Set(DISTRICTS.map((d) => d.block.join(',')));
-/** Variantes por anel: perto do centro, prédios médios; no anel externo, as torres altas do horizonte. */
-const MIDTOWN_VARIANTS = [0, 1, 2, 4];
-const SKYLINE_VARIANTS = [0, 1, 2, 3, 5, 3];
+/**
+ * Famílias por anel: em volta da praça (a região de demonstração), prédios
+ * médios e variados que emolduram os marcos; no anel de fora, as torres altas
+ * que fazem a silhueta do horizonte.
+ */
+const MIDTOWN_VARIANTS = [1, 4, 2, 6, 1, 4];
+const SKYLINE_VARIANTS = [0, 5, 6, 3, 0, 5, 6, 2, 1];
 
 /** Torres de cada quadra que não é institucional, numa grade por quadra (densidade pela qualidade). */
 export function cityTowers(quality: Quality): TowerSpec[] {
@@ -356,7 +377,7 @@ export function cityTowers(quality: Quality): TowerSpec[] {
             continue;
           }
           const variant = pool[Math.floor(rand() * pool.length)]!;
-          out.push({ x: cx, z: cz, variant, rotation: rand() < 0.5 ? 0 : Math.PI / 2 });
+          out.push({ x: cx, z: cz, variant, rotation: rand() < 0.5 ? 0 : Math.PI / 2, ring: midtown ? 'midtown' : 'skyline', seed: out.length * 7919 + 13 });
         }
     }
   return out;

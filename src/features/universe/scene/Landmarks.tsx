@@ -47,13 +47,25 @@ const pointer = (onSelect: (id: PlaceId) => void, id: PlaceId) => ({ onClick: cl
 function useMarkCube(assets: UniverseAssets) {
   return useMemo(() => {
     const m = assets.materials;
+    // À noite o símbolo tem luz própria (não depende do reflexo): cada face da marca com um brilho
+    // discreto na cor dela, e as arestas acesas acima de 1 (o brilho as contorna).
+    const layers = (m.layers as THREE.MeshStandardMaterial).clone();
+    layers.emissiveMap = layers.map;
+    layers.emissive = new THREE.Color('#ffffff');
+    layers.emissiveIntensity = 0.42;
+    const gold = (m.gold as THREE.MeshStandardMaterial).clone();
+    gold.emissive = new THREE.Color(PALETTE.gold);
+    gold.emissiveIntensity = 0.38;
+    const steel = (m.steelLight as THREE.MeshStandardMaterial).clone();
+    steel.emissive = new THREE.Color('#5f7fa8');
+    steel.emissiveIntensity = 0.3;
     // Ordem das faces: +x, -x, +y, -y, +z, -z. As três que se encontram no vértice de
     // cima (+x, +y, +z) são as da marca: camadas (Aprender), dourada (Descobrir) e aço (Construir).
-    const materials = [m.layers, m.steelLight, m.gold, m.stone, m.steelLight, m.layers];
+    const materials = [layers, steel, gold, m.stone, steel, layers];
     const geo = new THREE.BoxGeometry(1, 1, 1);
     const edges = new THREE.EdgesGeometry(geo);
-    const line = new THREE.LineBasicMaterial({ color: PALETTE.goldLight, toneMapped: false });
-    return { materials, geo, edges, line };
+    const line = new THREE.LineBasicMaterial({ color: new THREE.Color(PALETTE.goldLight).multiplyScalar(2.6), toneMapped: false });
+    return { materials, own: [layers, gold, steel], geo, edges, line };
   }, [assets]);
 }
 
@@ -83,6 +95,7 @@ export function Landmarks({ assets, quality, effects, near, texts, onSelect }: P
     cube.geo.dispose();
     cube.edges.dispose();
     cube.line.dispose();
+    cube.own.forEach((x) => x.dispose());
     document.body.style.cursor = '';
   }, [cube]);
 

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { createEnvironmentAsync } from '@/components/three/environment';
 import { MaterialSplitter } from './materialSplit';
+import { disposeScene, nightCityEnvironment } from './nightEnvironment';
 import { postFor } from './bloom';
 
 const nextFrame = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
@@ -51,7 +52,10 @@ export function Warmup({ envIntensity, envSize, onReady }: { envIntensity: numbe
       // Deixa a tela de carregamento pintar antes de qualquer trabalho pesado.
       await nextFrame();
       try {
-        env = await createEnvironmentAsync(gl, { size: envSize });
+        // Reflexos da própria noite da cidade (não um estúdio de luz).
+        const night = nightCityEnvironment();
+        env = await createEnvironmentAsync(gl, { size: envSize, blur: 0.02, scene: night });
+        disposeScene(night);
         if (cancelled) return;
         scene.environment = env;
         scene.environmentIntensity = envIntensity;

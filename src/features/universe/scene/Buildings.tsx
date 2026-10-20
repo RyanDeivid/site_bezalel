@@ -4,44 +4,54 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { BILLBOARDS, TOWER_VARIANTS, type Quality, type Skybridge, type TowerSpec } from '../world/city';
 import type { UniverseAssets } from './assets';
-import { PALETTE } from './textures';
-import { buildTowerGeometry, type Slot } from './towerGeometry';
+import { FACADE_TILE, PALETTE } from './textures';
+import { buildTowerGeometry, FACADE_SLOTS, type Slot } from './towerGeometry';
 
 function slotMaterial(slot: Slot, assets: UniverseAssets): THREE.Material {
   const m = assets.materials;
   switch (slot) {
-    case 'concrete':
-      return m.podiumDark;
-    case 'facadeA':
-      return m.facadeA;
-    case 'facadeB':
-      return m.facadeB;
-    case 'facadeC':
-      return m.facadeC;
+    case 'glassBlue':
+      return m.towerGlassBlue;
+    case 'glassBronze':
+      return m.towerGlassBronze;
     case 'darkGlass':
-      return m.facadeDark;
-    case 'frame':
-      return m.steel;
-    case 'slab':
-      return m.stoneLight;
+      return m.towerDarkGlass;
+    case 'whiteConcrete':
+      return m.towerWhite;
+    case 'charcoal':
+      return m.towerCharcoal;
+    case 'metalPanel':
+      return m.towerMetal;
+    case 'storefront':
+      return m.storefront;
+    case 'metal':
+      return m.trimMetal;
+    case 'matte':
+      return m.trimMatte;
     case 'glow':
-      return m.glowGoldSoft;
-    case 'roofGlow':
-      return m.glowBlue;
-    case 'green':
-      return m.foliage;
+      return m.trimGlow;
   }
 }
 
-const SHADOW_SLOTS = new Set<Slot>(['concrete', 'facadeA', 'facadeB', 'facadeC', 'darkGlass']);
+/**
+ * Cada torre desloca a textura da fachada por módulos e andares inteiros (a
+ * partir da sua semente): duas torres da mesma família não têm as mesmas
+ * janelas acesas, e os montantes continuam alinhados às aletas.
+ */
+function shiftUVs(geo: THREE.BufferGeometry, slot: Slot, seed: number) {
+  const store = slot === 'storefront';
+  const du = store ? ((seed % 8) * 2) / 16 : ((seed % 16) * FACADE_TILE.module) / FACADE_TILE.w;
+  const dv = store ? 0 : (Math.floor(seed / 16) % 8) / 8;
+  const uv = geo.attributes.uv as THREE.BufferAttribute;
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) + du, uv.getY(i) + dv);
+}
 
 /**
  * Torres da cidade, estáticas: as torres de cada quadrante da cidade (4) são
- * juntadas numa malha por material, com as posições já aplicadas. Antes era uma
- * InstancedMesh por (linguagem × material), cobrindo a cidade inteira: ~38
- * malhas, desenhadas duas vezes (imagem e sombra), sem nunca ficar fora da
- * visão. Agora são até 4 × 8, e os quadrantes fora da visão (ou da área das
- * sombras) não são desenhados.
+ * juntadas numa malha por material, com as posições já aplicadas — até ~10
+ * malhas por quadrante, e os quadrantes fora da visão (ou da área das
+ * sombras) não são desenhados. Sete famílias arquitetônicas (`TOWER_VARIANTS`),
+ * cada uma com seu sistema de fachada, detalhes e coroamento.
  */
 export function Towers({ assets, quality, towers }: { assets: UniverseAssets; quality: Quality; towers: TowerSpec[] }) {
   const detail = quality !== 'low';
@@ -55,7 +65,11 @@ export function Towers({ assets, quality, towers }: { assets: UniverseAssets; qu
         const parts = new Map<Slot, THREE.BufferGeometry[]>();
         for (const t of inQuadrant) {
           m.makeRotationY(t.rotation).setPosition(t.x, 0.3, t.z);
-          for (const [slot, geo] of byVariant[t.variant]!) parts.set(slot, [...(parts.get(slot) ?? []), geo.clone().applyMatrix4(m)]);
+          for (const [slot, geo] of byVariant[t.variant]!) {
+            const g = geo.clone().applyMatrix4(m);
+            if (FACADE_SLOTS.has(slot)) shiftUVs(g, slot, t.seed);
+            parts.set(slot, [...(parts.get(slot) ?? []), g]);
+          }
         }
         for (const [slot, list] of parts) {
           const geo = mergeGeometries(list)!;
@@ -72,7 +86,13 @@ export function Towers({ assets, quality, towers }: { assets: UniverseAssets; qu
   return (
     <>
       {chunks.map((c, i) => (
-        <mesh key={i} geometry={c.geo} material={slotMaterial(c.slot, assets)} castShadow={shadow && SHADOW_SLOTS.has(c.slot)} receiveShadow={shadow && SHADOW_SLOTS.has(c.slot)} />
+        <mesh
+          key={i}
+          geometry={c.geo}
+          material={slotMaterial(c.slot, assets)}
+          castShadow={shadow && FACADE_SLOTS.has(c.slot)}
+          receiveShadow={shadow && (FACADE_SLOTS.has(c.slot) || c.slot === 'matte')}
+        />
       ))}
     </>
   );

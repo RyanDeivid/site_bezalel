@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
-import { facadeTextures, intersectionTexture, stonePanelTexture, storefrontTextures, layersTexture, padTexture, PALETTE, paverTexture, plazaTexture, roadTexture } from './textures';
+import { facadeSystem, facadeTextures, intersectionTexture, stonePanelTexture, storefrontTextures, layersTexture, padTexture, PALETTE, paverTexture, plazaTexture, roadTexture } from './textures';
 
 import { atLeast, type Quality } from '../world/city';
 
@@ -20,12 +20,13 @@ export function createUniverseAssets(quality: Quality, anisotropy = 1) {
   const facadeC = facadeTextures(hi ? 512 : 256, 43, 0.92);
   const facadeDark = facadeTextures(hi ? 512 : 256, 71, 0.4);
   const facadeHq = facadeTextures(hi ? 512 : 256, 5, 0.9);
+  const fs = hi ? 512 : 256;
   const textures = {
     road: roadTexture(hi ? 512 : 256),
     intersection: intersectionTexture(hi ? 512 : 256),
     plaza: plazaTexture(tex),
-    sidewalk: paverTexture(hi ? 256 : 128, PALETTE.sidewalk, 'rgba(8,14,24,0.5)', 4),
-    corner: paverTexture(hi ? 256 : 128, '#172238', 'rgba(8,14,24,0.6)', 3),
+    sidewalk: paverTexture(hi ? 256 : 128, PALETTE.sidewalk, 'rgba(18,20,24,0.45)', 4),
+    corner: paverTexture(hi ? 256 : 128, '#3d4048', 'rgba(14,16,20,0.55)', 3),
     pad: padTexture(hi ? 512 : 256),
     layers: layersTexture(256),
     facadeA,
@@ -33,6 +34,12 @@ export function createUniverseAssets(quality: Quality, anisotropy = 1) {
     facadeC,
     facadeDark,
     facadeHq,
+    glassBlue: facadeSystem('glassBlue', fs, 101),
+    glassBronze: facadeSystem('glassBronze', fs, 211),
+    whiteConcrete: facadeSystem('whiteConcrete', fs, 307),
+    charcoal: facadeSystem('charcoal', fs, 401),
+    metalPanel: facadeSystem('metalPanel', fs, 503),
+    darkGlass: facadeSystem('darkGlass', fs, 601),
     storefront: storefrontTextures(hi ? 1024 : 512),
     stoneDark: stonePanelTexture(hi ? 512 : 256, PALETTE.surface, 'rgba(199,168,106,0.22)'),
     stoneLight: stonePanelTexture(hi ? 512 : 256, '#bfb49c', 'rgba(16,27,43,0.28)'),
@@ -46,20 +53,20 @@ export function createUniverseAssets(quality: Quality, anisotropy = 1) {
     std({ map: f.map, emissiveMap: f.emissive, emissive: new THREE.Color('#ffffff'), emissiveIntensity: 1.1, color: tint, roughness: 0.35, metalness: 0.55, envMapIntensity: 0.9 });
 
   const materials = {
-    ground: std({ color: '#0a111c', roughness: 0.95, metalness: 0 }),
-    road: std({ map: textures.road, roughness: 0.82, metalness: 0.05 }),
-    intersection: std({ map: textures.intersection, roughness: 0.82, metalness: 0.05 }),
+    ground: std({ color: '#1d1f24', roughness: 0.95, metalness: 0 }),
+    road: std({ map: textures.road, roughness: 0.78, metalness: 0.02 }),
+    intersection: std({ map: textures.intersection, roughness: 0.78, metalness: 0.02 }),
     sidewalk: std({ map: textures.sidewalk, roughness: 0.75, metalness: 0.05 }),
     corner: std({ map: textures.corner, roughness: 0.8, metalness: 0.05 }),
-    lawn: std({ color: '#10262a', roughness: 0.95, metalness: 0 }),
+    lawn: std({ color: '#203a32', roughness: 0.95, metalness: 0 }),
     plaza: std({ map: textures.plaza, roughness: 0.55, metalness: 0.12, envMapIntensity: 0.5 }),
-    path: std({ color: '#2b3753', roughness: 0.6, metalness: 0.1 }),
+    path: std({ color: '#4c505b', roughness: 0.6, metalness: 0.05 }),
     water: std({ color: '#0a1830', roughness: 0.06, metalness: 0.9, envMapIntensity: 1.4 }),
     stone: std({ color: PALETTE.surface, roughness: 0.6, metalness: 0.25 }),
     stoneLight: std({ color: '#c3b9a3', roughness: 0.55, metalness: 0.1 }),
     podiumDark: std({ map: textures.stoneDark, roughness: 0.55, metalness: 0.3 }),
     podiumLight: std({ map: textures.stoneLight, roughness: 0.6, metalness: 0.1 }),
-    storefront: std({ map: textures.storefront.map, emissiveMap: textures.storefront.emissive, emissive: new THREE.Color('#ffffff'), emissiveIntensity: 0.5, roughness: 0.12, metalness: 0.6, envMapIntensity: 1.2 }),
+    storefront: std({ map: textures.storefront.map, emissiveMap: textures.storefront.emissive, emissive: new THREE.Color('#ffffff'), emissiveIntensity: 1, roughness: 0.12, metalness: 0.6, envMapIntensity: 1.2 }),
     steel: std({ color: PALETTE.steel, roughness: 0.32, metalness: 0.75 }),
     steelLight: std({ color: '#2b4466', roughness: 0.28, metalness: 0.8 }),
     bronze: std({ color: '#8a7448', roughness: 0.32, metalness: 0.85 }),
@@ -83,12 +90,24 @@ export function createUniverseAssets(quality: Quality, anisotropy = 1) {
       return mat;
     })(),
     facadeHq: facade(facadeHq),
+    // Torres da cidade: um material por sistema de fachada (o vidro reflete a noite; o concreto e a pedra, não).
+    towerGlassBlue: std({ map: textures.glassBlue.map, emissiveMap: textures.glassBlue.emissive, emissive: new THREE.Color('#ffffff'), emissiveIntensity: 1.5, roughness: 0.1, metalness: 0.85, envMapIntensity: 1.25 }),
+    towerGlassBronze: std({ map: textures.glassBronze.map, emissiveMap: textures.glassBronze.emissive, emissive: new THREE.Color('#ffffff'), emissiveIntensity: 1.5, roughness: 0.14, metalness: 0.85, envMapIntensity: 1.2 }),
+    towerDarkGlass: std({ map: textures.darkGlass.map, emissiveMap: textures.darkGlass.emissive, emissive: new THREE.Color('#ffffff'), emissiveIntensity: 1.3, roughness: 0.06, metalness: 0.9, envMapIntensity: 1.35 }),
+    towerWhite: std({ map: textures.whiteConcrete.map, emissiveMap: textures.whiteConcrete.emissive, emissive: new THREE.Color('#ffffff'), emissiveIntensity: 1.4, roughness: 0.82, metalness: 0, envMapIntensity: 0.4 }),
+    towerCharcoal: std({ map: textures.charcoal.map, emissiveMap: textures.charcoal.emissive, emissive: new THREE.Color('#ffffff'), emissiveIntensity: 1.5, roughness: 0.6, metalness: 0.15, envMapIntensity: 0.8 }),
+    towerMetal: std({ map: textures.metalPanel.map, emissiveMap: textures.metalPanel.emissive, emissive: new THREE.Color('#ffffff'), emissiveIntensity: 1.4, roughness: 0.38, metalness: 0.65, envMapIntensity: 1 }),
+    // Acabamentos com a cor no vértice: aletas e caixilhos (metal), lajes e coberturas (fosco), LEDs e coroas (luz).
+    trimMetal: std({ vertexColors: true, roughness: 0.35, metalness: 0.8, envMapIntensity: 1.1 }),
+    trimMatte: std({ vertexColors: true, roughness: 0.85, metalness: 0, envMapIntensity: 0.5 }),
+    trimGlow: new THREE.MeshBasicMaterial({ vertexColors: true }),
     pad: new THREE.MeshBasicMaterial({ map: textures.pad, transparent: true, toneMapped: false, depthWrite: false }),
     glowGold: basic(PALETTE.gold),
     glowGoldSoft: basic(PALETTE.goldLight, { transparent: true, opacity: 0.85 }),
     glowIvory: basic(PALETTE.ivory),
     glowBlue: basic(PALETTE.blueSoft),
-    glowWarm: basic('#ffe2b0'),
+    // Luminárias acima de 1 (HDR): com o brilho ligado, os postes acendem de verdade.
+    glowWarm: new THREE.MeshBasicMaterial({ color: new THREE.Color('#ffe2b0').multiplyScalar(3), toneMapped: false }),
     glowBrake: basic(PALETTE.brake),
     beam: basic(PALETTE.gold, { transparent: true, opacity: 0.16, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }),
     shadowBlob: new THREE.MeshBasicMaterial({ color: '#000000', transparent: true, opacity: 0.4, depthWrite: false }),

@@ -156,13 +156,13 @@ function World(props: UniverseSceneProps) {
       <Sky quality={quality} />
       {/* Luz em papéis: luar frio (principal, com sombras que acompanham a câmera), céu frio por cima e o
           rebote quente da rua por baixo (hemisfério), e um contraluz quente e baixo que recorta as silhuetas. */}
-      <hemisphereLight args={['#7d93c8', '#3d2f38', 0.62]} />
+      <hemisphereLight args={['#8ea2d6', '#403c3e', 0.85]} />
       <ambientLight intensity={0.06} />
       <Sun mapSize={cfg.shadows} range={cfg.shadowRange} every={cfg.shadowEvery} />
-      <directionalLight position={[150, 38, -160]} intensity={0.55} color="#ffb48a" />
+      <directionalLight position={[150, 38, -160]} intensity={0.5} color="#ffcfae" />
       {/* Grupos com nome: a sonda de desempenho liga e desliga cada parte para medir o custo dela. */}
       <group name="city">
-        <City assets={assets} quality={quality} />
+        <City assets={assets} quality={quality} pools={cfg.lightPools} />
       </group>
       <group name="towers">
         <Towers assets={assets} quality={quality} towers={towers} />
