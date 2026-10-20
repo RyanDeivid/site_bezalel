@@ -187,10 +187,16 @@ function subset(positions: Float32Array, normals: Float32Array, indices: number[
 }
 
 /**
- * Monta um carro. `far` = versão de longe: a mesma pele com poucas seções,
- * sem frisos nem vincos.
+ * Monta um carro em um de três níveis de detalhe: `near` (o do jogador e os
+ * de até ~18 m), `mid` (o trânsito de perto: a mesma pele e os mesmos
+ * detalhes com cerca de um terço dos triângulos) e `far` (poucas seções, sem
+ * frisos nem vincos).
  */
-export function designCar(cls: CarClass, far = false): DesignedCar {
+export type CarLod = 'near' | 'mid' | 'far';
+
+export function designCar(cls: CarClass, lod: CarLod = 'near'): DesignedCar {
+  const far = lod === 'far';
+  const mid = lod === 'mid';
   const spec = CAR_SPECS[cls];
   const D = DESIGNS[cls];
   const L = spec.length;
@@ -216,14 +222,14 @@ export function designCar(cls: CarClass, far = false): DesignedCar {
 
   // ---- Estações ao longo do comprimento: mais densas nas pontas e em volta dos arcos ----
   const stations: number[] = [];
-  const S = far ? 16 : 64;
+  const S = far ? 16 : mid ? 26 : 64;
   for (let i = 0; i <= S; i++) {
     const t = i / S;
     stations.push(0.5 - 0.5 * Math.cos(Math.PI * t)); // mais estações perto das pontas
   }
   if (!far)
     for (const zw of [wb, -wb])
-      for (let k = -1; k <= 1; k += 1 / 12) {
+      for (let k = -1; k <= 1; k += mid ? 1 / 5 : 1 / 12) {
         const u = (zw + k * archR) / L + 0.5;
         if (u > 0.02 && u < 0.98) stations.push(u);
       }
@@ -232,7 +238,7 @@ export function designCar(cls: CarClass, far = false): DesignedCar {
 
   // ---- Seção transversal: meio perfil (lado +x) de baixo ao centro do teto ----
   // Pontos por meio perfil: múltiplo dos 9 trechos entre pontos de controle (as fileiras caem nas linhas do desenho).
-  const PER = far ? 1 : 3;
+  const PER = far ? 1 : mid ? 2 : 3;
   const N = 9 * PER;
   const section = (u: number) => {
     const z = zOf(u);
@@ -372,8 +378,9 @@ export function designCar(cls: CarClass, far = false): DesignedCar {
     // Frisos que acompanham a superfície: cromado na base dos vidros e, no táxi, a faixa dourada da frota.
     const along = (part: BodyPart, u0: number, u1: number, yAt: (u: number) => number, width: number, outward = 0.006) => {
       const pts: THREE.Vector3[] = [];
-      for (let k = 0; k <= 24; k++) {
-        const u = u0 + ((u1 - u0) * k) / 24;
+      const steps = mid ? 10 : 24;
+      for (let k = 0; k <= steps; k++) {
+        const u = u0 + ((u1 - u0) * k) / steps;
         const ring = section(u);
         const y = yAt(u);
         // Ponto do flanco nessa altura (interpolado no meio perfil).
@@ -419,14 +426,14 @@ export function designCar(cls: CarClass, far = false): DesignedCar {
     // Câmeras no lugar dos retrovisores, na base do para-brisa.
     const uA = D.cabin[1] - 0.04;
     for (const s of [1, -1]) {
-      const g = new THREE.SphereGeometry(0.06, 14, 10).scale(0.7, 0.55, 1.6);
+      const g = new THREE.SphereGeometry(0.06, mid ? 8 : 14, mid ? 6 : 10).scale(0.7, 0.55, 1.6);
       g.translate(s * (section(uA).hwS + 0.07), Math.min(f.belt(uA), f.top(uA)) + 0.06, zOf(uA));
       add('trim', g.toNonIndexed());
     }
   }
 
   // ---- Rodas ----
-  const { tire, rim } = wheel(r, cls, far);
+  const { tire, rim } = wheel(r, cls, lod);
   const tx = half - 0.16;
   const merged = new Map<BodyPart, THREE.BufferGeometry>();
   for (const [p, list] of parts) {
@@ -457,14 +464,15 @@ export function designCar(cls: CarClass, far = false): DesignedCar {
  * côncavo, raios e disco de freio. Sedã: 5 raios duplos; esportivo: 10 raios
  * finos e pinça dourada; táxi: calota aerodinâmica com fendas.
  */
-function wheel(r: number, cls: CarClass, far: boolean) {
+function wheel(r: number, cls: CarClass, lod: CarLod) {
+  const far = lod === 'far';
   const w = 0.27;
-  const seg = far ? 10 : 32;
+  const seg = far ? 10 : lod === 'mid' ? 16 : 32;
   // Perfil do pneu (x = raio, y = posição no eixo), girado em volta do eixo: flanco abaulado, ombro
   // arredondado e banda de rodagem levemente curva.
   const inner = r - 0.115;
   const sh = 0.045;
-  const arc = far ? 2 : 6;
+  const arc = far ? 2 : lod === 'mid' ? 3 : 6;
   const prof: THREE.Vector2[] = [new THREE.Vector2(inner, -w / 2 + 0.01), new THREE.Vector2(r - 0.07, -w / 2 - 0.006), new THREE.Vector2(r - sh, -w / 2)];
   for (let k = 1; k <= arc; k++) {
     const a = -Math.PI / 2 + (k / arc) * (Math.PI / 2);

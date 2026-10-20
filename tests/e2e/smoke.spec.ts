@@ -794,7 +794,8 @@ test.describe('Universe 3D no computador', () => {
     await expect(exit).toBeVisible({ timeout: 10_000 });
     // A interface do jogo se recolhe; a tomada tem nome; o tempo da apresentação anda.
     await expect(places).toBeHidden();
-    await expect(page.getByRole('status').filter({ hasText: 'Avenida Bezalel' })).toBeVisible();
+    // (Sem placa de vídeo o relógio pode já ter passado da primeira tomada: qualquer uma vale.)
+    await expect(page.getByRole('status').filter({ hasText: /Avenida Bezalel|Praça Bezalel|Sede Bezalel|Laboratório de IA|Centro de Produtos|A cidade vista do alto/ })).toBeVisible();
     const t0 = (await state()).cinema!.t;
     await expect.poll(async () => (await state()).cinema?.t ?? 0, { timeout: 30_000 }).toBeGreaterThan(t0);
     // O jogador não anda enquanto a câmera apresenta a cidade.

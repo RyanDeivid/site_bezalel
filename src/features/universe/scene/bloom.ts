@@ -19,6 +19,11 @@ export interface BloomSettings {
   threshold: number;
   knee: number;
   levels: number;
+  /**
+   * Antisserrilhado: `msaa` (4 amostras na textura HDR — o melhor, mas em meia precisão custa
+   * ~2–3 ms num gráfico integrado) ou `fxaa` (filtro de bordas na própria passada final, quase de graça).
+   */
+  antialias: 'msaa' | 'fxaa';
 }
 
 const VERT = /* glsl */ `
@@ -76,13 +81,43 @@ void main() {
   gl_FragColor = vec4(texture2D(tBase, vUv).rgb + s / 12.0, 1.0);
 }`;
 
+// Composição: imagem (com FXAA, se o nível pedir) + brilho; tons (ACES) e sRGB no fim.
+// FXAA de Timothy Lottes (versão compacta): acha a direção da borda pelo gradiente de luminância
+// dos quatro vizinhos diagonais e mistura ao longo dela; o brilho já vem suave e não passa pelo filtro.
 const COMPOSITE = /* glsl */ `
 uniform sampler2D tColor;
 uniform sampler2D tBloom;
 uniform float strength;
+uniform vec2 texel;
 varying vec2 vUv;
+#ifdef FXAA
+float lumaOf(vec3 c) { c = c / (1.0 + c); return dot(c, vec3(0.299, 0.587, 0.114)); }
+vec3 fxaa(vec2 uv) {
+  vec3 m = texture2D(tColor, uv).rgb;
+  float lNW = lumaOf(texture2D(tColor, uv + vec2(-1.0, -1.0) * texel).rgb);
+  float lNE = lumaOf(texture2D(tColor, uv + vec2(1.0, -1.0) * texel).rgb);
+  float lSW = lumaOf(texture2D(tColor, uv + vec2(-1.0, 1.0) * texel).rgb);
+  float lSE = lumaOf(texture2D(tColor, uv + vec2(1.0, 1.0) * texel).rgb);
+  float lM = lumaOf(m);
+  float lMin = min(lM, min(min(lNW, lNE), min(lSW, lSE)));
+  float lMax = max(lM, max(max(lNW, lNE), max(lSW, lSE)));
+  if (lMax - lMin < max(0.0312, lMax * 0.125)) return m;
+  vec2 dir = vec2(-((lNW + lNE) - (lSW + lSE)), (lNW + lSW) - (lNE + lSE));
+  float reduce = max((lNW + lNE + lSW + lSE) * 0.03125, 1.0 / 128.0);
+  dir = clamp(dir / (min(abs(dir.x), abs(dir.y)) + reduce), -8.0, 8.0) * texel;
+  vec3 a = 0.5 * (texture2D(tColor, uv - dir * 0.1667).rgb + texture2D(tColor, uv + dir * 0.1667).rgb);
+  vec3 b = 0.5 * a + 0.25 * (texture2D(tColor, uv - dir * 0.5).rgb + texture2D(tColor, uv + dir * 0.5).rgb);
+  float lB = lumaOf(b);
+  return (lB < lMin || lB > lMax) ? a : b;
+}
+#endif
 void main() {
-  vec3 c = texture2D(tColor, vUv).rgb + texture2D(tBloom, vUv).rgb * strength;
+  #ifdef FXAA
+  vec3 c = fxaa(vUv);
+  #else
+  vec3 c = texture2D(tColor, vUv).rgb;
+  #endif
+  c += texture2D(tBloom, vUv).rgb * strength;
   gl_FragColor = vec4(c, 1.0);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
@@ -106,17 +141,19 @@ export class BloomPipeline {
   private gl: THREE.WebGLRenderer;
   private settings: BloomSettings;
 
-  constructor(gl: THREE.WebGLRenderer, settings: BloomSettings, samples: number) {
+  constructor(gl: THREE.WebGLRenderer, settings: BloomSettings, multisample: boolean) {
     this.gl = gl;
     this.settings = settings;
-    this.target = rt(1, 1, samples, true);
+    const fxaa = settings.antialias === 'fxaa' || !multisample;
+    this.target = rt(1, 1, fxaa ? 0 : 4, true);
     const tri = new THREE.BufferGeometry();
     tri.setAttribute('position', new THREE.BufferAttribute(new Float32Array([-1, -1, 0, 3, -1, 0, -1, 3, 0]), 3));
     const mat = (fragmentShader: string, uniforms: Record<string, THREE.IUniform>, toneMapped = false) => new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader, uniforms, depthTest: false, depthWrite: false, toneMapped });
     this.bright = mat(BRIGHT, { tColor: { value: null }, threshold: { value: settings.threshold }, knee: { value: settings.knee } });
     this.down = mat(DOWN, { tSrc: { value: null }, texel: { value: new THREE.Vector2() } });
     this.up = mat(UP, { tSrc: { value: null }, tBase: { value: null }, texel: { value: new THREE.Vector2() } });
-    this.composite = mat(COMPOSITE, { tColor: { value: null }, tBloom: { value: null }, strength: { value: settings.strength } }, true);
+    this.composite = mat(COMPOSITE, { tColor: { value: null }, tBloom: { value: null }, strength: { value: settings.strength }, texel: { value: new THREE.Vector2() } }, true);
+    if (fxaa) this.composite.defines = { FXAA: '' };
     this.quad = new THREE.Mesh(tri, this.bright);
     this.quad.frustumCulled = false;
     this.quadScene.add(this.quad);
@@ -128,6 +165,7 @@ export class BloomPipeline {
     if (s.equals(this.size)) return;
     this.size.copy(s);
     this.target.setSize(s.x, s.y);
+    (this.composite.uniforms.texel!.value as THREE.Vector2).set(1 / s.x, 1 / s.y);
     [...this.levels, ...this.ups].forEach((t) => t.dispose());
     this.levels = [];
     this.ups = [];

@@ -10,21 +10,26 @@ import type { CarMaterials, CarModel, CarSlot, FarCarModel } from './carModels';
 interface Props {
   runtime: UniverseRuntime;
   models: Record<CarClass, CarModel>;
+  /** Nível intermediário (o mesmo do trânsito de perto). */
+  midModels: Record<CarClass, CarModel>;
   farModels: Record<CarClass, FarCarModel>;
   materials: CarMaterials;
   assets: UniverseAssets;
   effects: boolean;
-  /** Até que distância da câmera (m) o carro estacionado usa o modelo detalhado. */
+  /** Até que distância da câmera (m) o carro estacionado usa um modelo com rodas e peças (completo até NEAR_CAR). */
   lodDistance: number;
 }
 
+/** Até esta distância da câmera (m), o carro estacionado usa o modelo completo; depois, o intermediário. */
+const NEAR_CAR = 18;
+
 /** Veículos que o jogador pode usar: os carros (com volante e suspensão visíveis) e o carro voador. */
-export function PlayerVehicles({ runtime, models, farModels, materials, assets, effects, lodDistance }: Props) {
+export function PlayerVehicles({ runtime, models, midModels, farModels, materials, assets, effects, lodDistance }: Props) {
   return (
     <>
       {runtime.vehicles.map((v) =>
         v.kind === 'car' ? (
-          <PlayerCar key={v.id} runtime={runtime} vehicle={v} model={models[v.cls]} far={farModels[v.cls]} materials={materials} lodDistance={lodDistance} />
+          <PlayerCar key={v.id} runtime={runtime} vehicle={v} model={models[v.cls]} mid={midModels[v.cls]} far={farModels[v.cls]} materials={materials} lodDistance={lodDistance} />
         ) : (
           <HoverCar key={v.id} vehicle={v} assets={assets} effects={effects} />
         ),
@@ -45,6 +50,7 @@ function PlayerCar({
   runtime,
   vehicle,
   model,
+  mid,
   far,
   materials,
   lodDistance,
@@ -52,6 +58,7 @@ function PlayerCar({
   runtime: UniverseRuntime;
   vehicle: Extract<PlayerVehicle, { kind: 'car' }>;
   model: CarModel;
+  mid: CarModel;
   far: FarCarModel;
   materials: CarMaterials;
   lodDistance: number;
@@ -61,6 +68,10 @@ function PlayerCar({
   const detailed = useRef<THREE.Group>(null);
   const simple = useRef<THREE.Group>(null);
   const near = useRef(true);
+  const full = useRef(true);
+  // Peças dos dois níveis com rodas (completo e intermediário): só um dos dois fica visível.
+  const fullParts = useRef<Array<THREE.Object3D | null>>([]);
+  const midParts = useRef<Array<THREE.Object3D | null>>([]);
   const body = useRef<THREE.Group>(null);
   const wheels = useRef<Array<THREE.Group | null>>([]);
   const spinners = useRef<Array<THREE.Group | null>>([]);
@@ -89,6 +100,9 @@ function PlayerCar({
     if (detailed.current) detailed.current.visible = near.current;
     if (simple.current) simple.current.visible = !near.current;
     if (!near.current) return;
+    full.current = runtime.active === vehicle.id || (full.current ? d2 < (NEAR_CAR * 1.15) ** 2 : d2 < NEAR_CAR ** 2);
+    fullParts.current.forEach((o) => o && (o.visible = full.current));
+    midParts.current.forEach((o) => o && (o.visible = !full.current));
     // Suspensão: mergulha ao frear, "senta" ao acelerar, inclina na curva.
     const accel = (c.speed - prevSpeed.current) / Math.max(dt, 1e-3);
     prevSpeed.current = c.speed;
@@ -107,15 +121,28 @@ function PlayerCar({
     <group ref={root}>
       <group ref={detailed}>
         <group ref={body}>
-          {[...model.slots.entries()].map(([slot, geo]) => (
-            <mesh key={slot} geometry={geo} material={material(slot)} castShadow={slot === 'paint'} />
-          ))}
+          <group ref={(g) => void (fullParts.current[0] = g)}>
+            {[...model.slots.entries()].map(([slot, geo]) => (
+              <mesh key={slot} geometry={geo} material={material(slot)} castShadow={slot === 'paint'} />
+            ))}
+          </group>
+          <group ref={(g) => void (midParts.current[0] = g)} visible={false}>
+            {[...mid.slots.entries()].map(([slot, geo]) => (
+              <mesh key={slot} geometry={geo} material={material(slot)} castShadow={slot === 'paint'} />
+            ))}
+          </group>
         </group>
         {model.wheels.map((p, i) => (
           <group key={i} ref={(g) => void (wheels.current[i] = g)} position={p}>
             <group ref={(g) => void (spinners.current[i] = g)}>
-              <mesh geometry={model.tire} material={materials.tire} castShadow />
-              <mesh geometry={model.rim} material={materials.rim} />
+              <group ref={(g) => void (fullParts.current[1 + i] = g)}>
+                <mesh geometry={model.tire} material={materials.tire} castShadow />
+                <mesh geometry={model.rim} material={materials.rim} />
+              </group>
+              <group ref={(g) => void (midParts.current[1 + i] = g)} visible={false}>
+                <mesh geometry={mid.tire} material={materials.tire} castShadow />
+                <mesh geometry={mid.rim} material={materials.rim} />
+              </group>
             </group>
           </group>
         ))}

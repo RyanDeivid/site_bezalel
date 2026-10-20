@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { Quality } from '../world/city';
 import type { CarClass } from '../world/vehicles';
-import { designCar } from './carDesign';
+import { designCar, type CarLod } from './carDesign';
 
 /**
  * Modelos dos carros (sem arquivos externos): a forma vem de carDesign.ts
@@ -26,10 +26,14 @@ export interface CarModel {
   tailY: number;
 }
 
-/** Os três modelos, construídos uma vez e compartilhados por trânsito e carros do jogador. `far` = versão de longe. */
-export function buildCarModels(far = false): Record<CarClass, CarModel> {
+/**
+ * Os três modelos num nível de detalhe, construídos uma vez e compartilhados:
+ * `near` para o carro do jogador e os estacionados de perto, `mid` para o
+ * trânsito (instanciado) e os estacionados a meia distância.
+ */
+export function buildCarModels(lod: CarLod = 'near'): Record<CarClass, CarModel> {
   const build = (cls: CarClass): CarModel => {
-    const d = designCar(cls, far);
+    const d = designCar(cls, lod);
     return { slots: d.parts as Map<CarSlot, THREE.BufferGeometry>, tire: d.tire, rim: d.rim, wheels: d.wheels, tailY: d.tailY };
   };
   return { sedan: build('sedan'), sport: build('sport'), taxi: build('taxi') };
@@ -132,7 +136,7 @@ const painted = (g: THREE.BufferGeometry, hex: string) => {
  * giro). Cada chamada custa ~23 µs de CPU no Intel Iris Xe.
  */
 export function buildFarCarModels(): Record<CarClass, FarCarModel> {
-  const base = buildCarModels(true);
+  const base = buildCarModels('far');
   const out = {} as Record<CarClass, FarCarModel>;
   for (const cls of Object.keys(base) as CarClass[]) {
     const m = base[cls];

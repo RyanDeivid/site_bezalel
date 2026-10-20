@@ -1,3 +1,4 @@
+import type { BufferGeometry } from 'three';
 import { describe, expect, it } from 'vitest';
 import { routes } from '@/app/router';
 import { messages } from '@/i18n';
@@ -31,6 +32,7 @@ import {
 import { CINEMA_SHOTS, cinemaLength, cinemaPose, shotPose } from '@/features/universe/world/cinema';
 import { HQ } from '@/features/universe/scene/landmarkGeometry';
 import { buildTowerGeometry } from '@/features/universe/scene/towerGeometry';
+import { designCar } from '@/features/universe/scene/carDesign';
 import { autopilotInput, createCraft, planAutopilot, resolveCollisions, stepCraft } from '@/features/universe/world/flight';
 import { PRODUCTS, productText } from '@/features/universe/world/products';
 import { cancelAutopilot, createUniverseRuntime, driveInput, goToPlace, manualInput, nearestVehicle, requestExit, tryEnter, updatePlayer, vehicleBodies, vehicleById, vehiclePose } from '@/features/universe/world/runtime';
@@ -565,5 +567,24 @@ describe('Universe — modo apresentação', () => {
     const a = cinemaPose(1, true);
     const b = cinemaPose(5, true);
     expect([a.x, a.y, a.z, a.fade]).toEqual([b.x, b.y, b.z, 0]);
+  });
+});
+
+describe('Universe — orçamento dos carros por nível de detalhe', () => {
+  const tris = (g: BufferGeometry) => (g.index ? g.index.count : g.attributes.position!.count) / 3;
+  const total = (cls: 'sedan' | 'sport' | 'taxi', lod: 'near' | 'mid' | 'far') => {
+    const d = designCar(cls, lod);
+    let t = 0;
+    for (const g of d.parts.values()) t += tris(g);
+    return t + d.wheels.length * (tris(d.tire) + tris(d.rim));
+  };
+  it('completo ≤ 24 mil triângulos, intermediário (trânsito de perto) ≤ 9 mil, de longe ≤ 2,5 mil', () => {
+    for (const cls of ['sedan', 'sport', 'taxi'] as const) {
+      const [near, mid, far] = [total(cls, 'near'), total(cls, 'mid'), total(cls, 'far')];
+      expect(near, cls).toBeLessThanOrEqual(24_000);
+      expect(mid, cls).toBeLessThanOrEqual(9_000);
+      expect(far, cls).toBeLessThanOrEqual(2_500);
+      expect(mid, cls).toBeLessThan(near / 2.4);
+    }
   });
 });

@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { BLOCKS, blockBounds, BUILDINGS, DISTRICTS, PLACES, PLAZA_RADIUS, ROAD_WIDTH, SIDEWALK, STREET_LINES } from '../world/city';
+import { atLeast, BLOCKS, blockBounds, BUILDINGS, DISTRICTS, PLACES, PLAZA_RADIUS, ROAD_WIDTH, SIDEWALK, STREET_LINES } from '../world/city';
 import type { Quality, UniverseAssets } from './assets';
 import { CROWN_Y, treeCrown, treeTrunk, type TreeKind } from './treeGeometry';
 import { boxWithMeterUVs } from './textures';
@@ -112,10 +112,12 @@ export function City({ assets, quality, pools }: { assets: UniverseAssets; quali
     return out;
   }, [hi]);
   // Duas espécies (copa redonda e colunar): copa de cachos irregulares com a cor nos vértices e tronco com galhos.
+  // Copas mais lisas (cachos subdivididos) na Alta e na Ultra; na Baixa e na Média, cachos facetados.
+  const treeDetail = atLeast(quality, 'high');
   const treeGeos = useMemo(() => {
-    const d = hi ? 1 : 0;
+    const d = treeDetail ? 1 : 0;
     return { round: { crown: treeCrown('round', d), trunk: treeTrunk('round') }, columnar: { crown: treeCrown('columnar', d), trunk: treeTrunk('columnar') } };
-  }, [hi]);
+  }, [treeDetail]);
   useEffect(
     () => () =>
       Object.values(treeGeos).forEach((t) => {
@@ -266,7 +268,8 @@ export function City({ assets, quality, pools }: { assets: UniverseAssets; quali
       <instancedMesh ref={roadRef} args={[roadGeo, m.road, roadMatrices.length]} receiveShadow renderOrder={5} />
       <instancedMesh ref={crossRef} args={[crossGeo, m.intersection, crossMatrices.length]} receiveShadow renderOrder={4} />
       <mesh geometry={sidewalks} material={m.sidewalk} receiveShadow renderOrder={3} />
-      <mesh geometry={curbs} material={curbMat} receiveShadow castShadow={hi} />
+      {/* O meio-fio (26 cm) não projeta sombra que se veja: fica fora da passada de sombras. */}
+      <mesh geometry={curbs} material={curbMat} receiveShadow />
       {pools && <instancedMesh ref={poolRef} args={[pool.geometry, pool.material, poolM.length]} renderOrder={7} frustumCulled={false} />}
       <mesh geometry={lawns} material={m.lawn} receiveShadow renderOrder={2} />
       <mesh geometry={corners} material={m.corner} receiveShadow renderOrder={2} />
@@ -285,9 +288,10 @@ export function City({ assets, quality, pools }: { assets: UniverseAssets; quali
         </mesh>
       ))}
 
-      <instancedMesh ref={roundTrunkRef} args={[treeGeos.round.trunk, m.trunk, treeM.roundTrunk.length]} castShadow={hi} />
+      {/* Só as copas projetam sombra (o tronco fino não faz diferença no chão). */}
+      <instancedMesh ref={roundTrunkRef} args={[treeGeos.round.trunk, m.trunk, treeM.roundTrunk.length]} />
       <instancedMesh ref={roundCrownRef} args={[treeGeos.round.crown, m.foliage, treeM.roundCrown.length]} castShadow={hi} />
-      <instancedMesh ref={colTrunkRef} args={[treeGeos.columnar.trunk, m.trunk, treeM.colTrunk.length]} castShadow={hi} />
+      <instancedMesh ref={colTrunkRef} args={[treeGeos.columnar.trunk, m.trunk, treeM.colTrunk.length]} />
       <instancedMesh ref={colCrownRef} args={[treeGeos.columnar.crown, m.foliage, treeM.colCrown.length]} castShadow={hi} />
 
       <instancedMesh ref={poleRef} args={[undefined, m.steel, poleM.length]}>

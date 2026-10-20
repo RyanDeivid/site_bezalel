@@ -2,7 +2,7 @@ import { useFrame } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { BILLBOARDS, TOWER_VARIANTS, type Quality, type Skybridge, type TowerSpec } from '../world/city';
+import { atLeast, BILLBOARDS, TOWER_VARIANTS, type Quality, type Skybridge, type TowerSpec } from '../world/city';
 import type { UniverseAssets } from './assets';
 import { FACADE_TILE, PALETTE } from './textures';
 import { buildTowerGeometry, FACADE_SLOTS, type Slot } from './towerGeometry';
@@ -29,9 +29,12 @@ function shiftUVs(geo: THREE.BufferGeometry, slot: Slot, seed: number) {
  * cada uma com seu sistema de fachada, detalhes e coroamento.
  */
 export function Towers({ assets, quality, towers }: { assets: UniverseAssets; quality: Quality; towers: TowerSpec[] }) {
-  const detail = quality !== 'low';
+  // Detalhe por importância: o anel em volta da praça (a região de demonstração) tem aletas, varandas,
+  // diagrid e marquises a partir da Média; o horizonte (fundo, visto de longe) só na Alta e na Ultra.
   const chunks = useMemo(() => {
-    const byVariant = TOWER_VARIANTS.map((v) => buildTowerGeometry(v, detail));
+    const detailFor = (t: TowerSpec) => (t.ring === 'midtown' ? quality !== 'low' : atLeast(quality, 'high'));
+    const simple = TOWER_VARIANTS.map((v) => buildTowerGeometry(v, false));
+    const detailed = quality === 'low' ? simple : TOWER_VARIANTS.map((v) => buildTowerGeometry(v, true));
     const out: Array<{ slot: Slot; geo: THREE.BufferGeometry }> = [];
     const m = new THREE.Matrix4();
     for (const qx of [-1, 1])
@@ -40,7 +43,7 @@ export function Towers({ assets, quality, towers }: { assets: UniverseAssets; qu
         const parts = new Map<Slot, THREE.BufferGeometry[]>();
         for (const t of inQuadrant) {
           m.makeRotationY(t.rotation).setPosition(t.x, 0.3, t.z);
-          for (const [slot, geo] of byVariant[t.variant]!) {
+          for (const [slot, geo] of (detailFor(t) ? detailed : simple)[t.variant]!) {
             const g = geo.clone().applyMatrix4(m);
             if (FACADE_SLOTS.has(slot)) shiftUVs(g, slot, t.seed);
             parts.set(slot, [...(parts.get(slot) ?? []), g]);
@@ -53,9 +56,9 @@ export function Towers({ assets, quality, towers }: { assets: UniverseAssets; qu
           list.forEach((g) => g.dispose());
         }
       }
-    byVariant.forEach((map) => map.forEach((g) => g.dispose()));
+    for (const set of new Set([simple, detailed])) set.forEach((map) => map.forEach((g) => g.dispose()));
     return out;
-  }, [towers, detail]);
+  }, [towers, quality]);
   useEffect(() => () => chunks.forEach((c) => c.geo.dispose()), [chunks]);
   const shadow = quality !== 'low';
   return (

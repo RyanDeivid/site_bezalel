@@ -8,9 +8,9 @@ import { BloomPipeline, registerPost, type BloomSettings } from './bloom';
  * HDR → brilho → tela). Registrado antes do Warmup, que prepara os shaders
  * para o mesmo destino.
  */
-export function PostFX({ strength, threshold, knee, levels, samples }: BloomSettings & { samples: number }) {
+export function PostFX({ strength, threshold, knee, levels, antialias, multisample }: BloomSettings & { /** O nível permite antisserrilhado por amostras (MSAA). */ multisample: boolean }) {
   const gl = useThree((s) => s.gl);
-  const pipeline = useMemo(() => new BloomPipeline(gl, { strength, threshold, knee, levels }, samples), [gl, strength, threshold, knee, levels, samples]);
+  const pipeline = useMemo(() => new BloomPipeline(gl, { strength, threshold, knee, levels, antialias }, multisample), [gl, strength, threshold, knee, levels, antialias, multisample]);
   useLayoutEffect(() => {
     registerPost(gl, pipeline);
     return () => {

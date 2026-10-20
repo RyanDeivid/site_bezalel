@@ -177,7 +177,7 @@ export function Traffic({ quality, running, runtime, models, farModels, material
               [far.lights, materials.farLights],
             ];
             return (
-              <group key={`far-${cls}`}>
+              <group key={`far-${cls}`} name={`traffic-far-${cls}`}>
                 {parts.map(([geo, mat], i) => (
                   <instancedMesh key={i} ref={(m) => void (sets.current.far[cls].slots[i] = m)} args={[geo, mat, n]} frustumCulled={false} />
                 ))}
@@ -187,13 +187,13 @@ export function Traffic({ quality, running, runtime, models, farModels, material
           const model = models[cls];
           const slots = [...model.slots.entries()].sort(([a], [b]) => (a === 'paint' ? -1 : b === 'paint' ? 1 : 0));
           return (
-            <group key={`near-${cls}`}>
+            <group key={`near-${cls}`} name={`traffic-near-${cls}`}>
               {slots.map(([slot, geo], i) => (
                 <instancedMesh
                   key={slot}
                   ref={(m) => void (sets.current.near[cls].slots[i] = m)}
                   args={[geo, materials[slot as CarSlot], n]}
-                  castShadow={shadows && (slot === 'paint' || slot === 'glass')}
+                  castShadow={shadows && slot === 'paint'}
                   frustumCulled={false}
                 />
               ))}

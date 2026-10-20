@@ -144,10 +144,14 @@ function World(props: UniverseSceneProps) {
   const bridges = useMemo(() => skybridges(towers), [towers]);
   const solids = useMemo(() => citySolids(quality), [quality]);
   // Modelos e materiais dos carros: construídos uma vez, compartilhados por trânsito, voadores e carros do jogador.
-  const carModels = useMemo(() => buildCarModels(), []);
+  // Três níveis de detalhe dos carros: completo (o do jogador e os estacionados de perto), intermediário
+  // (o trânsito de perto, instanciado) e o de longe (3 malhas).
+  const carModels = useMemo(() => buildCarModels('near'), []);
+  const midCarModels = useMemo(() => buildCarModels('mid'), []);
   const farCarModels = useMemo(() => buildFarCarModels(), []);
   const carMaterials = useMemo(() => createCarMaterials(quality), [quality]);
   useEffect(() => () => disposeCarModels(carModels), [carModels]);
+  useEffect(() => () => disposeCarModels(midCarModels), [midCarModels]);
   useEffect(() => () => disposeFarCarModels(farCarModels), [farCarModels]);
   useEffect(() => () => disposeCarMaterials(carMaterials), [carMaterials]);
   return (
@@ -179,13 +183,13 @@ function World(props: UniverseSceneProps) {
         <Landmarks assets={assets} quality={quality} effects={effects} near={props.near} markers={!props.presenting} texts={props.texts} onSelect={props.onSelect} />
       </group>
       <group name="traffic">
-        <Traffic quality={quality} running={effects} runtime={runtime} models={carModels} farModels={farCarModels} materials={carMaterials} lodDistance={cfg.carLod} shadows={quality !== 'low'} />
+        <Traffic quality={quality} running={effects} runtime={runtime} models={midCarModels} farModels={farCarModels} materials={carMaterials} lodDistance={cfg.carLod} shadows={quality !== 'low'} />
       </group>
       <group name="air">
         <AirTraffic quality={quality} running={effects} materials={carMaterials} lodDistance={cfg.airLod} />
       </group>
       <group name="player">
-        <PlayerVehicles runtime={runtime} models={carModels} farModels={farCarModels} materials={carMaterials} assets={assets} effects={effects} lodDistance={cfg.carLod * 0.6} />
+        <PlayerVehicles runtime={runtime} models={carModels} midModels={midCarModels} farModels={farCarModels} materials={carMaterials} assets={assets} effects={effects} lodDistance={cfg.carLod * 0.6} />
         <Avatar runtime={runtime} effects={effects} />
       </group>
       <PlayerController
@@ -236,7 +240,7 @@ export default function UniverseScene(props: UniverseSceneProps) {
       className="!absolute inset-0"
     >
       <World {...props} />
-      {cfg.bloom && <PostFX {...cfg.bloom} samples={cfg.antialias ? 4 : 0} />}
+      {cfg.bloom && <PostFX {...cfg.bloom} multisample={cfg.antialias} />}
       <Warmup envIntensity={QUALITY_CONFIG[props.quality].envIntensity} envSize={QUALITY_CONFIG[props.quality].envSize} onReady={props.onReady} />
       <PerformanceGovernor min={cfg.dprMin} max={maxDpr} canUpgrade={props.canUpgrade} probation={props.probation} onLow={props.onLowPerformance} onHeadroom={props.onHeadroom} off={props.debug && readStorage('bz-universe-governor') === 'off'} debug={props.debug} />
       <ContextLossWatcher onLost={props.onContextLost} />

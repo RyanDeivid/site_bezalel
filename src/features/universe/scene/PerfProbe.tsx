@@ -37,7 +37,7 @@ const mean = (a: number[]) => a.reduce((x, y) => x + y, 0) / Math.max(1, a.lengt
 
 export function PerfProbe() {
   const { gl, scene, setDpr } = useThree();
-  const samples = useRef({ frame: [] as number[], cpu: [] as number[], render: [] as number[], gpu: [] as number[], start: 0, renderMs: 0, lastEnd: 0, tick: null as null | (() => void) });
+  const samples = useRef({ frame: [] as number[], cpu: [] as number[], render: [] as number[], gpu: [] as number[], start: 0, renderMs: 0, lastEnd: 0, calls: 0, tris: 0, frameCalls: 0, frameTris: 0, tick: null as null | (() => void) });
   // Prioridade negativa: roda antes de todos os useFrame da cena. Fecha o quadro anterior (CPU até o
   // último desenho dele — com brilho há várias passadas por quadro) e marca o início do novo.
   useFrame((_, dt) => {
@@ -47,6 +47,11 @@ export function PerfProbe() {
       push(s.render, s.renderMs);
     }
     s.renderMs = 0;
+    // Chamadas e triângulos do quadro inteiro (com brilho, a soma de todas as passadas).
+    s.frameCalls = s.calls;
+    s.frameTris = s.tris;
+    s.calls = 0;
+    s.tris = 0;
     s.tick?.();
     push(s.frame, dt * 1000);
     s.start = performance.now();
@@ -80,14 +85,15 @@ export function PerfProbe() {
       const t0 = performance.now();
       original(sc, cam);
       const t1 = performance.now();
+      s.calls += gl.info.render.calls;
+      s.tris += gl.info.render.triangles;
       s.renderMs += t1 - t0;
       s.lastEnd = t1;
     };
     const api: PerfApi = {
       info: () => {
-        const r = gl.info.render;
         const canvas = gl.domElement;
-        return { calls: r.calls, triangles: r.triangles, geometries: gl.info.memory.geometries, textures: gl.info.memory.textures, programs: gl.info.programs?.length ?? 0, dpr: gl.getPixelRatio(), width: canvas.width, height: canvas.height, gpuTimer: !!timer };
+        return { calls: s.frameCalls, triangles: s.frameTris, geometries: gl.info.memory.geometries, textures: gl.info.memory.textures, programs: gl.info.programs?.length ?? 0, dpr: gl.getPixelRatio(), width: canvas.width, height: canvas.height, gpuTimer: !!timer };
       },
       frames: () => {
         const f = [...s.frame].sort((a, b) => a - b);
