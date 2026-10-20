@@ -721,151 +721,157 @@ async function enterUniverse3d(page: Page, quality: 'low' | 'medium' | 'high' = 
 
 const aurora = (s: UniverseProbe) => s.vehicles.find((v) => v.id === 'aurora')!;
 
-test('Universe 3D: anda, entra no carro, dirige, sai em lugar seguro e volta a andar', async ({ page, isMobile }) => {
-  test.skip(isMobile, 'O fluxo com teclado é coberto no desktop (o celular tem teste próprio).');
-  // Sem placa de vídeo (CI), o jogo roda em câmera lenta: cada quadro avança no máximo 50 ms.
-  test.setTimeout(240_000);
-  const errors = trackErrors(page);
-  const state = await enterUniverse3d(page);
-  const stage = page.locator('section[data-universe-stage]');
-  // Começa a pé e anda (W): a posição muda.
-  await expect(stage).toHaveAttribute('data-player-mode', 'foot');
-  const start = (await state()).walker;
-  await page.mouse.move(640, 400);
-  await page.keyboard.down('w');
-  await expect.poll(async () => { const w = (await state()).walker; return Math.hypot(w.x - start.x, w.z - start.z); }, { timeout: 30_000 }).toBeGreaterThan(1.5);
-  await page.keyboard.up('w');
-  // O trânsito autônomo está na cena (os corpos dele entram nas colisões do jogador).
-  expect((await state()).traffic).toBeGreaterThan(0);
-  // Perto do sedã, o HUD oferece a ação.
-  await page.evaluate(() => (window as UniverseWindow).__bzUniverse!.placeWalker(-8.6, 86, -Math.PI / 2));
-  await expect(page.getByRole('button', { name: /Entrar: Sedã Aurora/ })).toBeVisible({ timeout: 10_000 });
-  // Entra (E): o modo passa a dirigindo e o HUD troca de modo.
-  await page.keyboard.press('e');
-  await expect(stage).toHaveAttribute('data-player-mode', 'car', { timeout: 10_000 });
-  await expect(page.getByRole('status').filter({ hasText: 'Dirigindo: Sedã Aurora' })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Sair do veículo' })).toBeVisible();
-  // Acelera (W), vira (D) e freia (S).
-  const car0 = aurora(await state());
-  await page.keyboard.down('w');
-  await expect.poll(async () => aurora(await state()).speed, { timeout: 30_000 }).toBeGreaterThan(3);
-  await page.keyboard.down('d');
-  await expect.poll(async () => Math.abs(aurora(await state()).heading - car0.heading), { timeout: 30_000 }).toBeGreaterThan(0.05);
-  await page.keyboard.up('d');
-  await page.keyboard.up('w');
-  // S freia e, com o carro parado, engata a ré: velocidade (com sinal) abaixo de 0,5 = parou ou já está em ré.
-  await page.keyboard.down('s');
-  await expect.poll(async () => aurora(await state()).speed, { timeout: 30_000 }).toBeLessThan(0.5);
-  await page.keyboard.up('s');
-  // Sai (E): volta a pé, ao lado do carro, que continua no mundo, parado onde ficou.
-  await page.keyboard.press('e');
-  await expect(stage).toHaveAttribute('data-player-mode', 'foot', { timeout: 30_000 });
-  await expect.poll(async () => (await state()).mode, { timeout: 10_000 }).toBe('foot');
-  const after = await state();
-  const car = aurora(after);
-  expect(Math.hypot(car.x - car0.x, car.z - car0.z)).toBeGreaterThan(1);
-  const gap = Math.hypot(after.walker.x - car.x, after.walker.z - car.z);
-  expect(gap).toBeGreaterThan(1.2);
-  expect(gap).toBeLessThan(4);
-  // Volta a andar; o carro fica.
-  const parked = after.walker;
-  await page.keyboard.down('w');
-  await expect.poll(async () => { const w = (await state()).walker; return Math.hypot(w.x - parked.x, w.z - parked.z); }, { timeout: 30_000 }).toBeGreaterThan(1);
-  await page.keyboard.up('w');
-  expect(aurora(await state())).toMatchObject({ x: car.x, z: car.z });
-  expect(errors.filter((e) => !/GPU|WebGL|GL_/.test(e))).toEqual([]);
-});
+// Sem placa de vídeo (CI: WebGL por software), cada pixel custa caro: o 3D do computador é testado
+// numa janela de 1024×600 (o fluxo é o mesmo; o celular tem teste próprio).
+test.describe('Universe 3D no computador', () => {
+  test.use({ viewport: { width: 1024, height: 600 } });
 
-test('Universe 3D no computador: carro voador sobe e desce com ↑/↓; botão e tecla F de tela cheia', async ({ page, isMobile }) => {
-  test.skip(isMobile, 'Teclado e tela cheia do computador.');
-  test.setTimeout(120_000);
-  const errors = trackErrors(page);
-  const state = await enterUniverse3d(page);
-  const stage = page.locator('section[data-universe-stage]');
-  const hover = async () => (await state()).vehicles.find((v) => v.id === 'hover')!;
-  // Tela cheia: botão com nome visível e atalho F.
-  const fs = page.getByRole('button', { name: 'Tela cheia' });
-  await expect(fs).toBeVisible();
-  await expect(fs).toHaveAttribute('aria-keyshortcuts', 'F');
-  await page.mouse.move(640, 400);
-  await page.keyboard.press('f');
-  await expect(page.getByRole('button', { name: 'Sair da tela cheia' })).toBeVisible({ timeout: 10_000 });
-  expect(await page.evaluate(() => document.fullscreenElement?.hasAttribute('data-universe-stage'))).toBe(true);
-  await page.keyboard.press('f');
-  await expect(page.getByRole('button', { name: 'Tela cheia' })).toBeVisible({ timeout: 10_000 });
-  // Clicar no botão também alterna (e o foco fica nele: as setas precisam continuar indo para o jogo).
-  await page.getByRole('button', { name: 'Tela cheia' }).click();
-  await expect(page.getByRole('button', { name: 'Sair da tela cheia' })).toBeVisible({ timeout: 10_000 });
-  await page.getByRole('button', { name: 'Sair da tela cheia' }).click();
-  await expect(page.getByRole('button', { name: 'Tela cheia' })).toBeFocused();
-  // Entra no carro voador e sobe com ↑, sem andar para a frente.
-  await page.evaluate(() => (window as UniverseWindow).__bzUniverse!.placeWalker(-2.5, 78, Math.PI / 2));
-  await expect(page.getByRole('button', { name: /Entrar: / })).toBeVisible({ timeout: 10_000 });
-  await page.keyboard.press('e');
-  await expect(stage).toHaveAttribute('data-player-mode', 'hover', { timeout: 10_000 });
-  const ground = await hover();
-  await page.keyboard.down('ArrowUp');
-  await expect.poll(async () => (await hover()).y, { timeout: 15_000 }).toBeGreaterThan(ground.y + 4);
-  await page.keyboard.up('ArrowUp');
-  const high = await hover();
-  expect(Math.hypot(high.x - ground.x, high.z - ground.z)).toBeLessThan(3);
-  // ↓ desce.
-  await page.keyboard.down('ArrowDown');
-  await expect.poll(async () => (await hover()).y, { timeout: 15_000 }).toBeLessThan(high.y - 2);
-  await page.keyboard.up('ArrowDown');
-  expect(errors.filter((e) => !/GPU|WebGL|GL_/.test(e))).toEqual([]);
-});
-
-test('Universe 3D: abre um local pelo teclado, troca a qualidade e sai sem deixar o jogo rodando', async ({ page, isMobile }) => {
-  test.skip(isMobile, 'O fluxo com teclado é coberto no desktop.');
-  test.setTimeout(120_000);
-  const errors = trackErrors(page);
-  // Conta os quadros pedidos (requestAnimationFrame) para provar que o laço para ao sair.
-  await page.addInitScript(() => {
-    const w = window as UniverseWindow;
-    const raf = window.requestAnimationFrame.bind(window);
-    w.__rafCount = 0;
-    window.requestAnimationFrame = (cb) => {
-      w.__rafCount! += 1;
-      return raf(cb);
-    };
+  test('Universe 3D: anda, entra no carro, dirige, sai em lugar seguro e volta a andar', async ({ page, isMobile }) => {
+    test.skip(isMobile, 'O fluxo com teclado é coberto no desktop (o celular tem teste próprio).');
+    // Sem placa de vídeo (CI), o jogo roda em câmera lenta: cada quadro avança no máximo 50 ms.
+    test.setTimeout(240_000);
+    const errors = trackErrors(page);
+    const state = await enterUniverse3d(page);
+    const stage = page.locator('section[data-universe-stage]');
+    // Começa a pé e anda (W): a posição muda.
+    await expect(stage).toHaveAttribute('data-player-mode', 'foot');
+    const start = (await state()).walker;
+    await page.mouse.move(640, 400);
+    await page.keyboard.down('w');
+    await expect.poll(async () => { const w = (await state()).walker; return Math.hypot(w.x - start.x, w.z - start.z); }, { timeout: 30_000 }).toBeGreaterThan(1.5);
+    await page.keyboard.up('w');
+    // O trânsito autônomo está na cena (os corpos dele entram nas colisões do jogador).
+    expect((await state()).traffic).toBeGreaterThan(0);
+    // Perto do sedã, o HUD oferece a ação.
+    await page.evaluate(() => (window as UniverseWindow).__bzUniverse!.placeWalker(-8.6, 86, -Math.PI / 2));
+    await expect(page.getByRole('button', { name: /Entrar: Sedã Aurora/ })).toBeVisible({ timeout: 10_000 });
+    // Entra (E): o modo passa a dirigindo e o HUD troca de modo.
+    await page.keyboard.press('e');
+    await expect(stage).toHaveAttribute('data-player-mode', 'car', { timeout: 10_000 });
+    await expect(page.getByRole('status').filter({ hasText: 'Dirigindo: Sedã Aurora' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Sair do veículo' })).toBeVisible();
+    // Acelera (W), vira (D) e freia (S).
+    const car0 = aurora(await state());
+    await page.keyboard.down('w');
+    await expect.poll(async () => aurora(await state()).speed, { timeout: 30_000 }).toBeGreaterThan(3);
+    await page.keyboard.down('d');
+    await expect.poll(async () => Math.abs(aurora(await state()).heading - car0.heading), { timeout: 30_000 }).toBeGreaterThan(0.05);
+    await page.keyboard.up('d');
+    await page.keyboard.up('w');
+    // S freia e, com o carro parado, engata a ré: velocidade (com sinal) abaixo de 0,5 = parou ou já está em ré.
+    await page.keyboard.down('s');
+    await expect.poll(async () => aurora(await state()).speed, { timeout: 30_000 }).toBeLessThan(0.5);
+    await page.keyboard.up('s');
+    // Sai (E): volta a pé, ao lado do carro, que continua no mundo, parado onde ficou.
+    await page.keyboard.press('e');
+    await expect(stage).toHaveAttribute('data-player-mode', 'foot', { timeout: 30_000 });
+    await expect.poll(async () => (await state()).mode, { timeout: 10_000 }).toBe('foot');
+    const after = await state();
+    const car = aurora(after);
+    expect(Math.hypot(car.x - car0.x, car.z - car0.z)).toBeGreaterThan(1);
+    const gap = Math.hypot(after.walker.x - car.x, after.walker.z - car.z);
+    expect(gap).toBeGreaterThan(1.2);
+    expect(gap).toBeLessThan(4);
+    // Volta a andar; o carro fica.
+    const parked = after.walker;
+    await page.keyboard.down('w');
+    await expect.poll(async () => { const w = (await state()).walker; return Math.hypot(w.x - parked.x, w.z - parked.z); }, { timeout: 30_000 }).toBeGreaterThan(1);
+    await page.keyboard.up('w');
+    expect(aurora(await state())).toMatchObject({ x: car.x, z: car.z });
+    expect(errors.filter((e) => !/GPU|WebGL|GL_/.test(e))).toEqual([]);
   });
-  await enterUniverse3d(page, 'medium');
-  // Interface dos edifícios: Locais → Laboratório de IA, pelo teclado.
-  const places = page.getByRole('button', { name: 'Locais' });
-  await places.focus();
-  await page.keyboard.press('Enter');
-  const item = page.getByRole('navigation', { name: 'Locais' }).getByRole('button', { name: /Laboratório de IA/ });
-  await item.focus();
-  await page.keyboard.press('Enter');
-  const panel = page.getByRole('dialog', { name: 'Laboratório de IA' });
-  await expect(panel).toBeVisible();
-  await expect(panel.getByText(/6 agentes representados/)).toBeVisible();
-  await expect(panel.getByRole('button', { name: 'Ir até aqui' })).toBeVisible();
-  await expect(panel.getByRole('link', { name: 'Entrar no laboratório 3D' })).toHaveAttribute('href', /\/lab$/);
-  await page.keyboard.press('Escape');
-  await expect(panel).toBeHidden();
-  // Qualidade: o canvas é recriado com a configuração nova.
-  const quality = page.getByRole('radiogroup', { name: 'Qualidade' });
-  const canvas = page.locator('section[data-universe-stage] canvas');
-  await canvas.evaluate((c) => c.setAttribute('data-probe', 'old'));
-  await quality.getByRole('radio', { name: 'Alta' }).click();
-  await expect(quality.getByRole('radio', { name: 'Alta' })).toHaveAttribute('aria-checked', 'true');
-  // Lido logo após o clique: com WebGL por software, o rebaixamento automático (< 28 fps) pode descer o nível depois.
-  expect(await page.evaluate(() => sessionStorage.getItem('bz-universe-quality'))).toBe('high');
-  await expect(page.locator('section[data-universe-stage] canvas[data-probe="old"]')).toHaveCount(0, { timeout: 15_000 });
-  await expect(canvas).toBeVisible({ timeout: 30_000 });
-  // Sai do Universe por um link do site: canvas, gancho e laço de quadros somem.
-  await page.getByRole('link', { name: 'Metodologia' }).first().click();
-  await expect(page).toHaveURL(/\/methodology\/?$/);
-  // (o fundo de partículas do cabeçalho das páginas é outro canvas, animado num worker)
-  await expect(page.locator('section[data-universe-stage], section[data-universe-stage] canvas')).toHaveCount(0);
-  expect(await page.evaluate(() => (window as UniverseWindow).__bzUniverse)).toBeUndefined();
-  const before = await page.evaluate(() => (window as UniverseWindow).__rafCount!);
-  await page.waitForTimeout(1500);
-  const after = await page.evaluate(() => (window as UniverseWindow).__rafCount!);
-  expect(after - before).toBeLessThan(10);
-  expect(errors.filter((e) => !/GPU|WebGL|GL_/.test(e))).toEqual([]);
+
+  test('Universe 3D no computador: carro voador sobe e desce com ↑/↓; botão e tecla F de tela cheia', async ({ page, isMobile }) => {
+    test.skip(isMobile, 'Teclado e tela cheia do computador.');
+    test.setTimeout(120_000);
+    const errors = trackErrors(page);
+    const state = await enterUniverse3d(page);
+    const stage = page.locator('section[data-universe-stage]');
+    const hover = async () => (await state()).vehicles.find((v) => v.id === 'hover')!;
+    // Tela cheia: botão com nome visível e atalho F.
+    const fs = page.getByRole('button', { name: 'Tela cheia' });
+    await expect(fs).toBeVisible();
+    await expect(fs).toHaveAttribute('aria-keyshortcuts', 'F');
+    await page.mouse.move(640, 400);
+    await page.keyboard.press('f');
+    await expect(page.getByRole('button', { name: 'Sair da tela cheia' })).toBeVisible({ timeout: 10_000 });
+    expect(await page.evaluate(() => document.fullscreenElement?.hasAttribute('data-universe-stage'))).toBe(true);
+    await page.keyboard.press('f');
+    await expect(page.getByRole('button', { name: 'Tela cheia' })).toBeVisible({ timeout: 10_000 });
+    // Clicar no botão também alterna (e o foco fica nele: as setas precisam continuar indo para o jogo).
+    await page.getByRole('button', { name: 'Tela cheia' }).click();
+    await expect(page.getByRole('button', { name: 'Sair da tela cheia' })).toBeVisible({ timeout: 10_000 });
+    await page.getByRole('button', { name: 'Sair da tela cheia' }).click();
+    await expect(page.getByRole('button', { name: 'Tela cheia' })).toBeFocused();
+    // Entra no carro voador e sobe com ↑, sem andar para a frente.
+    await page.evaluate(() => (window as UniverseWindow).__bzUniverse!.placeWalker(-2.5, 78, Math.PI / 2));
+    await expect(page.getByRole('button', { name: /Entrar: / })).toBeVisible({ timeout: 10_000 });
+    await page.keyboard.press('e');
+    await expect(stage).toHaveAttribute('data-player-mode', 'hover', { timeout: 10_000 });
+    const ground = await hover();
+    await page.keyboard.down('ArrowUp');
+    await expect.poll(async () => (await hover()).y, { timeout: 15_000 }).toBeGreaterThan(ground.y + 4);
+    await page.keyboard.up('ArrowUp');
+    const high = await hover();
+    expect(Math.hypot(high.x - ground.x, high.z - ground.z)).toBeLessThan(3);
+    // ↓ desce.
+    await page.keyboard.down('ArrowDown');
+    await expect.poll(async () => (await hover()).y, { timeout: 15_000 }).toBeLessThan(high.y - 2);
+    await page.keyboard.up('ArrowDown');
+    expect(errors.filter((e) => !/GPU|WebGL|GL_/.test(e))).toEqual([]);
+  });
+
+  test('Universe 3D: abre um local pelo teclado, troca a qualidade e sai sem deixar o jogo rodando', async ({ page, isMobile }) => {
+    test.skip(isMobile, 'O fluxo com teclado é coberto no desktop.');
+    test.setTimeout(120_000);
+    const errors = trackErrors(page);
+    // Conta os quadros pedidos (requestAnimationFrame) para provar que o laço para ao sair.
+    await page.addInitScript(() => {
+      const w = window as UniverseWindow;
+      const raf = window.requestAnimationFrame.bind(window);
+      w.__rafCount = 0;
+      window.requestAnimationFrame = (cb) => {
+        w.__rafCount! += 1;
+        return raf(cb);
+      };
+    });
+    await enterUniverse3d(page, 'low');
+    // Interface dos edifícios: Locais → Laboratório de IA, pelo teclado.
+    const places = page.getByRole('button', { name: 'Locais' });
+    await places.focus();
+    await page.keyboard.press('Enter');
+    const item = page.getByRole('navigation', { name: 'Locais' }).getByRole('button', { name: /Laboratório de IA/ });
+    await item.focus();
+    await page.keyboard.press('Enter');
+    const panel = page.getByRole('dialog', { name: 'Laboratório de IA' });
+    await expect(panel).toBeVisible();
+    await expect(panel.getByText(/6 agentes representados/)).toBeVisible();
+    await expect(panel.getByRole('button', { name: 'Ir até aqui' })).toBeVisible();
+    await expect(panel.getByRole('link', { name: 'Entrar no laboratório 3D' })).toHaveAttribute('href', /\/lab$/);
+    await page.keyboard.press('Escape');
+    await expect(panel).toBeHidden();
+    // Qualidade: o canvas é recriado com a configuração nova.
+    const quality = page.getByRole('radiogroup', { name: 'Qualidade' });
+    const canvas = page.locator('section[data-universe-stage] canvas');
+    await canvas.evaluate((c) => c.setAttribute('data-probe', 'old'));
+    await quality.getByRole('radio', { name: 'Média' }).click();
+    await expect(quality.getByRole('radio', { name: 'Média' })).toHaveAttribute('aria-checked', 'true');
+    // Lido logo após o clique: com WebGL por software, o rebaixamento automático (< 28 fps) pode descer o nível depois.
+    expect(await page.evaluate(() => sessionStorage.getItem('bz-universe-quality'))).toBe('medium');
+    await expect(page.locator('section[data-universe-stage] canvas[data-probe="old"]')).toHaveCount(0, { timeout: 15_000 });
+    await expect(canvas).toBeVisible({ timeout: 30_000 });
+    // Sai do Universe por um link do site: canvas, gancho e laço de quadros somem.
+    await page.getByRole('link', { name: 'Metodologia' }).first().click();
+    await expect(page).toHaveURL(/\/methodology\/?$/);
+    // (o fundo de partículas do cabeçalho das páginas é outro canvas, animado num worker)
+    await expect(page.locator('section[data-universe-stage], section[data-universe-stage] canvas')).toHaveCount(0, { timeout: 20_000 });
+    expect(await page.evaluate(() => (window as UniverseWindow).__bzUniverse)).toBeUndefined();
+    const before = await page.evaluate(() => (window as UniverseWindow).__rafCount!);
+    await page.waitForTimeout(1500);
+    const after = await page.evaluate(() => (window as UniverseWindow).__rafCount!);
+    expect(after - before).toBeLessThan(10);
+    expect(errors.filter((e) => !/GPU|WebGL|GL_/.test(e))).toEqual([]);
+  });
 });
 
 test('Universe no celular: sugere deitar o aparelho, joystick a pé, pedais e volante no carro', async ({ page, isMobile }) => {
