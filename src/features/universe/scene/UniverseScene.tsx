@@ -160,7 +160,8 @@ export default function UniverseScene(props: UniverseSceneProps) {
   // Resolução: começa no que a tela pede (dentro da faixa do nível) e a AdaptiveResolution ajusta.
   // Só o Ultra sobe além da tela (superamostragem), e só se o aparelho aguentar.
   const device = typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1;
-  const startDpr = Math.max(cfg.dprMin, Math.min(cfg.dprMax, device));
+  // A Baixa começa em 85% (aparelho modesto: melhor começar folgado; a resolução adaptativa sobe se sobrar).
+  const startDpr = Math.max(cfg.dprMin, Math.min(cfg.dprMax, device) * (props.quality === 'low' ? 0.85 : 1));
   const maxDpr = props.quality === 'ultra' ? cfg.dprMax : startDpr;
   return (
     <Canvas

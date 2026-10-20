@@ -88,7 +88,11 @@ for (const theme of THEMES) {
 
   test(`a11y: Universe — HUD do 3D e painel de um local — tema ${theme}`, async ({ page }) => {
     test.setTimeout(90_000);
-    await page.addInitScript(() => localStorage.setItem('bz-universe-help-v2', 'seen'));
+    // A auditoria é do HUD e do painel (o DOM); a qualidade baixa deixa o 3D leve sem placa de vídeo (CI).
+    await page.addInitScript(() => {
+      localStorage.setItem('bz-universe-help-v2', 'seen');
+      sessionStorage.setItem('bz-universe-quality', 'low');
+    });
     await ready(page, 'universe/', theme);
     const enter = page.getByRole('button', { name: 'Explorar em 3D' });
     test.skip(await enter.isDisabled(), 'WebGL indisponível neste navegador de teste.');
