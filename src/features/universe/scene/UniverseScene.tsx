@@ -12,6 +12,7 @@ import { PerformanceGovernor } from './PerformanceGovernor';
 import { Avatar } from './Avatar';
 import { Billboards, Skybridges, Towers } from './Buildings';
 import { buildCarModels, buildFarCarModels, createCarMaterials, disposeCarMaterials, disposeCarModels, disposeFarCarModels } from './carModels';
+import { ArrivalPark } from './ArrivalPark';
 import { City } from './City';
 import { Landmarks, type LandmarkTexts } from './Landmarks';
 import { PerfProbe } from './PerfProbe';
@@ -29,6 +30,8 @@ export interface UniverseSceneProps {
   effects: boolean;
   /** Câmera calma (movimento reduzido): sem mudança de campo de visão nem tremor. */
   calmCamera: boolean;
+  /** Modo apresentação: esconde os marcadores dos locais (feixes, losangos e nomes). */
+  presenting?: boolean;
   inputEnabled: boolean;
   near: PlaceId | null;
   texts: LandmarkTexts;
@@ -163,6 +166,7 @@ function World(props: UniverseSceneProps) {
       {/* Grupos com nome: a sonda de desempenho liga e desliga cada parte para medir o custo dela. */}
       <group name="city">
         <City assets={assets} quality={quality} pools={cfg.lightPools} />
+        <ArrivalPark assets={assets} quality={quality} />
       </group>
       <group name="towers">
         <Towers assets={assets} quality={quality} towers={towers} />
@@ -172,7 +176,7 @@ function World(props: UniverseSceneProps) {
         <Billboards assets={assets} messages={props.billboards} animate={effects} />
       </group>
       <group name="landmarks">
-        <Landmarks assets={assets} quality={quality} effects={effects} near={props.near} texts={props.texts} onSelect={props.onSelect} />
+        <Landmarks assets={assets} quality={quality} effects={effects} near={props.near} markers={!props.presenting} texts={props.texts} onSelect={props.onSelect} />
       </group>
       <group name="traffic">
         <Traffic quality={quality} running={effects} runtime={runtime} models={carModels} farModels={farCarModels} materials={carMaterials} lodDistance={cfg.carLod} shadows={quality !== 'low'} />

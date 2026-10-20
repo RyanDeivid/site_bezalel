@@ -156,3 +156,9 @@ export function airPose(traffic: ReturnType<typeof createAirTraffic>, v: AirVehi
   const p = sampleAir(r, v.start + r.spec.speed * t);
   return { ...p, y: p.y + Math.sin(t * 0.9 + v.phase) * 0.4, bank: Math.max(-0.5, Math.min(0.5, -p.turn * r.spec.speed * 0.9)), cls: r.spec.cls };
 }
+
+/**
+ * Gancho das capturas e testes visuais: o trânsito aéreo em cena e o relógio
+ * dele; `frozen` para o relógio (a câmera fixa enquadra um voador parado).
+ */
+export const airDebug: { traffic: ReturnType<typeof createAirTraffic> | null; t: number; frozen: boolean } = { traffic: null, t: 0, frozen: false };

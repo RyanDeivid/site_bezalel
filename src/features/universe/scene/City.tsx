@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { BLOCKS, blockBounds, BUILDINGS, DISTRICTS, PLACES, PLAZA_RADIUS, ROAD_WIDTH, SIDEWALK, STREET_LINES } from '../world/city';
 import type { Quality, UniverseAssets } from './assets';
+import { CROWN_Y, treeCrown, treeTrunk, type TreeKind } from './treeGeometry';
 import { boxWithMeterUVs } from './textures';
 
 const ROAD_LENGTH = STREET_LINES[STREET_LINES.length - 1]! - STREET_LINES[0] + ROAD_WIDTH;
@@ -98,24 +99,45 @@ export function City({ assets, quality, pools }: { assets: UniverseAssets; quali
 
   // ---- Árvores, postes, bancos e balizas -------------------------------------------------
   const trees = useMemo(() => {
-    const out: Array<{ x: number; z: number; s: number }> = [];
+    const out: Array<{ x: number; z: number; s: number; kind: TreeKind }> = [];
     let k = 0;
     for (const d of DISTRICTS) {
       const b = blockBounds(d.block[0], d.block[1]);
       const step = hi ? 8 : 13;
       for (let x = b.minX + 3; x <= b.maxX - 3; x += step)
-        for (const z of [b.minZ + 3, b.maxZ - 3]) if (treeFree(x, z)) out.push({ x, z, s: 0.85 + ((k++ * 37) % 10) / 25 });
+        for (const z of [b.minZ + 3, b.maxZ - 3]) if (treeFree(x, z)) out.push({ x, z, s: 0.85 + ((k * 37) % 10) / 25, kind: k++ % 3 === 2 ? 'columnar' : 'round' });
       for (let z = b.minZ + 3 + step; z <= b.maxZ - 3 - step; z += step)
-        for (const x of [b.minX + 3, b.maxX - 3]) if (treeFree(x, z)) out.push({ x, z, s: 0.85 + ((k++ * 37) % 10) / 25 });
+        for (const x of [b.minX + 3, b.maxX - 3]) if (treeFree(x, z)) out.push({ x, z, s: 0.85 + ((k * 37) % 10) / 25, kind: k++ % 3 === 2 ? 'columnar' : 'round' });
     }
     return out;
   }, [hi]);
-  const trunkRef = useRef<THREE.InstancedMesh>(null);
-  const crownRef = useRef<THREE.InstancedMesh>(null);
-  const trunkM = useMemo(() => trees.map((t) => compose(t.x, 0.3 + 1.4 * t.s, t.z, 0, t.s, t.s, t.s)), [trees]);
-  const crownM = useMemo(() => trees.map((t, i) => compose(t.x, 0.3 + 3.9 * t.s, t.z, i, t.s, t.s * 1.5, t.s)), [trees]);
-  useInstanceMatrices(trunkRef, trunkM);
-  useInstanceMatrices(crownRef, crownM);
+  // Duas espécies (copa redonda e colunar): copa de cachos irregulares com a cor nos vértices e tronco com galhos.
+  const treeGeos = useMemo(() => {
+    const d = hi ? 1 : 0;
+    return { round: { crown: treeCrown('round', d), trunk: treeTrunk('round') }, columnar: { crown: treeCrown('columnar', d), trunk: treeTrunk('columnar') } };
+  }, [hi]);
+  useEffect(
+    () => () =>
+      Object.values(treeGeos).forEach((t) => {
+        t.crown.dispose();
+        t.trunk.dispose();
+      }),
+    [treeGeos],
+  );
+  const roundTrunkRef = useRef<THREE.InstancedMesh>(null);
+  const roundCrownRef = useRef<THREE.InstancedMesh>(null);
+  const colTrunkRef = useRef<THREE.InstancedMesh>(null);
+  const colCrownRef = useRef<THREE.InstancedMesh>(null);
+  const treeM = useMemo(() => {
+    const of = (kind: TreeKind) => trees.filter((t) => t.kind === kind);
+    const trunk = (kind: TreeKind) => of(kind).map((t, i) => compose(t.x, 0.3, t.z, i * 1.7, t.s, t.s, t.s));
+    const crown = (kind: TreeKind) => of(kind).map((t, i) => compose(t.x, 0.3 + CROWN_Y[kind] * t.s, t.z, i * 2.3, t.s, t.s, t.s));
+    return { roundTrunk: trunk('round'), roundCrown: crown('round'), colTrunk: trunk('columnar'), colCrown: crown('columnar') };
+  }, [trees]);
+  useInstanceMatrices(roundTrunkRef, treeM.roundTrunk);
+  useInstanceMatrices(roundCrownRef, treeM.roundCrown);
+  useInstanceMatrices(colTrunkRef, treeM.colTrunk);
+  useInstanceMatrices(colCrownRef, treeM.colCrown);
 
   const lamps = useMemo(() => {
     const out: Array<{ x: number; z: number; r: number }> = [];
@@ -263,12 +285,10 @@ export function City({ assets, quality, pools }: { assets: UniverseAssets; quali
         </mesh>
       ))}
 
-      <instancedMesh ref={trunkRef} args={[undefined, m.trunk, trunkM.length]} castShadow={hi}>
-        <cylinderGeometry args={[0.18, 0.26, 2.8, 6]} />
-      </instancedMesh>
-      <instancedMesh ref={crownRef} args={[undefined, m.foliage, crownM.length]} castShadow={hi}>
-        <icosahedronGeometry args={[1.45, 0]} />
-      </instancedMesh>
+      <instancedMesh ref={roundTrunkRef} args={[treeGeos.round.trunk, m.trunk, treeM.roundTrunk.length]} castShadow={hi} />
+      <instancedMesh ref={roundCrownRef} args={[treeGeos.round.crown, m.foliage, treeM.roundCrown.length]} castShadow={hi} />
+      <instancedMesh ref={colTrunkRef} args={[treeGeos.columnar.trunk, m.trunk, treeM.colTrunk.length]} castShadow={hi} />
+      <instancedMesh ref={colCrownRef} args={[treeGeos.columnar.crown, m.foliage, treeM.colCrown.length]} castShadow={hi} />
 
       <instancedMesh ref={poleRef} args={[undefined, m.steel, poleM.length]}>
         <cylinderGeometry args={[0.09, 0.13, 6.4, 6]} />

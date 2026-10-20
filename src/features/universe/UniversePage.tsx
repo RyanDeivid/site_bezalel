@@ -1,4 +1,4 @@
-import { Box, Car, Check, CircleAlert, Footprints, Gauge, HelpCircle, Home, LogOut, Map as MapIcon, MapPin, Maximize, Minimize, Pause, Play, Plane, Smartphone, TriangleAlert } from 'lucide-react';
+import { Box, Car, Check, CircleAlert, Clapperboard, Footprints, Gauge, HelpCircle, Home, LogOut, Map as MapIcon, MapPin, Maximize, Minimize, Pause, Play, Plane, Smartphone, TriangleAlert } from 'lucide-react';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePreferences } from '@/app/preferences-context';
 import { BezalelMark } from '@/components/brand/BezalelMark';
@@ -22,9 +22,10 @@ import { PlaceBody } from './PlacePanel';
 import { TouchControls } from './TouchControls';
 import { universeContent } from './universe-content';
 import { UniverseMap } from './UniverseMap';
+import { CINEMA_SHOTS } from './world/cinema';
 import { cityTowers, citySolids, PLACES, type PlaceId, type Quality } from './world/city';
 import { PRODUCTS, productText } from './world/products';
-import { attachDebug, cancelAutopilot, clearNotice, createUniverseRuntime, goToPlace, requestExit, tryEnter, vehicleById } from './world/runtime';
+import { attachDebug, cancelAutopilot, clearNotice, createUniverseRuntime, goToPlace, requestExit, setCinema, tryEnter, vehicleById } from './world/runtime';
 
 // three.js + R3F + a cidade só são baixados quando o visitante escolhe explorar em 3D.
 const UniverseScene = lazy(() => import('./scene/UniverseScene'));
@@ -118,6 +119,7 @@ export default function UniversePage() {
   const [placesOpen, setPlacesOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [flying, setFlying] = useState<PlaceId | null>(null);
+  const [presenting, setPresenting] = useState(false);
   const [runtime] = useState(createUniverseRuntime);
   const [debug] = useState(() => readStorage('bz-universe-debug') === '1');
   // A cena só aparece depois de preparada (shaders e texturas); trocar a qualidade recria o canvas.
@@ -127,6 +129,7 @@ export default function UniversePage() {
 
   const setMode = useCallback((next: Mode) => {
     if (next !== 'launcher') writeSession(MODE_KEY, next);
+    if (next !== '3d') setPresenting(false);
     setModeState(next);
   }, []);
   const setQuality = (q: QualityChoice) => {
@@ -170,6 +173,14 @@ export default function UniversePage() {
     },
     [runtime, solids, reducedMotion],
   );
+  // Modo apresentação: a câmera percorre a região principal em tomadas de cinema; a interface se recolhe.
+  const startPresentation = useCallback(() => {
+    setOpen(null);
+    setPlacesOpen(false);
+    setPresenting(true);
+  }, []);
+  const stopPresentation = useCallback(() => setPresenting(false), []);
+  useEffect(() => setCinema(runtime, presenting), [runtime, presenting]);
   const takeControl = () => {
     cancelAutopilot(runtime);
     setFlying(null);
@@ -206,19 +217,25 @@ export default function UniversePage() {
     [fullscreenActive, enterFullscreen, exitFullscreen, device.coarse],
   );
 
-  // Atalhos do palco: E (ação do momento), H (voltar ao início), F (tela cheia).
+  // Atalhos do palco: E (ação do momento), H (voltar ao início), F (tela cheia), C (apresentação; Esc sai dela).
   useEffect(() => {
     if (mode !== '3d') return;
     const onKey = (e: KeyboardEvent) => {
       if (open || helpOpen || (e.target as HTMLElement | null)?.closest('input, textarea, select, dialog')) return;
       const k = e.key.toLowerCase();
-      if (k === 'e' && !e.repeat) interact();
+      if (presenting) {
+        if (k === 'escape' || (k === 'c' && !e.repeat)) stopPresentation();
+        else if (k === 'f' && !e.repeat && canFullscreen) toggleFullscreen();
+        return;
+      }
+      if (k === 'c' && !e.repeat) startPresentation();
+      else if (k === 'e' && !e.repeat) interact();
       else if (k === 'h') goTo('arrival');
       else if (k === 'f' && !e.repeat && canFullscreen) toggleFullscreen();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [mode, open, helpOpen, interact, goTo, canFullscreen, toggleFullscreen]);
+  }, [mode, open, helpOpen, interact, goTo, canFullscreen, toggleFullscreen, presenting, startPresentation, stopPresentation]);
 
   useEffect(() => {
     if (mode !== '3d') void fullscreen.exit();
@@ -375,7 +392,8 @@ export default function UniversePage() {
                 quality={quality}
                 effects={effects}
                 calmCamera={reducedMotion}
-                inputEnabled={!open && !helpOpen}
+                presenting={presenting}
+                inputEnabled={!open && !helpOpen && !presenting}
                 near={near}
                 texts={texts}
                 billboards={billboards}
@@ -422,6 +440,9 @@ export default function UniversePage() {
             </div>
           )}
 
+          {presenting && <CinemaOverlay runtime={runtime} names={t.hud.cinemaShots} exitLabel={t.hud.exitPresent} onExit={stopPresentation} />}
+          {!presenting && (
+          <>
           {/* HUD superior: identidade, modo atual e locais | ajustes */}
           <div className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-3 p-3 md:p-4">
             <div className="flex flex-col items-start gap-2">
@@ -487,6 +508,9 @@ export default function UniversePage() {
                     </button>
                   ))}
                 </div>
+                <IconButton label={`${t.hud.present} (C)`} onClick={startPresentation} size="sm">
+                  <Clapperboard className="size-4" />
+                </IconButton>
                 <IconButton label={t.hud.help} onClick={() => setHelpOpen(true)} size="sm">
                   <HelpCircle className="size-4" />
                 </IconButton>
@@ -588,6 +612,8 @@ export default function UniversePage() {
               {t.hud.paused}
             </p>
           )}
+          </>
+          )}
 
           {/* Celular em pé: sugere deitar o aparelho (e a tela cheia na horizontal, onde existir) */}
           {showRotate && (
@@ -683,6 +709,51 @@ export default function UniversePage() {
           <p>{t.help.places}</p>
         </div>
       </Dialog>
+    </>
+  );
+}
+
+/**
+ * Moldura do modo apresentação: faixas de cinema em cima e embaixo, a fusão
+ * para o escuro entre as tomadas (a opacidade vem da cena, quadro a quadro,
+ * sem renderizar o React) e o nome da tomada, com o botão de sair.
+ */
+function CinemaOverlay({ runtime, names, exitLabel, onExit }: { runtime: ReturnType<typeof createUniverseRuntime>; names: Record<(typeof CINEMA_SHOTS)[number]['id'], string>; exitLabel: string; onExit: () => void }) {
+  const fade = useRef<HTMLDivElement>(null);
+  const [shot, setShot] = useState(0);
+  useEffect(() => {
+    let id = 0;
+    let last = -1;
+    const tick = () => {
+      const c = runtime.cinema;
+      if (c) {
+        if (fade.current) fade.current.style.opacity = String(c.fade);
+        if (c.shot !== last) {
+          last = c.shot;
+          setShot(c.shot);
+        }
+      }
+      id = requestAnimationFrame(tick);
+    };
+    id = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(id);
+  }, [runtime]);
+  return (
+    <>
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[9%] bg-bg-abyss" />
+      <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 h-[9%] bg-bg-abyss" />
+      <div ref={fade} aria-hidden className="pointer-events-none absolute inset-0 bg-bg-abyss opacity-100" />
+      <div className="absolute inset-x-0 bottom-[9%] flex items-end justify-between gap-3 p-4 md:p-6">
+        <p className="glass rounded-lg px-3 py-1.5 text-sm font-semibold tracking-wide md:text-base" role="status" aria-live="polite">
+          {names[CINEMA_SHOTS[shot]!.id]}
+        </p>
+        <Button variant="secondary" size="sm" className="glass" aria-keyshortcuts="Escape" onClick={onExit}>
+          {exitLabel}
+          <span aria-hidden className="kbd ml-1 hidden lg:inline">
+            Esc
+          </span>
+        </Button>
+      </div>
     </>
   );
 }

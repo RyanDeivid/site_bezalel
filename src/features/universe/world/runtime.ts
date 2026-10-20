@@ -1,3 +1,4 @@
+import { airDebug, airPose } from './air';
 import { placeById, SPAWN, type PlaceId, type Solid } from './city';
 import { createCraft, planAutopilot, type Autopilot, type CraftState } from './flight';
 import { CAR_SPECS, carCircles, createCar, exitSpot, type Body, type CarClass, type CarState } from './vehicles';
@@ -50,6 +51,8 @@ export interface UniverseRuntime {
   camera: { yaw: number; pitch: number; distance: number; orbit: number };
   /** Câmera fixa (vista de apresentação / capturas): posição e ponto olhado. Null = câmera do jogo. */
   shot: { x: number; y: number; z: number; tx: number; ty: number; tz: number; fov?: number } | null;
+  /** Modo apresentação: tempo (s), fusão para o preto e tomada atual (escritos pela cena); `hold` para o relógio (capturas). */
+  cinema: { t: number; fade: number; shot: number; hold?: boolean } | null;
   autopilot: (Autopilot & { place: PlaceId }) | null;
   near: PlaceId | null;
   nearVehicle: string | null;
@@ -90,6 +93,7 @@ export function createUniverseRuntime(): UniverseRuntime {
     buttons: { up: false, down: false, run: false, gas: false, brake: false, handbrake: false },
     camera: { yaw: SPAWN.yaw, pitch: CAMERA_PITCH.start, distance: CAMERA_DISTANCE.start, orbit: 0 },
     shot: null,
+    cinema: null,
     autopilot: null,
     near: null,
     nearVehicle: null,
@@ -335,6 +339,7 @@ export function attachDebug(rt: UniverseRuntime): () => void {
       traffic: rt.traffic.length,
       nearVehicle: rt.nearVehicle,
       notice: rt.notice,
+      cinema: rt.cinema ? { t: rt.cinema.t, shot: rt.cinema.shot } : null,
     }),
     placeWalker: (x: number, z: number, yaw = rt.camera.yaw) => {
       Object.assign(rt.walker, { x, z, vx: 0, vz: 0 });
@@ -343,6 +348,18 @@ export function attachDebug(rt: UniverseRuntime): () => void {
     /** Câmera fixa para capturas (null volta à câmera do jogo). */
     shot: (s: UniverseRuntime['shot']) => {
       rt.shot = s;
+    },
+    /** Modo apresentação parado no instante `t` (null sai dele). */
+    cinemaAt: (t: number | null) => {
+      rt.cinema = t === null ? null : { t, fade: 0, shot: 0, hold: true };
+    },
+    /** Voadores do trânsito aéreo agora (classe e pose) e congelar o relógio deles, para as capturas. */
+    air: () => {
+      const tr = airDebug.traffic;
+      return tr ? tr.vehicles.map((v) => airPose(tr, v, airDebug.t)) : [];
+    },
+    freezeAir: (on: boolean) => {
+      airDebug.frozen = on;
     },
     placeVehicle: (id: string, x: number, z: number, heading: number) => {
       const v = vehicleById(rt, id);
@@ -354,6 +371,12 @@ export function attachDebug(rt: UniverseRuntime): () => void {
   return () => {
     delete (window as unknown as { __bzUniverse?: typeof api }).__bzUniverse;
   };
+}
+
+/** Liga ou desliga o modo apresentação (começa na primeira tomada, saindo do escuro). */
+export function setCinema(rt: UniverseRuntime, on: boolean) {
+  if (!on) rt.cinema = null;
+  else if (!rt.cinema) rt.cinema = { t: 0, fade: 1, shot: 0 };
 }
 
 /** Devolve o controle (botão "Assumir o controle" do piloto automático). */

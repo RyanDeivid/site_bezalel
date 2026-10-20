@@ -6,32 +6,7 @@ import { BILLBOARDS, TOWER_VARIANTS, type Quality, type Skybridge, type TowerSpe
 import type { UniverseAssets } from './assets';
 import { FACADE_TILE, PALETTE } from './textures';
 import { buildTowerGeometry, FACADE_SLOTS, type Slot } from './towerGeometry';
-
-function slotMaterial(slot: Slot, assets: UniverseAssets): THREE.Material {
-  const m = assets.materials;
-  switch (slot) {
-    case 'glassBlue':
-      return m.towerGlassBlue;
-    case 'glassBronze':
-      return m.towerGlassBronze;
-    case 'darkGlass':
-      return m.towerDarkGlass;
-    case 'whiteConcrete':
-      return m.towerWhite;
-    case 'charcoal':
-      return m.towerCharcoal;
-    case 'metalPanel':
-      return m.towerMetal;
-    case 'storefront':
-      return m.storefront;
-    case 'metal':
-      return m.trimMetal;
-    case 'matte':
-      return m.trimMatte;
-    case 'glow':
-      return m.trimGlow;
-  }
-}
+import { towerSlotMaterial } from './towerMaterial';
 
 /**
  * Cada torre desloca a textura da fachada por módulos e andares inteiros (a
@@ -89,7 +64,7 @@ export function Towers({ assets, quality, towers }: { assets: UniverseAssets; qu
         <mesh
           key={i}
           geometry={c.geo}
-          material={slotMaterial(c.slot, assets)}
+          material={towerSlotMaterial(c.slot, assets)}
           castShadow={shadow && FACADE_SLOTS.has(c.slot)}
           receiveShadow={shadow && (FACADE_SLOTS.has(c.slot) || c.slot === 'matte')}
         />

@@ -23,9 +23,14 @@ import {
   STREET_LINES,
   towerSolids,
   WORLD_HALF,
+  TOWER_VARIANTS,
+  cubeOnVertex,
   type Quality,
   type Solid,
 } from '@/features/universe/world/city';
+import { CINEMA_SHOTS, cinemaLength, cinemaPose, shotPose } from '@/features/universe/world/cinema';
+import { HQ } from '@/features/universe/scene/landmarkGeometry';
+import { buildTowerGeometry } from '@/features/universe/scene/towerGeometry';
 import { autopilotInput, createCraft, planAutopilot, resolveCollisions, stepCraft } from '@/features/universe/world/flight';
 import { PRODUCTS, productText } from '@/features/universe/world/products';
 import { cancelAutopilot, createUniverseRuntime, driveInput, goToPlace, manualInput, nearestVehicle, requestExit, tryEnter, updatePlayer, vehicleBodies, vehicleById, vehiclePose } from '@/features/universe/world/runtime';
@@ -494,5 +499,71 @@ describe('Universe — voo (carro voador)', () => {
     rt.autopilot = { ...planAutopilot(createCraft({ x: 0, y: 4, z: 0, yaw: 0 }), { x: 0, z: 0, y: 5, yaw: 0 }, []), place: 'plaza' };
     cancelAutopilot(rt);
     expect(rt.autopilot).toBeNull();
+  });
+});
+
+describe('Universe — arquitetura (famílias e marcos)', () => {
+  it('sete famílias com silhueta própria; alturas em andares inteiros (3,5 m), para os andares baterem com a fachada', () => {
+    expect(TOWER_VARIANTS).toHaveLength(7);
+    expect(new Set(TOWER_VARIANTS.map((v) => v.roof)).size).toBeGreaterThanOrEqual(6);
+    // (O embasamento de lojas tem a sua textura ajustada à altura dele.)
+    for (const v of TOWER_VARIANTS) for (const p of v.parts) if (p.material !== 'storefront') expect((p.h / 3.5) % 1, `${v.name}: ${p.h}`).toBeCloseTo(0, 6);
+    // Pegadas de até 15 m: cabem nas células de 17 m das quadras.
+    for (const v of TOWER_VARIANTS) for (const p of v.parts) expect(Math.max(p.w, p.d) + 2 * Math.max(Math.abs(p.dx ?? 0), Math.abs(p.dz ?? 0))).toBeLessThanOrEqual(17);
+  });
+
+  it('a geometria de cada família é válida (sem NaN) e os acabamentos levam cor por vértice', () => {
+    for (const detail of [false, true])
+      for (const v of TOWER_VARIANTS) {
+        const parts = buildTowerGeometry(v, detail);
+        for (const [slot, g] of parts) {
+          const pos = g.attributes.position!.array as Float32Array;
+          expect(pos.every(Number.isFinite), `${v.name}/${slot}`).toBe(true);
+          expect(g.index!.count % 3).toBe(0);
+          expect(!!g.attributes.color, `${v.name}/${slot}`).toBe(slot === 'metal' || slot === 'matte' || slot === 'glow');
+          g.dispose();
+        }
+      }
+  });
+
+  it('a sede é o marco mais alto da região, e os sólidos de colisão seguem as medidas desenhadas', () => {
+    const hq = BUILDINGS.find((b) => b.id === 'bezalel-hq')!;
+    expect(hq.height).toBeGreaterThan(Math.max(...BUILDINGS.filter((b) => b !== hq).map((b) => b.height)));
+    expect(hq.solids[0]!.height).toBeCloseTo(HQ.podiumTop, 6);
+    expect(hq.solids[1]!.height).toBeCloseTo(HQ.towerTop, 6);
+    // O cubo da coroa (lado 10, apoiado num vértice) cabe no último sólido.
+    expect(HQ.cubeY + cubeOnVertex(10).height / 2).toBeLessThanOrEqual(hq.solids[2]!.height);
+  });
+});
+
+describe('Universe — modo apresentação', () => {
+  it('nenhuma tomada atravessa um prédio, uma torre ou o chão, em nenhuma qualidade', () => {
+    for (const q of QUALITIES) {
+      const all = citySolids(q);
+      for (const s of CINEMA_SHOTS)
+        for (let k = 0; k <= 1.0001; k += 0.02) {
+          const p = shotPose(s, k);
+          expect(insideSolid(p.x, p.z, p.y, 2, all), `${q}/${s.id} k=${k.toFixed(2)}`).toBe(false);
+          expect(p.y).toBeGreaterThan(2);
+          expect(Math.abs(p.x)).toBeLessThan(WORLD_HALF);
+          expect(Math.abs(p.z)).toBeLessThan(WORLD_HALF);
+        }
+    }
+  });
+
+  it('percorre as tomadas em ordem, com fusão nas trocas; com movimento reduzido, planos fixos sem fusão', () => {
+    let t = 0;
+    const seen: number[] = [];
+    for (const s of CINEMA_SHOTS) {
+      expect(cinemaPose(t + 0.01, false).fade).toBeGreaterThan(0.9);
+      expect(cinemaPose(t + s.seconds / 2, false).fade).toBe(0);
+      seen.push(cinemaPose(t + s.seconds / 2, false).shot);
+      t += s.seconds;
+    }
+    expect(seen).toEqual(CINEMA_SHOTS.map((_, i) => i));
+    expect(cinemaPose(cinemaLength(false) + 1, false).shot).toBe(0);
+    const a = cinemaPose(1, true);
+    const b = cinemaPose(5, true);
+    expect([a.x, a.y, a.z, a.fade]).toEqual([b.x, b.y, b.z, 0]);
   });
 });

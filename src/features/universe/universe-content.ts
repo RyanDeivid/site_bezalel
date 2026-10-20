@@ -91,6 +91,16 @@ const pt = {
     lowFps: 'A cena estava lenta: baixamos a qualidade gráfica um nível.',
     lost: 'O 3D parou de responder neste aparelho. Mostrando o mapa da cidade.',
     paused: 'Animações pausadas',
+    present: 'Apresentação',
+    exitPresent: 'Sair da apresentação',
+    cinemaShots: {
+      avenue: 'Avenida Bezalel',
+      plaza: 'Praça Bezalel',
+      hq: 'Sede Bezalel',
+      lab: 'Laboratório de IA',
+      products: 'Centro de Produtos',
+      aerial: 'A cidade vista do alto',
+    } as Record<'avenue' | 'plaza' | 'hq' | 'lab' | 'products' | 'aerial', string>,
   },
   vehicles: {
     aurora: 'Sedã Aurora',
@@ -272,6 +282,16 @@ const en: Content = {
     lowFps: 'The scene was slow: we lowered the graphics quality one level.',
     lost: '3D stopped responding on this device. Showing the city map.',
     paused: 'Animations paused',
+    present: 'Presentation',
+    exitPresent: 'Leave the presentation',
+    cinemaShots: {
+      avenue: 'Bezalel Avenue',
+      plaza: 'Bezalel Plaza',
+      hq: 'Bezalel HQ',
+      lab: 'AI Lab',
+      products: 'Products Center',
+      aerial: 'The city from above',
+    },
   },
   vehicles: {
     aurora: 'Aurora sedan',

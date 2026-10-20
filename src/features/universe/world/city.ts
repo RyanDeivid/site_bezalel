@@ -130,14 +130,15 @@ const box = (cx: number, cz: number, w: number, d: number, height: number, base 
  */
 export const BUILDINGS: BuildingSpec[] = [
   {
-    // Sede: pódio + torre + coroa (o cubo do símbolo). Entrada voltada para a praça (sul).
+    // Sede: pódio + torre afunilada + lanterna e coroa (o cubo do símbolo). Entrada voltada para a praça (sul).
+    // As medidas são as de `HQ` (landmarkGeometry.ts).
     id: 'bezalel-hq',
     district: 'hq',
     x: 0,
     z: -80,
     facing: 0,
-    height: 78,
-    solids: [box(0, -80, 40, 26, 9), box(0, -82, 22, 16, 58), box(0, -82, 17, 17, 78)],
+    height: 81,
+    solids: [box(0, -80, 40, 26, 9.3), box(0, -82, 22, 16, 57.3), box(0, -82, 17, 17, 81)],
   },
   {
     // Laboratório de IA: salão octogonal de vidro com núcleo. Entrada voltada para a praça (oeste).

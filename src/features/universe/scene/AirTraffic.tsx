@@ -1,7 +1,7 @@
 import { useFrame } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
-import { airPose, createAirTraffic, type AirClass } from '../world/air';
+import { airDebug, airPose, createAirTraffic, type AirClass } from '../world/air';
 import { atLeast, type Quality } from '../world/city';
 import { AIR_CLASSES, AIR_PAINT, buildAirModels, buildFarAirModels, disposeAirModels, disposeFarAirModels, type AirSlot } from './airModels';
 import type { CarMaterials } from './carModels';
@@ -70,9 +70,16 @@ export function AirTraffic({ quality, running, materials, lodDistance }: { quali
   const clock = useRef(0);
   const tmp = useMemo(() => ({ m: new THREE.Matrix4(), e: new THREE.Euler(0, 0, 0, 'YXZ'), q: new THREE.Quaternion(), p: new THREE.Vector3(), s: new THREE.Vector3(1, 1, 1) }), []);
 
+  useEffect(() => {
+    airDebug.traffic = traffic;
+    return () => {
+      airDebug.traffic = null;
+    };
+  }, [traffic]);
+
   useFrame(({ camera }, dt) => {
-    if (running) clock.current += Math.min(dt, 0.1);
-    const t = clock.current;
+    if (running && !airDebug.frozen) clock.current += Math.min(dt, 0.1);
+    const t = (airDebug.t = clock.current);
     // Luzes de navegação piscam em ciclo (a branca, de leve).
     mats.navRed.visible = mats.navGreen.visible = (t * 1.2) % 1 < 0.75;
     mats.navWhite.visible = (t * 0.8) % 1 < 0.2;

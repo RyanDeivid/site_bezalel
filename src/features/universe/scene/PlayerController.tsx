@@ -2,6 +2,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { insideSolid, PLACES, type PlaceId, type Solid } from '../world/city';
+import { cinemaPose } from '../world/cinema';
 import { autopilotInput, stepCraft } from '../world/flight';
 import {
   CAMERA_DISTANCE,
@@ -305,7 +306,20 @@ export function PlayerController({ runtime, solids, inputEnabled, calmCamera, on
       init.current = true;
     } else camPos.lerp(goal, 1 - Math.exp(-dt * (rt.mode === 'foot' ? 7 : 6)));
     camera.position.copy(camPos);
-    if (rt.shot) {
+    if (rt.cinema) {
+      // Modo apresentação: as tomadas de cinema da região principal (o jogador fica parado onde estava).
+      const c = rt.cinema;
+      if (!c.hold) c.t += Math.min(dt, 0.1);
+      const s = cinemaPose(c.t, calmCamera);
+      c.fade = s.fade;
+      c.shot = s.shot;
+      camera.position.set(s.x, s.y, s.z);
+      camera.lookAt(s.tx, s.ty, s.tz);
+      if (Math.abs(persp.fov - s.fov) > 0.05) {
+        persp.fov = s.fov;
+        persp.updateProjectionMatrix();
+      }
+    } else if (rt.shot) {
       // Vista fixa (apresentação / capturas): ignora a câmera do jogo.
       const s = rt.shot;
       camera.position.set(s.x, s.y, s.z);

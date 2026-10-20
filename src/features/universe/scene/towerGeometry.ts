@@ -14,14 +14,14 @@ export type Slot = TowerMaterial | 'metal' | 'matte' | 'glow';
 export const FACADE_SLOTS: ReadonlySet<Slot> = new Set<Slot>(['glassBlue', 'glassBronze', 'whiteConcrete', 'charcoal', 'metalPanel', 'darkGlass', 'storefront']);
 const COLORED: ReadonlySet<Slot> = new Set<Slot>(['metal', 'matte', 'glow']);
 
-type P2 = [number, number];
+export type P2 = [number, number];
 const V = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
 const UP = V(0, 1, 0);
 const DOWN = V(0, -1, 0);
 /** Cor HDR (acima de 1): com o brilho ligado, LEDs e coroas acendem de verdade. */
 const hdr = (r: number, g: number, b: number, k: number) => new THREE.Color().setRGB(r * k, g * k, b * k);
 
-const C = {
+export const C = {
   aluminum: new THREE.Color('#7a8189'),
   graphite: new THREE.Color('#2b2f37'),
   bronze: new THREE.Color('#9a7d55'),
@@ -48,7 +48,7 @@ const TRIM: Record<TowerMaterial, { slot: 'metal' | 'matte'; color: THREE.Color 
 };
 
 /** Junta triângulos com posição, normal, uv e cor (a cor só entra na geometria dos acabamentos). */
-class Builder {
+export class Builder {
   readonly pos: number[] = [];
   readonly nor: number[] = [];
   readonly uv: number[] = [];
@@ -107,7 +107,7 @@ class Builder {
  * elipse de 24 lados. `grow` afasta todas as faces da mesma distância (para
  * cornijas e marquises que contornam o volume).
  */
-function outline(shape: TowerPart['shape'], w: number, d: number, grow = 0, cx = 0, cz = 0): P2[] {
+export function outline(shape: TowerPart['shape'], w: number, d: number, grow = 0, cx = 0, cz = 0): P2[] {
   const hw = w / 2 + grow;
   const hd = d / 2 + grow;
   let pts: P2[];
@@ -138,13 +138,20 @@ function outline(shape: TowerPart['shape'], w: number, d: number, grow = 0, cx =
   return pts.map(([x, z]) => [x + cx, z + cz]);
 }
 
-/** Paredes de um prisma com UVs em metros (u corre em volta da planta: a fachada continua nas quinas). */
-function walls(b: Builder, pts: P2[], y0: number, h: number, smooth: boolean, tileW = 4, tileH = 4, center: P2 = [0, 0]) {
+/**
+ * Paredes de um prisma com UVs em metros (u corre em volta da planta: a fachada continua nas quinas).
+ * `only` escolhe as faces (pelo índice da aresta da planta) — para deixar um vão, como o de um saguão.
+ */
+export function walls(b: Builder, pts: P2[], y0: number, h: number, smooth: boolean, tileW = 4, tileH = 4, center: P2 = [0, 0], only?: (edge: number) => boolean) {
   let s = 0;
   for (let i = 0; i < pts.length; i++) {
     const [ax, az] = pts[i]!;
     const [bx, bz] = pts[(i + 1) % pts.length]!;
     const L = Math.hypot(bx - ax, bz - az);
+    if (only && !only(i)) {
+      s += L;
+      continue;
+    }
     const face = V((bz - az) / L, 0, -(bx - ax) / L);
     const na = smooth ? V(ax - center[0], 0, az - center[1]).normalize() : face;
     const nb = smooth ? V(bx - center[0], 0, bz - center[1]).normalize() : face;
@@ -166,8 +173,39 @@ function walls(b: Builder, pts: P2[], y0: number, h: number, smooth: boolean, ti
   }
 }
 
+/**
+ * Paredes inclinadas entre duas plantas com o mesmo número de pontos (torre
+ * que afina para cima). O u é o mesmo em baixo e em cima: os montantes
+ * convergem, como num prédio afunilado de verdade.
+ */
+export function loft(b: Builder, lo: P2[], hi: P2[], y0: number, y1: number, tileW: number, tileH: number) {
+  let s = 0;
+  for (let i = 0; i < lo.length; i++) {
+    const j = (i + 1) % lo.length;
+    const a0 = V(lo[i]![0], y0, lo[i]![1]);
+    const b0 = V(lo[j]![0], y0, lo[j]![1]);
+    const a1 = V(hi[i]![0], y1, hi[i]![1]);
+    const b1 = V(hi[j]![0], y1, hi[j]![1]);
+    const L = a0.distanceTo(b0);
+    const face = a1.clone().sub(a0).cross(b0.clone().sub(a0)).normalize();
+    const v1 = Math.hypot(y1 - y0, a1.x - a0.x, a1.z - a0.z) / tileH;
+    b.poly(
+      [a0, b0, b1, a1],
+      [face, face, face, face],
+      [
+        [s / tileW, 0],
+        [(s + L) / tileW, 0],
+        [(s + L) / tileW, v1],
+        [s / tileW, v1],
+      ],
+      face,
+    );
+    s += L;
+  }
+}
+
 /** Tampa plana (para cima ou para baixo) de uma planta convexa. */
-function cap(b: Builder, pts: P2[], y: number, up = true) {
+export function cap(b: Builder, pts: P2[], y: number, up = true) {
   const n = up ? UP : DOWN;
   b.poly(
     pts.map(([x, z]) => V(x, y, z)),
@@ -178,7 +216,7 @@ function cap(b: Builder, pts: P2[], y: number, up = true) {
 }
 
 /** Barra reta de seção quadrada entre dois pontos (diagrid, mastros, contornos de LED). */
-function segment(b: Builder, a: THREE.Vector3, c: THREE.Vector3, thick: number) {
+export function segment(b: Builder, a: THREE.Vector3, c: THREE.Vector3, thick: number) {
   const dir = c.clone().sub(a);
   const L = dir.length();
   const q = new THREE.Quaternion().setFromUnitVectors(UP, dir.divideScalar(L));
@@ -214,7 +252,7 @@ function fins(b: Builder, pts: P2[], y0: number, h: number, every: number, depth
   }
 }
 
-interface Ctx {
+export interface Ctx {
   get(slot: Slot, color?: THREE.Color): Builder;
 }
 
@@ -462,15 +500,32 @@ function crown(ctx: Ctx, v: TowerVariant, top: TowerPart, y: number, detail: boo
  * cornijas e o coroamento.
  */
 export function buildTowerGeometry(v: TowerVariant, detail: boolean): Map<Slot, THREE.BufferGeometry> {
-  const builders = new Map<Slot, Builder>();
-  const ctx: Ctx = {
-    get(slot, color) {
+  const { ctx, finish } = slotBuilders<Slot>();
+  buildParts(ctx, v, detail);
+  return finish();
+}
+
+/** Um Builder por material, criado quando é usado; `finish` entrega as geometrias (com cor nos acabamentos). */
+export function slotBuilders<S extends string>() {
+  const builders = new Map<S, Builder>();
+  const ctx = {
+    get(slot: S, color?: THREE.Color) {
       let b = builders.get(slot);
       if (!b) builders.set(slot, (b = new Builder()));
       if (color) b.color = color;
       return b;
     },
   };
+  const finish = () => {
+    const out = new Map<S, THREE.BufferGeometry>();
+    for (const [slot, b] of builders) out.set(slot, b.geometry(COLORED.has(slot as Slot)));
+    return out;
+  };
+  return { ctx, finish };
+}
+
+/** Os volumes empilhados de uma família (ou de um marco descrito do mesmo jeito) e o coroamento. */
+export function buildParts(ctx: Ctx, v: TowerVariant, detail: boolean) {
   let y = 0;
   let top = v.parts[0]!;
   for (const p of v.parts) {
@@ -494,7 +549,4 @@ export function buildTowerGeometry(v: TowerVariant, detail: boolean): Map<Slot, 
     top = p;
   }
   crown(ctx, v, top, y, detail);
-  const out = new Map<Slot, THREE.BufferGeometry>();
-  for (const [slot, b] of builders) out.set(slot, b.geometry(COLORED.has(slot)));
-  return out;
 }

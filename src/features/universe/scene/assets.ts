@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
-import { facadeSystem, facadeTextures, intersectionTexture, stonePanelTexture, storefrontTextures, layersTexture, padTexture, PALETTE, paverTexture, plazaTexture, roadTexture } from './textures';
+import { facadeSystem, facadeTextures, intersectionTexture, lobbyTexture, washTexture, stonePanelTexture, storefrontTextures, layersTexture, padTexture, PALETTE, paverTexture, plazaTexture, roadTexture } from './textures';
 
 import { atLeast, type Quality } from '../world/city';
 
@@ -40,6 +40,9 @@ export function createUniverseAssets(quality: Quality, anisotropy = 1) {
     charcoal: facadeSystem('charcoal', fs, 401),
     metalPanel: facadeSystem('metalPanel', fs, 503),
     darkGlass: facadeSystem('darkGlass', fs, 601),
+    champagne: facadeSystem('champagne', fs, 709),
+    lobby: lobbyTexture(hi ? 1024 : 512),
+    wash: washTexture(64),
     storefront: storefrontTextures(hi ? 1024 : 512),
     stoneDark: stonePanelTexture(hi ? 512 : 256, PALETTE.surface, 'rgba(199,168,106,0.22)'),
     stoneLight: stonePanelTexture(hi ? 512 : 256, '#bfb49c', 'rgba(16,27,43,0.28)'),
@@ -75,7 +78,12 @@ export function createUniverseAssets(quality: Quality, anisotropy = 1) {
     glass: new THREE.MeshStandardMaterial({ color: '#6f95c9', transparent: true, opacity: 0.24, roughness: 0.04, metalness: 0.2, envMapIntensity: 1.5, depthWrite: false, side: THREE.DoubleSide }),
     darkGlass: std({ color: '#0b1526', roughness: 0.08, metalness: 0.85, envMapIntensity: 1.3 }),
     layers: std({ map: textures.layers, roughness: 0.4, metalness: 0.2 }),
-    foliage: std({ color: '#24463f', roughness: 0.85, metalness: 0, flatShading: true }),
+    // Estacionamentos do parque de chegada: asfalto liso, faixas brancas e a baia dourada do táxi.
+    lot: std({ color: '#2b2d32', roughness: 0.88, metalness: 0 }),
+    paint: std({ color: '#d9d6cc', roughness: 0.7, metalness: 0 }),
+    paintGold: std({ color: PALETTE.gold, roughness: 0.5, metalness: 0.2, emissive: new THREE.Color(PALETTE.gold), emissiveIntensity: 0.18 }),
+    // Copas com a cor nos vértices (mais escuras embaixo, mais claras no alto).
+    foliage: std({ vertexColors: true, roughness: 0.9, metalness: 0, envMapIntensity: 0.4 }),
     trunk: std({ color: '#2a2622', roughness: 0.9, metalness: 0 }),
     facadeA: facade(facadeA),
     facadeB: facade(facadeB, '#d8dde6'),
@@ -97,6 +105,10 @@ export function createUniverseAssets(quality: Quality, anisotropy = 1) {
     towerWhite: std({ map: textures.whiteConcrete.map, emissiveMap: textures.whiteConcrete.emissive, emissive: new THREE.Color('#ffffff'), emissiveIntensity: 1.4, roughness: 0.82, metalness: 0, envMapIntensity: 0.4 }),
     towerCharcoal: std({ map: textures.charcoal.map, emissiveMap: textures.charcoal.emissive, emissive: new THREE.Color('#ffffff'), emissiveIntensity: 1.5, roughness: 0.6, metalness: 0.15, envMapIntensity: 0.8 }),
     towerMetal: std({ map: textures.metalPanel.map, emissiveMap: textures.metalPanel.emissive, emissive: new THREE.Color('#ffffff'), emissiveIntensity: 1.4, roughness: 0.38, metalness: 0.65, envMapIntensity: 1 }),
+    // Sede: vidro champanhe (o único da cidade), saguão aceso e os refletores que lavam o pódio.
+    towerChampagne: std({ map: textures.champagne.map, emissiveMap: textures.champagne.emissive, emissive: new THREE.Color('#ffffff'), emissiveIntensity: 1.6, roughness: 0.12, metalness: 0.8, envMapIntensity: 1.3 }),
+    lobby: std({ map: textures.lobby.map, emissiveMap: textures.lobby.emissive, emissive: new THREE.Color('#ffffff'), emissiveIntensity: 0.85, roughness: 0.08, metalness: 0.5, envMapIntensity: 0.8 }),
+    wash: new THREE.MeshBasicMaterial({ map: textures.wash, color: new THREE.Color(1, 0.74, 0.46).multiplyScalar(0.55), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }),
     // Acabamentos com a cor no vértice: aletas e caixilhos (metal), lajes e coberturas (fosco), LEDs e coroas (luz).
     trimMetal: std({ vertexColors: true, roughness: 0.35, metalness: 0.8, envMapIntensity: 1.1 }),
     trimMatte: std({ vertexColors: true, roughness: 0.85, metalness: 0, envMapIntensity: 0.5 }),

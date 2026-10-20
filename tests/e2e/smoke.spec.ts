@@ -697,6 +697,7 @@ interface UniverseProbe {
   vehicles: Array<{ id: string; x: number; y: number; z: number; heading: number; speed: number }>;
   traffic: number;
   nearVehicle: string | null;
+  cinema: { t: number; shot: number } | null;
 }
 type UniverseWindow = Window & {
   __bzUniverse?: { state: () => UniverseProbe; placeWalker: (x: number, z: number, yaw?: number) => void; placeVehicle: (id: string, x: number, z: number, heading: number) => void };
@@ -778,6 +779,40 @@ test.describe('Universe 3D no computador', () => {
     await expect.poll(async () => { const w = (await state()).walker; return Math.hypot(w.x - parked.x, w.z - parked.z); }, { timeout: 30_000 }).toBeGreaterThan(1);
     await page.keyboard.up('w');
     expect(aurora(await state())).toMatchObject({ x: car.x, z: car.z });
+    expect(errors.filter((e) => !/GPU|WebGL|GL_/.test(e))).toEqual([]);
+  });
+
+  test('Universe 3D no computador: modo apresentação (botão e tecla C) recolhe o HUD, move a câmera e sai com Esc', async ({ page, isMobile }) => {
+    test.skip(isMobile, 'Atalhos do teclado do computador.');
+    test.setTimeout(120_000);
+    const errors = trackErrors(page);
+    const state = await enterUniverse3d(page);
+    const places = page.getByRole('button', { name: 'Locais' });
+    await expect(places).toBeVisible();
+    await page.getByRole('button', { name: 'Apresentação (C)' }).click();
+    const exit = page.getByRole('button', { name: /Sair da apresentação/ });
+    await expect(exit).toBeVisible({ timeout: 10_000 });
+    // A interface do jogo se recolhe; a tomada tem nome; o tempo da apresentação anda.
+    await expect(places).toBeHidden();
+    await expect(page.getByRole('status').filter({ hasText: 'Avenida Bezalel' })).toBeVisible();
+    const t0 = (await state()).cinema!.t;
+    await expect.poll(async () => (await state()).cinema?.t ?? 0, { timeout: 30_000 }).toBeGreaterThan(t0);
+    // O jogador não anda enquanto a câmera apresenta a cidade.
+    const w0 = (await state()).walker;
+    await page.keyboard.down('w');
+    await page.waitForTimeout(800);
+    await page.keyboard.up('w');
+    expect((await state()).walker).toMatchObject({ x: w0.x, z: w0.z });
+    // Esc sai: o HUD volta e a câmera do jogo também.
+    await page.keyboard.press('Escape');
+    await expect(places).toBeVisible({ timeout: 10_000 });
+    await expect.poll(async () => (await state()).cinema, { timeout: 10_000 }).toBeNull();
+    // A tecla C entra de novo; o botão sai.
+    await page.mouse.move(640, 400);
+    await page.keyboard.press('c');
+    await expect(exit).toBeVisible({ timeout: 10_000 });
+    await exit.click();
+    await expect(places).toBeVisible({ timeout: 10_000 });
     expect(errors.filter((e) => !/GPU|WebGL|GL_/.test(e))).toEqual([]);
   });
 

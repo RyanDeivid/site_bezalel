@@ -44,7 +44,7 @@ const repeat = (t: THREE.Texture) => {
   return t;
 };
 
-export type FacadeSystem = 'glassBlue' | 'glassBronze' | 'whiteConcrete' | 'charcoal' | 'metalPanel' | 'darkGlass';
+export type FacadeSystem = 'glassBlue' | 'glassBronze' | 'whiteConcrete' | 'charcoal' | 'metalPanel' | 'darkGlass' | 'champagne';
 
 /** A imagem de uma fachada cobre 24 m × 28 m: 16 módulos de 1,5 m × 8 andares de 3,5 m. */
 export const FACADE_TILE = { w: 24, h: 28, module: 1.5, floor: 3.5 } as const;
@@ -74,11 +74,12 @@ export function facadeSystem(kind: FacadeSystem, size: number, seed: number) {
   const rows = 8;
   // Escritórios acesos em trechos contínuos de um andar; cada trecho tem a sua luz (quente, neutra ou fria) e intensidade.
   type Lit = { rgb: [number, number, number]; a: number; blinds: boolean } | null;
-  const share = { glassBlue: 0.24, glassBronze: 0.26, whiteConcrete: 0.3, charcoal: 0.2, metalPanel: 0.24, darkGlass: 0.12 }[kind];
+  // A sede (vidro champanhe) é a mais acesa da cidade, e só com luz quente: lê-se de longe como o marco principal.
+  const share = { glassBlue: 0.24, glassBronze: 0.26, whiteConcrete: 0.3, charcoal: 0.2, metalPanel: 0.24, darkGlass: 0.12, champagne: 0.42 }[kind];
   const pick = (): Lit => {
     if (rand() >= share) return null;
     const t = rand();
-    const rgb: [number, number, number] = t < 0.55 ? [255, 204, 148] : t < 0.85 ? [246, 232, 210] : [186, 210, 255];
+    const rgb: [number, number, number] = kind === 'champagne' ? (t < 0.6 ? [255, 214, 160] : [250, 236, 212]) : t < 0.55 ? [255, 204, 148] : t < 0.85 ? [246, 232, 210] : [186, 210, 255];
     return { rgb, a: 0.42 + rand() * 0.32, blinds: rand() < 0.3 };
   };
   const lit: Lit[][] = [];
@@ -125,8 +126,8 @@ export function facadeSystem(kind: FacadeSystem, size: number, seed: number) {
     }
   };
 
-  if (kind === 'glassBlue' || kind === 'glassBronze' || kind === 'darkGlass') {
-    const base = { glassBlue: ['#25455a', '#102233'], glassBronze: ['#4d3d2e', '#211a13'], darkGlass: ['#161d28', '#080a0e'] }[kind];
+  if (kind === 'glassBlue' || kind === 'glassBronze' || kind === 'darkGlass' || kind === 'champagne') {
+    const base = { glassBlue: ['#25455a', '#102233'], glassBronze: ['#4d3d2e', '#211a13'], darkGlass: ['#161d28', '#080a0e'], champagne: ['#6b5f4b', '#2c261d'] }[kind];
     const grad = c.createLinearGradient(0, 0, 0, H);
     grad.addColorStop(0, base[0]!);
     grad.addColorStop(1, base[1]!);
@@ -140,11 +141,11 @@ export function facadeSystem(kind: FacadeSystem, size: number, seed: number) {
         else darkPane(k * mod, y, mod, fl - 0.9 * m);
       }
       // Laje opaca (spandrel) de 0,9 m em cada andar: esconde o piso e o forro.
-      c.fillStyle = kind === 'glassBronze' ? 'rgba(28,22,16,0.8)' : 'rgba(5,8,13,0.75)';
+      c.fillStyle = kind === 'glassBronze' || kind === 'champagne' ? 'rgba(28,22,16,0.8)' : 'rgba(5,8,13,0.75)';
       c.fillRect(0, y + fl - 0.9 * m, W, 0.9 * m);
     }
     // Montantes verticais a cada módulo e travessas nas lajes (metal fino, um pouco mais claro que o vidro).
-    c.fillStyle = kind === 'glassBronze' ? 'rgba(160,130,92,0.5)' : 'rgba(130,148,168,0.4)';
+    c.fillStyle = kind === 'champagne' ? 'rgba(220,196,146,0.6)' : kind === 'glassBronze' ? 'rgba(160,130,92,0.5)' : 'rgba(130,148,168,0.4)';
     g.fillStyle = 'rgba(0,0,0,0.9)';
     for (let k = 0; k <= cols; k++) {
       c.fillRect(k * mod - 0.04 * m, 0, 0.08 * m, H);
@@ -354,9 +355,10 @@ export function intersectionTexture(size: number) {
     ctx.fillRect(rand() * size, rand() * size, 1, 1);
   }
   // Faixas de pedestres: barras brancas de 0,5 m com 0,5 m de vão, 2,4 m de comprimento, nas quatro bordas.
+  // Só no trecho de 2,75 m a 9,25 m de cada borda: nas quinas, as quatro faixas não se sobrepõem.
   ctx.fillStyle = 'rgba(236,232,222,0.85)';
-  for (let k = 0; k < 10; k++) {
-    const p = (1.25 + k * 1.0) * m;
+  for (let k = 0; k < 7; k++) {
+    const p = (2.75 + k * 1.0) * m;
     const w = 0.5 * m;
     ctx.fillRect(p, 0.2 * m, w, 2.4 * m);
     ctx.fillRect(p, size - 2.6 * m, w, 2.4 * m);
@@ -626,6 +628,109 @@ export function storefrontTextures(size: number) {
 }
 
 /** Painéis de pedra com juntas (a imagem cobre 6 m × 3 m): fachadas opacas com escala. */
+/**
+ * Saguão de pé-direito duplo da sede (a imagem cobre 34 m × 7,4 m): luz
+ * quente do forro, a parede de fundo com o cubo da marca em dourado, o balcão
+ * da recepção, um mezanino e pessoas contra a luz. `map` + `emissive`.
+ */
+export function lobbyTexture(width: number) {
+  const height = Math.round((width * 7.4) / 34);
+  const color = makeCanvasTexture(width, height);
+  const glow = makeCanvasTexture(width, height);
+  const c = color.ctx;
+  const g = glow.ctx;
+  const m = width / 34;
+  const rand = rng(91);
+  c.fillStyle = '#20232a';
+  c.fillRect(0, 0, width, height);
+  // Interior: forro claro no alto, parede de fundo em pedra quente, piso refletindo.
+  const back = g.createLinearGradient(0, 0, 0, height);
+  back.addColorStop(0, 'rgba(255,226,182,0.95)');
+  back.addColorStop(0.12, 'rgba(255,214,160,0.7)');
+  back.addColorStop(0.6, 'rgba(232,196,146,0.5)');
+  back.addColorStop(1, 'rgba(255,224,180,0.62)');
+  g.fillStyle = back;
+  g.fillRect(0, 0, width, height);
+  // Linhas de luz no forro.
+  g.fillStyle = 'rgba(255,244,220,1)';
+  for (let x = 1.5 * m; x < width; x += 3 * m) g.fillRect(x, 0.25 * m, 1.6 * m, 0.08 * m);
+  // Mezanino a 3,6 m, com guarda-corpo, e as pessoas de cima.
+  g.fillStyle = 'rgba(0,0,0,0.55)';
+  g.fillRect(0, height - 3.8 * m, width * 0.42, 0.3 * m);
+  g.fillRect(width * 0.58, height - 3.8 * m, width * 0.42, 0.3 * m);
+  // Parede da marca no centro: painel escuro com o cubo dourado (três faces) aceso.
+  const cx = width / 2;
+  const cy = height * 0.42;
+  g.fillStyle = 'rgba(0,0,0,0.7)';
+  g.fillRect(cx - 4 * m, height * 0.08, 8 * m, height * 0.72);
+  const r = 1.5 * m;
+  const pts = Array.from({ length: 6 }, (_, i) => [cx + r * Math.sin((i * Math.PI) / 3), cy - r * Math.cos((i * Math.PI) / 3)] as const);
+  const face = (a: number, b: number, col: string) => {
+    g.fillStyle = col;
+    g.beginPath();
+    g.moveTo(cx, cy);
+    g.lineTo(pts[a]![0], pts[a]![1]);
+    g.lineTo(pts[(a + 1) % 6]![0], pts[(a + 1) % 6]![1]);
+    g.lineTo(pts[b]![0], pts[b]![1]);
+    g.closePath();
+    g.fill();
+  };
+  face(5, 1, 'rgba(234,201,128,1)');
+  face(1, 3, 'rgba(176,146,92,1)');
+  face(3, 5, 'rgba(120,136,160,1)');
+  // Balcão da recepção (contraluz) com o tampo aceso.
+  g.fillStyle = 'rgba(0,0,0,0.7)';
+  g.fillRect(cx - 6 * m, height - 1.25 * m, 12 * m, 1.05 * m);
+  g.fillStyle = 'rgba(255,236,200,0.9)';
+  g.fillRect(cx - 6 * m, height - 1.27 * m, 12 * m, 0.06 * m);
+  // Pessoas e plantas no saguão.
+  for (let k = 0; k < 16; k++) {
+    const x = rand() * width;
+    if (Math.abs(x - cx) < 6.5 * m) continue;
+    const h = (1.55 + rand() * 0.3) * m;
+    g.fillStyle = `rgba(0,0,0,${0.45 + rand() * 0.25})`;
+    g.fillRect(x, height - 0.2 * m - h, 0.42 * m, h);
+    g.beginPath();
+    g.arc(x + 0.21 * m, height - 0.2 * m - h - 0.14 * m, 0.14 * m, 0, Math.PI * 2);
+    g.fill();
+  }
+  // Caixilhos de bronze a cada 2,5 m, travessa no mezanino; no `map`, o vidro escuro.
+  c.fillStyle = '#8a7350';
+  g.fillStyle = '#000';
+  for (let x = 0; x <= width; x += 2.5 * m) {
+    c.fillRect(x - 0.06 * m, 0, 0.12 * m, height);
+    g.fillRect(x - 0.06 * m, 0, 0.12 * m, height);
+  }
+  c.fillRect(0, height - 3.6 * m, width, 0.1 * m);
+  g.fillRect(0, height - 3.6 * m, width, 0.1 * m);
+  color.texture.needsUpdate = true;
+  glow.texture.needsUpdate = true;
+  return { map: color.texture, emissive: glow.texture };
+}
+
+/** Lavagem de luz de baixo para cima numa parede (somada à cena): o facho de um refletor no chão. */
+export function washTexture(size: number) {
+  const { ctx, texture } = makeCanvasTexture(size, size * 2);
+  const g = ctx.createRadialGradient(size / 2, size * 2, 0, size / 2, size * 2, size * 2);
+  g.addColorStop(0, 'rgba(255,255,255,1)');
+  g.addColorStop(0.35, 'rgba(255,255,255,0.45)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, size, size * 2);
+  // Esmaece nas laterais (o facho é estreito).
+  const side = ctx.createLinearGradient(0, 0, size, 0);
+  side.addColorStop(0, 'rgba(0,0,0,1)');
+  side.addColorStop(0.3, 'rgba(0,0,0,0)');
+  side.addColorStop(0.7, 'rgba(0,0,0,0)');
+  side.addColorStop(1, 'rgba(0,0,0,1)');
+  ctx.globalCompositeOperation = 'destination-out';
+  ctx.fillStyle = side;
+  ctx.fillRect(0, 0, size, size * 2);
+  ctx.globalCompositeOperation = 'source-over';
+  texture.needsUpdate = true;
+  return texture;
+}
+
 export function stonePanelTexture(size: number, base: string, joint: string) {
   const { ctx, texture } = makeCanvasTexture(size, size / 2);
   ctx.fillStyle = base;

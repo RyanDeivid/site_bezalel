@@ -30,6 +30,8 @@ const VIEWS = {
   air: { cam: [6, 22, 52], at: [0, 40, -40], fov: 55 },
   'air-close': { cam: [-46, 31, 40], at: [-40, 30, 20], fov: 50 },
   traffic: { cam: [44, 2.2, 52], at: [37, 1, 20], fov: 50 },
+  arrival: { cam: [-30, 4.5, 96], at: [-14, 0.8, 85], fov: 55 },
+  crosswalk: { cam: [40, 9, 52], at: [40, 0, 40], fov: 60 },
   midtown: { cam: [-42, 16, 42], at: [-75, 18, 75], fov: 55 },
   'midtown-street': { cam: [-46, 1.8, 50], at: [-75, 10, 60], fov: 60 },
   skyline: { cam: [10, 34, 70], at: [-140, 40, -110], fov: 55 },
@@ -51,6 +53,31 @@ await page.getByRole('button', { name: 'Explorar em 3D' }).click();
 await page.waitForFunction(() => !!window.__bzUniverse, null, { timeout: 120_000 });
 await page.getByText(/Preparando a cidade/).waitFor({ state: 'hidden', timeout: 120_000 });
 await page.waitForTimeout(2000);
+// Voadores de perto: congela o trânsito aéreo e enquadra o primeiro de cada classe (de lado e um pouco à frente).
+for (const cls of ['taxi', 'private', 'cargo', 'drone']) {
+  const name = `fly-${cls}`;
+  if (!only?.includes(name)) continue;
+  await page.evaluate((c) => {
+    const u = window.__bzUniverse;
+    u.freezeAir(true);
+    const v = u.air().find((a) => a.cls === c);
+    const d = c === 'drone' ? 3 : 8;
+    const fx = Math.sin(v.heading);
+    const fz = Math.cos(v.heading);
+    u.shot({ x: v.x + fz * d + fx * d * 0.6, y: v.y + d * 0.25, z: v.z - fx * d + fz * d * 0.6, tx: v.x, ty: v.y, tz: v.z, fov: 45 });
+  }, cls);
+  await page.waitForTimeout(1500);
+  await page.screenshot({ path: `${out}/${quality}-${name}.png` });
+}
+await page.evaluate(() => window.__bzUniverse.freezeAir(false));
+// Tomadas do modo apresentação, paradas no meio de cada uma (tempo em segundos).
+for (const [name, t] of Object.entries({ 'cine-avenue': 6, 'cine-plaza': 17.5, 'cine-hq': 28, 'cine-lab': 38.5, 'cine-products': 47.5, 'cine-aerial': 58 })) {
+  if (!only?.includes(name)) continue;
+  await page.evaluate((s) => window.__bzUniverse.cinemaAt(s), t);
+  await page.waitForTimeout(1500);
+  await page.screenshot({ path: `${out}/${quality}-${name}.png` });
+}
+await page.evaluate(() => window.__bzUniverse.cinemaAt(null));
 for (const [name, v] of Object.entries(VIEWS)) {
   if (only && !only.includes(name)) continue;
   await page.evaluate((view) => {
