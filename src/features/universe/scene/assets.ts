@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import * as THREE from 'three';
-import { facadeTextures, intersectionTexture, stonePanelTexture, storefrontTextures, layersTexture, padTexture, PALETTE, paverTexture, plazaTexture, roadTexture, skyTexture } from './textures';
+import { facadeTextures, intersectionTexture, stonePanelTexture, storefrontTextures, layersTexture, padTexture, PALETTE, paverTexture, plazaTexture, roadTexture } from './textures';
 
 import { atLeast, type Quality } from '../world/city';
 
@@ -27,7 +27,6 @@ export function createUniverseAssets(quality: Quality, anisotropy = 1) {
     sidewalk: paverTexture(hi ? 256 : 128, PALETTE.sidewalk, 'rgba(8,14,24,0.5)', 4),
     corner: paverTexture(hi ? 256 : 128, '#172238', 'rgba(8,14,24,0.6)', 3),
     pad: padTexture(hi ? 512 : 256),
-    sky: skyTexture(),
     layers: layersTexture(256),
     facadeA,
     facadeB,
@@ -85,7 +84,6 @@ export function createUniverseAssets(quality: Quality, anisotropy = 1) {
     })(),
     facadeHq: facade(facadeHq),
     pad: new THREE.MeshBasicMaterial({ map: textures.pad, transparent: true, toneMapped: false, depthWrite: false }),
-    sky: new THREE.MeshBasicMaterial({ map: textures.sky, side: THREE.BackSide, depthWrite: false, fog: false, toneMapped: false }),
     glowGold: basic(PALETTE.gold),
     glowGoldSoft: basic(PALETTE.goldLight, { transparent: true, opacity: 0.85 }),
     glowIvory: basic(PALETTE.ivory),

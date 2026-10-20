@@ -1,5 +1,5 @@
-import { Canvas, useThree } from '@react-three/fiber';
-import { useEffect, useMemo } from 'react';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
+import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { readStorage } from '@/lib/storage';
 import { ContextLossWatcher } from '@/components/three/watchers';
@@ -7,7 +7,7 @@ import { cityTowers, citySolids, skybridges, type PlaceId, type Quality } from '
 import { QUALITY_CONFIG } from './quality';
 import type { UniverseRuntime } from '../world/runtime';
 import { AirTraffic } from './AirTraffic';
-import { useUniverseAssets, type UniverseAssets } from './assets';
+import { useUniverseAssets } from './assets';
 import { PerformanceGovernor } from './PerformanceGovernor';
 import { Avatar } from './Avatar';
 import { Billboards, Skybridges, Towers } from './Buildings';
@@ -17,6 +17,7 @@ import { Landmarks, type LandmarkTexts } from './Landmarks';
 import { PerfProbe } from './PerfProbe';
 import { Warmup } from './Warmup';
 import { PlayerController } from './PlayerController';
+import { PostFX } from './PostFX';
 import { Sun } from './Sun';
 import { Traffic } from './Traffic';
 import { PlayerVehicles } from './Vehicles';
@@ -53,34 +54,81 @@ export interface UniverseSceneProps {
   onReady: () => void;
 }
 
-/** Céu em domo + estrelas fixas (determinísticas). */
-function Sky({ assets, quality }: { assets: UniverseAssets; quality: Quality }) {
+/** Cores do céu noturno: zênite profundo, azul do meio e o brilho da cidade no horizonte (a mesma cor da névoa). */
+const SKY = { zenith: '#04070f', mid: '#0b1631', horizon: '#3a3554', glow: '#6b4c5e', fog: '#1a2140' };
+
+const SKY_VERT = /* glsl */ `
+varying vec3 vDir;
+void main() {
+  vDir = normalize(position);
+  vec4 p = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  gl_Position = p.xyww; // sempre no fundo
+}`;
+const SKY_FRAG = /* glsl */ `
+uniform vec3 zenith; uniform vec3 mid; uniform vec3 horizon; uniform vec3 glow; uniform vec3 fogColor;
+varying vec3 vDir;
+void main() {
+  float h = vDir.y;
+  vec3 c = mix(horizon, mid, smoothstep(0.02, 0.32, h));
+  c = mix(c, zenith, smoothstep(0.3, 0.95, h));
+  // Brilho quente da cidade, colado ao horizonte; abaixo dele, a cor da névoa (o chão some nela).
+  c += glow * exp(-abs(h) * 14.0) * 0.55;
+  c = mix(fogColor, c, smoothstep(-0.06, 0.02, h));
+  gl_FragColor = vec4(c, 1.0);
+  #include <colorspace_fragment>
+}`;
+
+/**
+ * Céu: um domo que acompanha a câmera (nunca fica além do alcance dela — antes,
+ * na vista do alto, o lado oposto do domo era recortado e aparecia como um
+ * círculo escuro), com gradiente do zênite ao brilho da cidade no horizonte, e
+ * estrelas fixas só acima da linha do horizonte.
+ */
+function Sky({ quality }: { quality: Quality }) {
+  const group = useRef<THREE.Group>(null);
+  const material = useMemo(
+    () =>
+      new THREE.ShaderMaterial({
+        vertexShader: SKY_VERT,
+        fragmentShader: SKY_FRAG,
+        uniforms: {
+          zenith: { value: new THREE.Color(SKY.zenith) },
+          mid: { value: new THREE.Color(SKY.mid) },
+          horizon: { value: new THREE.Color(SKY.horizon) },
+          glow: { value: new THREE.Color(SKY.glow) },
+          fogColor: { value: new THREE.Color(SKY.fog) },
+        },
+        side: THREE.BackSide,
+        depthWrite: false,
+        fog: false,
+      }),
+    [],
+  );
   const stars = useMemo(() => {
-    const { stars: count, far } = QUALITY_CONFIG[quality];
+    const count = QUALITY_CONFIG[quality].stars;
     const pos = new Float32Array(count * 3);
     for (let i = 0; i < count; i++) {
       const a = (i * 137.508 * Math.PI) / 180;
-      const elev = 0.12 + ((i * 7919) % 1000) / 1150;
-      const r = far * 0.82;
-      pos[i * 3] = Math.cos(a) * Math.cos(elev) * r;
-      pos[i * 3 + 1] = Math.sin(elev) * r;
-      pos[i * 3 + 2] = Math.sin(a) * Math.cos(elev) * r;
+      const elev = 0.18 + ((i * 7919) % 1000) / 1100;
+      pos[i * 3] = Math.cos(a) * Math.cos(elev) * 90;
+      pos[i * 3 + 1] = Math.sin(elev) * 90;
+      pos[i * 3 + 2] = Math.sin(a) * Math.cos(elev) * 90;
     }
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     return g;
   }, [quality]);
-  useEffect(() => () => stars.dispose(), [stars]);
+  useEffect(() => () => [stars, material].forEach((x) => x.dispose()), [stars, material]);
+  useFrame(({ camera }) => group.current?.position.copy(camera.position));
   return (
-    <>
-      <mesh material={assets.materials.sky} renderOrder={-1}>
-        {/* O domo fica dentro do alcance da câmera (senão aparece recortado). */}
-        <sphereGeometry args={[QUALITY_CONFIG[quality].far * 0.9, 32, 16]} />
+    <group ref={group}>
+      <mesh material={material} renderOrder={-10} frustumCulled={false}>
+        <sphereGeometry args={[100, 32, 16]} />
       </mesh>
-      <points geometry={stars}>
-        <pointsMaterial color="#f2e8d5" size={1.6} sizeAttenuation={false} transparent opacity={0.7} depthWrite={false} fog={false} />
+      <points geometry={stars} renderOrder={-9} frustumCulled={false}>
+        <pointsMaterial color="#e9e4f2" size={1.5} sizeAttenuation={false} transparent opacity={0.65} depthWrite={false} fog={false} />
       </points>
-    </>
+    </group>
   );
 }
 
@@ -101,15 +149,17 @@ function World(props: UniverseSceneProps) {
   useEffect(() => () => disposeCarMaterials(carMaterials), [carMaterials]);
   return (
     <>
-      <color attach="background" args={['#070d17']} />
-      <fog attach="fog" args={['#0c1730', 120, cfg.fog]} />
+      <color attach="background" args={[SKY.fog]} />
+      {/* Névoa exponencial na cor do horizonte: a cidade se dissolve no brilho dela, em profundidade. */}
+      <fogExp2 attach="fog" args={[SKY.fog, cfg.fogDensity]} />
       {/* O mapa de reflexos é gerado no Warmup, sem travar a página. */}
-      <Sky assets={assets} quality={quality} />
-      <hemisphereLight args={['#9fb8e0', '#0b1322', 0.85]} />
-      <ambientLight intensity={0.22} />
-      {/* Luar frio (sombras que acompanham a câmera, no médio e no alto) e um contraluz quente, discreto */}
+      <Sky quality={quality} />
+      {/* Luz em papéis: luar frio (principal, com sombras que acompanham a câmera), céu frio por cima e o
+          rebote quente da rua por baixo (hemisfério), e um contraluz quente e baixo que recorta as silhuetas. */}
+      <hemisphereLight args={['#7d93c8', '#3d2f38', 0.62]} />
+      <ambientLight intensity={0.06} />
       <Sun mapSize={cfg.shadows} range={cfg.shadowRange} every={cfg.shadowEvery} />
-      <directionalLight position={[140, 50, -150]} intensity={0.4} color="#f2e8d5" />
+      <directionalLight position={[150, 38, -160]} intensity={0.55} color="#ffb48a" />
       {/* Grupos com nome: a sonda de desempenho liga e desliga cada parte para medir o custo dela. */}
       <group name="city">
         <City assets={assets} quality={quality} />
@@ -169,7 +219,8 @@ export default function UniverseScene(props: UniverseSceneProps) {
       frameloop="never"
       shadows={cfg.shadows > 0 ? 'percentage' : false}
       dpr={startDpr}
-      gl={{ antialias: cfg.antialias, powerPreference: 'high-performance', alpha: false, preserveDrawingBuffer: false }}
+      // Com brilho, o antisserrilhado (MSAA) é feito na textura HDR da cena, não na tela.
+      gl={{ antialias: cfg.antialias && !cfg.bloom, powerPreference: 'high-performance', alpha: false, preserveDrawingBuffer: false }}
       camera={{ fov: 55, near: 0.2, far: cfg.far, position: [0, 6, 100] }}
       onCreated={({ gl }) => {
         gl.toneMappingExposure = 1.15;
@@ -180,6 +231,7 @@ export default function UniverseScene(props: UniverseSceneProps) {
       className="!absolute inset-0"
     >
       <World {...props} />
+      {cfg.bloom && <PostFX {...cfg.bloom} samples={cfg.antialias ? 4 : 0} />}
       <Warmup envIntensity={QUALITY_CONFIG[props.quality].envIntensity} envSize={QUALITY_CONFIG[props.quality].envSize} onReady={props.onReady} />
       <PerformanceGovernor min={cfg.dprMin} max={maxDpr} canUpgrade={props.canUpgrade} probation={props.probation} onLow={props.onLowPerformance} onHeadroom={props.onHeadroom} off={props.debug && readStorage('bz-universe-governor') === 'off'} debug={props.debug} />
       <ContextLossWatcher onLost={props.onContextLost} />

@@ -37,36 +37,51 @@ const mean = (a: number[]) => a.reduce((x, y) => x + y, 0) / Math.max(1, a.lengt
 
 export function PerfProbe() {
   const { gl, scene, setDpr } = useThree();
-  const samples = useRef({ frame: [] as number[], cpu: [] as number[], render: [] as number[], gpu: [] as number[], start: 0 });
-  // Prioridade negativa: roda antes de todos os useFrame da cena (marca o início do trabalho do quadro).
+  const samples = useRef({ frame: [] as number[], cpu: [] as number[], render: [] as number[], gpu: [] as number[], start: 0, renderMs: 0, lastEnd: 0, tick: null as null | (() => void) });
+  // Prioridade negativa: roda antes de todos os useFrame da cena. Fecha o quadro anterior (CPU até o
+  // último desenho dele — com brilho há várias passadas por quadro) e marca o início do novo.
   useFrame((_, dt) => {
-    push(samples.current.frame, dt * 1000);
-    samples.current.start = performance.now();
+    const s = samples.current;
+    if (s.start && s.lastEnd > s.start) {
+      push(s.cpu, s.lastEnd - s.start);
+      push(s.render, s.renderMs);
+    }
+    s.renderMs = 0;
+    s.tick?.();
+    push(s.frame, dt * 1000);
+    s.start = performance.now();
   }, -1000);
   useEffect(() => {
     const s = samples.current;
     const ctx = gl.getContext() as WebGL2RenderingContext;
     const timer = ctx.getExtension('EXT_disjoint_timer_query_webgl2') as { TIME_ELAPSED_EXT: number; GPU_DISJOINT_EXT: number } | null;
     const pending: WebGLQuery[] = [];
+    let open: WebGLQuery | null = null;
+    // Uma consulta de tempo da GPU por quadro inteiro (de um início de quadro ao seguinte).
+    s.tick = () => {
+      if (!timer) return;
+      if (open) {
+        ctx.endQuery(timer.TIME_ELAPSED_EXT);
+        pending.push(open);
+        open = null;
+      }
+      while (pending.length && ctx.getQueryParameter(pending[0]!, ctx.QUERY_RESULT_AVAILABLE)) {
+        const done = pending.shift()!;
+        if (!ctx.getParameter(timer.GPU_DISJOINT_EXT)) push(s.gpu, ctx.getQueryParameter(done, ctx.QUERY_RESULT) / 1e6);
+        ctx.deleteQuery(done);
+      }
+      if (pending.length < 4) {
+        open = ctx.createQuery();
+        if (open) ctx.beginQuery(timer.TIME_ELAPSED_EXT, open);
+      }
+    };
     const original = gl.render.bind(gl);
     gl.render = (sc, cam) => {
       const t0 = performance.now();
-      const q = timer && pending.length < 4 ? ctx.createQuery() : null;
-      if (q && timer) ctx.beginQuery(timer.TIME_ELAPSED_EXT, q);
       original(sc, cam);
-      if (q && timer) {
-        ctx.endQuery(timer.TIME_ELAPSED_EXT);
-        pending.push(q);
-      }
       const t1 = performance.now();
-      push(s.render, t1 - t0);
-      if (s.start) push(s.cpu, t1 - s.start);
-      // Resultados da GPU chegam alguns quadros depois.
-      while (pending.length && ctx.getQueryParameter(pending[0]!, ctx.QUERY_RESULT_AVAILABLE)) {
-        const done = pending.shift()!;
-        if (timer && !ctx.getParameter(timer.GPU_DISJOINT_EXT)) push(s.gpu, ctx.getQueryParameter(done, ctx.QUERY_RESULT) / 1e6);
-        ctx.deleteQuery(done);
-      }
+      s.renderMs += t1 - t0;
+      s.lastEnd = t1;
     };
     const api: PerfApi = {
       info: () => {
@@ -126,6 +141,8 @@ export function PerfProbe() {
     w.__bzUniverseGl = api;
     return () => {
       gl.render = original;
+      s.tick = null;
+      if (open && timer) ctx.endQuery(timer.TIME_ELAPSED_EXT);
       delete w.__bzUniverseGl;
     };
   }, [gl, scene, setDpr]);

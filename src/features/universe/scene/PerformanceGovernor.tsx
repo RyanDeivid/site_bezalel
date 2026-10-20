@@ -44,60 +44,69 @@ const BUDGET_MS = 1000 / 60;
 const UPGRADE_SHARE = 0.55;
 
 /**
- * Mede o trabalho real de cada quadro, independente da trava de 60 Hz.
- *  - CPU: do primeiro useFrame ao fim do envio do desenho.
- *  - Quadro inteiro (CPU + GPU): a cada 20 quadros, uma cerca (`fenceSync`) é
- *    posta no fim do desenho e consultada sem bloquear, num laço de mensagens;
- *    o momento em que a placa de vídeo a alcança, contado do início do quadro,
- *    é o custo do quadro — seja quem for o gargalo. Funciona em qualquer
+ * Mede o trabalho real de cada quadro, independente da trava de 60 Hz e de
+ * quantas passadas de desenho o quadro tenha (com brilho são ~10).
+ *  - CPU: do início do quadro ao fim do último desenho dele.
+ *  - Quadro inteiro (CPU + GPU): a cada 20 quadros, no início do quadro
+ *    seguinte (quando todo o desenho do anterior já foi enviado), uma cerca
+ *    (`fenceSync`) é posta e consultada sem bloquear, num laço de mensagens; o
+ *    momento em que a placa de vídeo a alcança, contado do início do quadro
+ *    medido, é o custo dele — seja quem for o gargalo. Funciona em qualquer
  *    navegador com WebGL2 (o cronômetro da GPU quase nunca está disponível).
  */
 function FrameCost({ perf }: { perf: PerfState }) {
   const gl = useThree((s) => s.gl);
-  const acc = useRef({ start: 0, cpu: 0, cpuN: 0, e2e: 0, e2eN: 0, frame: 0, probing: false });
+  const acc = useRef({ start: 0, lastEnd: 0, cpu: 0, cpuN: 0, e2e: 0, e2eN: 0, frame: 0, probing: false });
+  const fence = useRef<((start: number) => void) | null>(null);
   useFrame(() => {
-    acc.current.start = performance.now();
+    const a = acc.current;
+    const now = performance.now();
+    // Fecha o quadro anterior: CPU até o último desenho dele; e, de vez em quando, a cerca.
+    if (a.start && a.lastEnd > a.start) {
+      a.cpu += a.lastEnd - a.start;
+      a.cpuN++;
+      if (!a.probing && a.frame++ % 20 === 0) fence.current?.(a.start);
+    }
+    a.start = now;
   }, -1000);
   useEffect(() => {
     const a = acc.current;
     const ctx = gl.getContext() as WebGL2RenderingContext;
-    const canFence = typeof ctx.fenceSync === 'function';
     const channel = new MessageChannel();
     let alive = true;
     const render = gl.render;
     const timed: typeof gl.render = function (this: typeof gl, sc, cam) {
       render.call(gl, sc, cam);
-      const start = a.start;
-      if (!start) return;
-      a.start = 0;
-      a.cpu += performance.now() - start;
-      a.cpuN++;
-      if (!canFence || a.probing || a.frame++ % 20 !== 0) return;
-      const sync = ctx.fenceSync(ctx.SYNC_GPU_COMMANDS_COMPLETE, 0);
-      if (!sync) return;
-      ctx.flush();
-      a.probing = true;
-      const poll = () => {
-        if (!alive) return ctx.deleteSync(sync);
-        if (ctx.getSyncParameter(sync, ctx.SYNC_STATUS) === ctx.SIGNALED) {
-          const e2e = performance.now() - start;
-          ctx.deleteSync(sync);
-          a.probing = false;
-          // Mais de 100 ms: a aba ficou em segundo plano, não é custo do quadro.
-          if (e2e < 100) {
-            a.e2e += e2e;
-            a.e2eN++;
-          }
-          return;
-        }
-        channel.port2.postMessage(0);
-      };
-      channel.port1.onmessage = poll;
-      channel.port2.postMessage(0);
+      a.lastEnd = performance.now();
     };
     gl.render = timed;
+    if (typeof ctx.fenceSync === 'function')
+      fence.current = (start) => {
+        const sync = ctx.fenceSync(ctx.SYNC_GPU_COMMANDS_COMPLETE, 0);
+        if (!sync) return;
+        ctx.flush();
+        a.probing = true;
+        const poll = () => {
+          if (!alive) return ctx.deleteSync(sync);
+          if (ctx.getSyncParameter(sync, ctx.SYNC_STATUS) === ctx.SIGNALED) {
+            const e2e = performance.now() - start;
+            ctx.deleteSync(sync);
+            a.probing = false;
+            // Mais de 100 ms: a aba ficou em segundo plano, não é custo do quadro.
+            if (e2e < 100) {
+              a.e2e += e2e;
+              a.e2eN++;
+            }
+            return;
+          }
+          channel.port2.postMessage(0);
+        };
+        channel.port1.onmessage = poll;
+        channel.port2.postMessage(0);
+      };
     return () => {
       alive = false;
+      fence.current = null;
       channel.port1.onmessage = null;
       channel.port1.close();
       if (gl.render === timed) gl.render = render;

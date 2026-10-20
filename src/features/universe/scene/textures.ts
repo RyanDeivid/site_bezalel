@@ -251,21 +251,6 @@ export function padTexture(size: number) {
 }
 
 /** Céu noturno: degradê vertical do quase preto ao azul do horizonte, com uma faixa quente bem discreta. */
-export function skyTexture() {
-  const { ctx, texture } = makeCanvasTexture(4, 512);
-  const g = ctx.createLinearGradient(0, 0, 0, 512);
-  g.addColorStop(0, '#03070f');
-  g.addColorStop(0.35, '#08122a');
-  g.addColorStop(0.47, '#14254a');
-  g.addColorStop(0.5, '#2a3450');
-  g.addColorStop(0.53, '#101b2b');
-  g.addColorStop(1, '#070d17');
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, 4, 512);
-  texture.needsUpdate = true;
-  return texture;
-}
-
 /** Listras de "camadas" da face Aprender do símbolo. */
 export function layersTexture(size: number) {
   const { ctx, texture } = makeCanvasTexture(size, size);

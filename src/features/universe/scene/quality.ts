@@ -1,4 +1,5 @@
 import type { Quality } from '../world/city';
+import type { BloomSettings } from './bloom';
 
 export interface QualitySettings {
   /** Faixa da resolução adaptativa (dpr): começa no máximo que a tela permite e desce até `dprMin` se faltar fôlego. */
@@ -22,6 +23,12 @@ export interface QualitySettings {
   airLod: number;
   /** Filtragem anisotrópica das texturas (nitidez do chão e das fachadas vistos de lado). */
   anisotropy: number;
+  /** Densidade da névoa exponencial (profundidade atmosférica). */
+  fogDensity: number;
+  /** Brilho das luzes (bloom); null = desenho direto, sem pós-processamento. */
+  bloom: BloomSettings | null;
+  /** Poças de luz no chão (postes, entradas, faróis). */
+  lightPools: boolean;
 }
 
 /**
@@ -33,8 +40,8 @@ export interface QualitySettings {
  * tela (até 2×, um superamostrador) e só chega lá se o aparelho aguentar.
  */
 export const QUALITY_CONFIG: Record<Quality, QualitySettings> = {
-  low: { dprMin: 0.6, dprMax: 1, antialias: false, shadows: 0, shadowRange: 0, shadowEvery: 1, far: 300, fog: 280, stars: 400, envIntensity: 0.38, envSize: 64, carLod: 28, airLod: 40, anisotropy: 1 },
-  medium: { dprMin: 0.7, dprMax: 1.25, antialias: true, shadows: 1024, shadowRange: 70, shadowEvery: 2, far: 420, fog: 380, stars: 800, envIntensity: 0.45, envSize: 128, carLod: 45, airLod: 60, anisotropy: 4 },
-  high: { dprMin: 0.8, dprMax: 1.75, antialias: true, shadows: 2048, shadowRange: 95, shadowEvery: 1, far: 600, fog: 520, stars: 1400, envIntensity: 0.5, envSize: 256, carLod: 70, airLod: 90, anisotropy: 8 },
-  ultra: { dprMin: 1, dprMax: 2, antialias: true, shadows: 4096, shadowRange: 130, shadowEvery: 1, far: 750, fog: 650, stars: 2000, envIntensity: 0.55, envSize: 256, carLod: 110, airLod: 140, anisotropy: 16 },
+  low: { dprMin: 0.6, dprMax: 1, antialias: false, shadows: 0, shadowRange: 0, shadowEvery: 1, far: 300, fog: 280, stars: 400, envIntensity: 0.38, envSize: 64, carLod: 28, airLod: 40, anisotropy: 1, fogDensity: 0.0042, bloom: null, lightPools: false },
+  medium: { dprMin: 0.7, dprMax: 1.25, antialias: true, shadows: 1024, shadowRange: 70, shadowEvery: 2, far: 420, fog: 380, stars: 800, envIntensity: 0.45, envSize: 128, carLod: 45, airLod: 60, anisotropy: 4, fogDensity: 0.0032, bloom: { strength: 0.55, threshold: 1, knee: 0.45, levels: 4 }, lightPools: true },
+  high: { dprMin: 0.8, dprMax: 1.75, antialias: true, shadows: 2048, shadowRange: 95, shadowEvery: 1, far: 600, fog: 520, stars: 1400, envIntensity: 0.5, envSize: 256, carLod: 70, airLod: 90, anisotropy: 8, fogDensity: 0.0027, bloom: { strength: 0.65, threshold: 1, knee: 0.5, levels: 5 }, lightPools: true },
+  ultra: { dprMin: 1, dprMax: 2, antialias: true, shadows: 4096, shadowRange: 130, shadowEvery: 1, far: 750, fog: 650, stars: 2000, envIntensity: 0.55, envSize: 256, carLod: 110, airLod: 140, anisotropy: 16, fogDensity: 0.0023, bloom: { strength: 0.7, threshold: 0.95, knee: 0.5, levels: 6 }, lightPools: true },
 };

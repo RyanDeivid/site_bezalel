@@ -1,8 +1,9 @@
 import { useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
-import type * as THREE from 'three';
+import * as THREE from 'three';
 import { createEnvironmentAsync } from '@/components/three/environment';
 import { MaterialSplitter } from './materialSplit';
+import { postFor } from './bloom';
 
 const nextFrame = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
 
@@ -62,8 +63,20 @@ export function Warmup({ envIntensity, envSize, onReady }: { envIntensity: numbe
       for (let i = 0; i < 3; i++) await nextFrame();
       if (cancelled) return;
       splitter.split(scene);
+      // Com brilho, a cena é desenhada numa textura HDR (sem tone mapping, cor linear): o three gera
+      // shaders diferentes para esse destino. Compila para o destino real, e as passadas do brilho também.
+      const post = postFor(gl);
       try {
-        await gl.compileAsync(scene, camera);
+        if (post) {
+          const passes = new THREE.Scene();
+          post.materials().forEach((m) => passes.add(new THREE.Mesh(new THREE.PlaneGeometry(), m)));
+          gl.setRenderTarget(post.target);
+          const sceneReady = gl.compileAsync(scene, camera);
+          const passesReady = gl.compileAsync(passes, camera);
+          gl.setRenderTarget(null);
+          await Promise.all([sceneReady, passesReady]);
+          passes.traverse((o) => (o as THREE.Mesh).geometry?.dispose());
+        } else await gl.compileAsync(scene, camera);
       } catch {
         // Sem compileAsync: o primeiro quadro compila, como antes.
       }
@@ -85,7 +98,8 @@ export function Warmup({ envIntensity, envSize, onReady }: { envIntensity: numbe
         if (++k % 4 === 0) await nextFrame();
         if (cancelled) return;
       }
-      gl.render(scene, camera);
+      if (post) post.render(scene, camera);
+      else gl.render(scene, camera);
       await nextFrame();
       if (cancelled) return;
       setFrameloop('always');

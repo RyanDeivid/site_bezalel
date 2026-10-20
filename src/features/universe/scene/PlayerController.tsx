@@ -305,15 +305,26 @@ export function PlayerController({ runtime, solids, inputEnabled, calmCamera, on
       init.current = true;
     } else camPos.lerp(goal, 1 - Math.exp(-dt * (rt.mode === 'foot' ? 7 : 6)));
     camera.position.copy(camPos);
-    if (shake.current > 0.001) {
-      camera.position.x += (Math.random() - 0.5) * shake.current;
-      camera.position.y += (Math.random() - 0.5) * shake.current;
-      shake.current *= Math.exp(-dt * 8);
-    }
-    camera.lookAt(look);
-    if (Math.abs(persp.fov - fov) > 0.05) {
-      persp.fov += (fov - persp.fov) * (1 - Math.exp(-dt * 3));
-      persp.updateProjectionMatrix();
+    if (rt.shot) {
+      // Vista fixa (apresentação / capturas): ignora a câmera do jogo.
+      const s = rt.shot;
+      camera.position.set(s.x, s.y, s.z);
+      camera.lookAt(s.tx, s.ty, s.tz);
+      if (s.fov && Math.abs(persp.fov - s.fov) > 0.05) {
+        persp.fov = s.fov;
+        persp.updateProjectionMatrix();
+      }
+    } else {
+      if (shake.current > 0.001) {
+        camera.position.x += (Math.random() - 0.5) * shake.current;
+        camera.position.y += (Math.random() - 0.5) * shake.current;
+        shake.current *= Math.exp(-dt * 8);
+      }
+      camera.lookAt(look);
+      if (Math.abs(persp.fov - fov) > 0.05) {
+        persp.fov += (fov - persp.fov) * (1 - Math.exp(-dt * 3));
+        persp.updateProjectionMatrix();
+      }
     }
 
     // ---- Proximidade: locais e veículos -----------------------------------------------

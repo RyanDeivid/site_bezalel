@@ -48,6 +48,8 @@ export interface UniverseRuntime {
    * num veículo, `orbit` é um giro extra em volta dele que volta a zero sozinho.
    */
   camera: { yaw: number; pitch: number; distance: number; orbit: number };
+  /** Câmera fixa (vista de apresentação / capturas): posição e ponto olhado. Null = câmera do jogo. */
+  shot: { x: number; y: number; z: number; tx: number; ty: number; tz: number; fov?: number } | null;
   autopilot: (Autopilot & { place: PlaceId }) | null;
   near: PlaceId | null;
   nearVehicle: string | null;
@@ -87,6 +89,7 @@ export function createUniverseRuntime(): UniverseRuntime {
     target: null,
     buttons: { up: false, down: false, run: false, gas: false, brake: false, handbrake: false },
     camera: { yaw: SPAWN.yaw, pitch: CAMERA_PITCH.start, distance: CAMERA_DISTANCE.start, orbit: 0 },
+    shot: null,
     autopilot: null,
     near: null,
     nearVehicle: null,
@@ -336,6 +339,10 @@ export function attachDebug(rt: UniverseRuntime): () => void {
     placeWalker: (x: number, z: number, yaw = rt.camera.yaw) => {
       Object.assign(rt.walker, { x, z, vx: 0, vz: 0 });
       rt.camera.yaw = yaw;
+    },
+    /** Câmera fixa para capturas (null volta à câmera do jogo). */
+    shot: (s: UniverseRuntime['shot']) => {
+      rt.shot = s;
     },
     placeVehicle: (id: string, x: number, z: number, heading: number) => {
       const v = vehicleById(rt, id);
