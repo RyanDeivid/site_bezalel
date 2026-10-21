@@ -189,3 +189,99 @@ export function buildProductsCenter(detail: boolean, x: number, z: number): Map<
   out.forEach((g) => g.translate(x, HQ.base, z));
   return out;
 }
+
+/**
+ * Medidas do Laboratório de IA (pavilhão de pesquisa). Caixa de vidro de
+ * 28 × 28 m sob um teto circular flutuante (raio 20 m), com a entrada a oeste
+ * (para a praça): portas de vidro de correr num vão de 5 m. Dentro, o núcleo
+ * de IA no centro e as seis estações dos agentes num anel. Os sólidos de
+ * colisão (city.ts) seguem estes números — dá para entrar a pé.
+ */
+export const LAB = {
+  x: 80,
+  z: 0,
+  half: 14,
+  base: 0.3,
+  wallTop: 11.3,
+  roofBase: 12.2,
+  roofTop: 13.0,
+  roofRadius: 20,
+  door: { half: 2.5, height: 4 },
+  core: 2.2,
+  ring: 8,
+} as const;
+
+export type LabSlot = Slot | 'labGlass';
+
+/** Pavilhão do laboratório (a parte fixa; portas, núcleo animado e hologramas ficam na cena). */
+export function buildLab(detail: boolean): Map<LabSlot, THREE.BufferGeometry> {
+  const { ctx, finish } = slotBuilders<LabSlot>();
+  const { x: cx, z: cz, half, base, wallTop } = LAB;
+  const pts = outline('box', half * 2, half * 2, 0, cx, cz);
+  const westEdge = 3; // aresta (−hw, hd) → (−hw, −hd): a face oeste
+  // Vidro: três faces inteiras; a oeste, os dois trechos ao lado da porta e a bandeira acima dela.
+  const glass = ctx.get('labGlass');
+  walls(glass, pts, base, wallTop - base - 1.1, false, 4, 4, [cx, cz], (e) => e !== westEdge);
+  const wx = cx - half;
+  const n = V(-1, 0, 0);
+  const pane = (z0: number, z1: number, y0: number, y1: number) =>
+    glass.poly([V(wx, y0, z0), V(wx, y0, z1), V(wx, y1, z1), V(wx, y1, z0)], [n, n, n, n], [[0, 0], [1, 0], [1, 1], [0, 1]], n);
+  pane(cz - half, cz - LAB.door.half, base, wallTop - 1.1);
+  pane(cz + LAB.door.half, cz + half, base, wallTop - 1.1);
+  pane(cz - LAB.door.half, cz + LAB.door.half, base + LAB.door.height, wallTop - 1.1);
+  // Faixa de metal no alto (a cornija) e o forro por dentro, com linhas de luz.
+  const metal = ctx.get('metal', C.graphite);
+  walls(metal, outline('box', half * 2, half * 2, 0.05, cx, cz), wallTop - 1.1, 1.1, false);
+  cap(ctx.get('matte', new THREE.Color('#2a2d34')), pts, wallTop - 1.1, false);
+  cap(ctx.get('matte', new THREE.Color('#2b2e35')), pts, base + 0.02);
+  if (detail) {
+    // Montantes a cada 2,8 m e duas travessas.
+    const mullion = ctx.get('metal', C.aluminum);
+    for (let k = -half; k <= half + 0.01; k += 2.8)
+      for (const [ax, az] of [
+        [cx + k, cz - half],
+        [cx + k, cz + half],
+        [cx + half, cz + k],
+        [cx - half, cz + k],
+      ] as const) {
+        if (ax === cx - half && Math.abs(az - cz) < LAB.door.half + 0.1) continue;
+        segment(mullion, V(ax, base, az), V(ax, wallTop - 1.1, az), 0.12);
+      }
+    for (const y of [base + 4, base + 7.6]) walls(mullion, outline('box', half * 2, half * 2, 0.06, cx, cz), y, 0.1, false, 4, 4, [cx, cz], (e) => e !== westEdge);
+  }
+  const light = ctx.get('glow', hdr(0.9, 0.95, 1.1, 1.6));
+  for (let k = -half + 3.5; k < half - 1; k += 3.5) {
+    segment(light, V(cx - half + 1, wallTop - 1.16, cz + k), V(cx + half - 1, wallTop - 1.16, cz + k), 0.12);
+  }
+  // Teto flutuante: disco com a borda acesa (ciano) e oito pilares finos.
+  const roof = ctx.get('metal', new THREE.Color('#d7dbe0'));
+  roof.add(new THREE.CylinderGeometry(LAB.roofRadius, LAB.roofRadius * 0.96, LAB.roofTop - LAB.roofBase, 64).translate(cx, (LAB.roofBase + LAB.roofTop) / 2, cz));
+  const cyan = ctx.get('glow', hdr(0.3, 0.85, 1.0, 2.2));
+  cyan.add(new THREE.TorusGeometry(LAB.roofRadius * 0.98, 0.12, 6, 96).rotateX(Math.PI / 2).translate(cx, LAB.roofBase - 0.02, cz));
+  cyan.add(new THREE.TorusGeometry(LAB.roofRadius + 0.02, 0.08, 6, 96).rotateX(Math.PI / 2).translate(cx, LAB.roofTop, cz));
+  const post = ctx.get('metal', C.graphite);
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2 + Math.PI / 8;
+    const r = half + 3.2;
+    segment(post, V(cx + Math.cos(a) * r, base, cz + Math.sin(a) * r), V(cx + Math.cos(a) * r, LAB.roofBase, cz + Math.sin(a) * r), 0.3);
+  }
+  // Entre a caixa e o teto: um anel de vidro escuro recuado (some a vista do teto "solto").
+  walls(ctx.get('metal', C.graphite), outline('round', half * 1.5, half * 1.5, 0, cx, cz), wallTop, LAB.roofBase - wallTop, true, 4, 4, [cx, cz]);
+  // Pórtico da entrada: dois montantes e a verga em bronze, com um filete de luz por baixo.
+  const bronze = ctx.get('metal', C.bronze);
+  for (const s of [-1, 1]) segment(bronze, V(wx - 0.3, base, cz + s * (LAB.door.half + 0.25)), V(wx - 0.3, base + LAB.door.height + 0.4, cz + s * (LAB.door.half + 0.25)), 0.45);
+  segment(bronze, V(wx - 0.3, base + LAB.door.height + 0.4, cz - LAB.door.half - 0.5), V(wx - 0.3, base + LAB.door.height + 0.4, cz + LAB.door.half + 0.5), 0.5);
+  segment(ctx.get('glow', hdr(0.3, 0.85, 1.0, 2.2)), V(wx - 0.56, base + LAB.door.height + 0.12, cz - LAB.door.half), V(wx - 0.56, base + LAB.door.height + 0.12, cz + LAB.door.half), 0.06);
+  // Balizas na frente da porta: passa gente, não passa carro.
+  const bollard = ctx.get('metal', C.graphite);
+  for (const z of [-2.0, -0.7, 0.6, 1.9]) bollard.add(new THREE.CylinderGeometry(0.15, 0.15, 0.9, 10).translate(wx - 3.5, base + 0.45, cz + z));
+  // Chão: dois anéis de luz em volta do núcleo.
+  for (const r of [LAB.core + 1.2, LAB.ring + 2.2]) cyan.add(new THREE.TorusGeometry(r, 0.05, 4, 64).rotateX(Math.PI / 2).translate(cx, base + 0.04, cz));
+  // Estações dos agentes: console (o holograma e a tela ficam na cena).
+  const desk = ctx.get('metal', C.graphite);
+  for (let i = 0; i < 6; i++) {
+    const a = (i / 6) * Math.PI * 2;
+    desk.add(new THREE.BoxGeometry(1.5, 0.95, 0.8).rotateY(-a).translate(cx + Math.cos(a) * LAB.ring, base + 0.47, cz + Math.sin(a) * LAB.ring));
+  }
+  return finish();
+}

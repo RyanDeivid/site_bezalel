@@ -141,15 +141,29 @@ export const BUILDINGS: BuildingSpec[] = [
     solids: [box(0, -80, 40, 26, 9.3), box(0, -82, 22, 16, 57.3), box(0, -82, 17, 17, 81)],
   },
   {
-    // Laboratório de IA: salão octogonal de vidro com núcleo. Entrada voltada para a praça (oeste).
+    // Laboratório de IA: pavilhão de vidro em que se entra a pé (porta a oeste, para a praça), sob um teto
+    // circular. As medidas são as de `LAB` (landmarkGeometry.ts): paredes com o vão da porta, o teto, o
+    // núcleo, as seis estações e as balizas na frente da porta (carro não passa, gente passa).
     id: 'ai-lab',
     district: 'ai-lab',
     x: 80,
     z: 0,
     facing: -Math.PI / 2,
-    height: 24.5,
-    solids: [box(80, 0, 34, 34, 1.6), box(80, 0, 27, 27, 18.4), box(80, 0, 2, 2, 24.5)],
+    height: 13,
+    solids: [
+      box(80, -14, 28, 0.4, 11.3),
+      box(80, 14, 28, 0.4, 11.3),
+      box(94, 0, 0.4, 28, 11.3),
+      box(66, -8.25, 0.4, 11.5, 11.3),
+      box(66, 8.25, 0.4, 11.5, 11.3),
+      box(66, 0, 0.4, 5, 11.3, 4.3),
+      box(80, 0, 40, 40, 13, 12.2),
+      box(80, 0, 4.4, 4.4, 12.2),
+      ...Array.from({ length: 6 }, (_, i) => box(80 + Math.cos((i / 6) * Math.PI * 2) * 8, Math.sin((i / 6) * Math.PI * 2) * 8, 1.4, 1.4, 1.2)),
+      ...[-2.0, -0.7, 0.6, 1.9].map((z) => box(62.5, z, 0.3, 0.3, 1.2)),
+    ],
   },
+
   {
     // Centro de Produtos: galerias empilhadas e deslocadas. Entrada voltada para a praça (leste).
     id: 'products-center',

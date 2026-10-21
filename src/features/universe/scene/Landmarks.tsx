@@ -8,7 +8,7 @@ import { STATION_ORDER } from '@/features/lab/layout';
 import { atLeast, BUILDINGS, cubeOnVertex, MONUMENT, MONUMENT_SOLID, PLACES, type PlaceId } from '../world/city';
 import type { Quality, UniverseAssets } from './assets';
 import { towerSlotMaterial } from './towerMaterial';
-import { buildHq, buildProductsCenter, HQ, type HqSlot } from './landmarkGeometry';
+import { buildHq, buildLab, buildProductsCenter, HQ, LAB, type HqSlot } from './landmarkGeometry';
 import { searchlightBeam } from './lightDecals';
 import { panelTexture, PALETTE, signTexture } from './textures';
 import { mergeStatic } from './staticMerge';
@@ -138,6 +138,16 @@ export function Landmarks({ assets, quality, effects, near, markers, texts, onSe
   const hq = useMemo(() => buildHq(detail), [detail]);
   const products = useMemo(() => buildProductsCenter(detail, -80, 0), [detail]);
   const hitbox = useMemo(() => new THREE.BoxGeometry(1, 1, 1), []);
+  const lab = useMemo(() => buildLab(detail), [detail]);
+  useEffect(() => () => lab.forEach((g) => g.dispose()), [lab]);
+  const holo = useMemo(() => STATION_ORDER.map((id) => new THREE.MeshBasicMaterial({ color: new THREE.Color(AGENT_HEX[id]).multiplyScalar(0.35), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, toneMapped: false })), []);
+  useEffect(() => () => holo.forEach((h) => h.dispose()), [holo]);
+  const agentLabels = useMemo(() => texts.labPanel.lines.slice(0, STATION_ORDER.length).map((l) => signTexture(l.split(' — ')[0] ?? l, 512 * tex, 96 * tex)), [texts.labPanel, tex]);
+  useEffect(() => () => agentLabels.forEach((t) => t.dispose()), [agentLabels]);
+  const labSign = useDisposable(useMemo(() => signTexture(texts.names['ai-lab'], 1024 * tex, 82 * tex), [texts.names, tex]));
+  // Portas de correr: abrem quando a câmera (e quem ela segue) chega perto da entrada.
+  const doors = useRef<Array<THREE.Mesh | null>>([]);
+  const doorOpen = useRef(0);
   // Holofotes da Sede: dois fachos dourados que varrem o céu devagar (da Média para cima).
   const searchlight = useMemo(() => (quality !== 'low' ? searchlightBeam(260) : null), [quality]);
   useEffect(
@@ -175,7 +185,10 @@ export function Landmarks({ assets, quality, effects, near, markers, texts, onSe
   const latticeRef = useRef<THREE.LineSegments>(null);
   const beacon = useRef<THREE.Mesh>(null);
   const t = useRef(0);
-  useFrame((_, dt) => {
+  useFrame(({ camera }, dt) => {
+    const near = Math.hypot(camera.position.x - (LAB.x - LAB.half), camera.position.z - LAB.z) < 11;
+    doorOpen.current += ((near ? 1 : 0) - doorOpen.current) * Math.min(1, dt * 4);
+    doors.current.forEach((d, i) => d && (d.position.z = LAB.z + (i ? 1 : -1) * LAB.door.half * (0.5 + doorOpen.current * 0.95)));
     if (!effects) return;
     t.current += Math.min(dt, 0.05);
     const k = t.current;
@@ -189,12 +202,11 @@ export function Landmarks({ assets, quality, effects, near, markers, texts, onSe
     if (beacon.current) beacon.current.visible = Math.sin(k * 3) > -0.2;
   });
 
-  const octa = (r: number) => Array.from({ length: 8 }, (_, i) => ({ x: r * Math.sin((i * Math.PI) / 4), z: r * Math.cos((i * Math.PI) / 4) }));
 
   // Peças estáticas juntadas numa malha por material (menos chamadas de desenho); as animadas
   // e os marcadores dos locais têm `userData.dynamic` e ficam como estão.
   const root = useRef<THREE.Group>(null);
-  useLayoutEffect(() => (root.current ? mergeStatic(root.current) : undefined), [quality, hq, products, hqSign, productsSign, labPanel, productsPanel]);
+  useLayoutEffect(() => (root.current ? mergeStatic(root.current) : undefined), [quality, hq, products, lab, hqSign, productsSign, labPanel, productsPanel, labSign, agentLabels]);
 
   return (
     <group ref={root}>
@@ -232,76 +244,57 @@ export function Landmarks({ assets, quality, effects, near, markers, texts, onSe
         </group>
       </group>
 
-      {/* ---------------- Laboratório de IA ---------------- */}
+      {/* ---------------- Laboratório de IA ----------------
+          Pavilhão de vidro em que se entra a pé: as portas correm quando alguém chega perto. Dentro, o
+          núcleo (a rede neural girando) e as seis estações dos agentes, cada uma com a sua luz e o nome. */}
       <group>
-        <mesh material={m.stone} position={[80, 0.9, 0]} receiveShadow>
-          <cylinderGeometry args={[17, 17.4, 1.2, 8]} />
-        </mesh>
-        {/* Salão de vidro octogonal */}
-        <mesh material={m.glass} position={[80, 9.5, 0]}>
-          <cylinderGeometry args={[13, 13, 16, 8, 1, true]} />
-        </mesh>
-        {octa(13).map((p, i) => (
-          <mesh key={i} material={m.steel} position={[80 + p.x, 9.5, p.z]} castShadow={hi}>
-            <boxGeometry args={[0.35, 16, 0.35]} />
+        {[...lab].map(([slot, geo]) => (
+          <mesh key={slot} geometry={geo} material={slot === 'labGlass' ? m.glass : towerSlotMaterial(slot, assets)} castShadow={hi && slot === 'metal'} receiveShadow={slot === 'matte'} />
+        ))}
+        {[-1, 1].map((s, i) => (
+          <mesh key={s} ref={(el) => void (doors.current[i] = el)} material={m.glass} position={[LAB.x - LAB.half, LAB.base + LAB.door.height / 2, LAB.z + s * LAB.door.half * 0.5]} userData={{ dynamic: true }}>
+            <boxGeometry args={[0.08, LAB.door.height, LAB.door.half]} />
           </mesh>
         ))}
-        {[1.7, 9.5, 17.4].map((y) => (
-          <mesh key={y} material={m.steel} position={[80, y, 0]} rotation={[Math.PI / 2, 0, Math.PI / 8]}>
-            <torusGeometry args={[13 / Math.cos(Math.PI / 8) - 0.02, 0.14, 4, 8]} />
-          </mesh>
-        ))}
-        {/* Pisos internos com borda luminosa */}
-        {[6.2, 11.6].map((y) => (
-          <group key={y}>
-            <mesh material={m.stone} position={[80, y, 0]}>
-              <cylinderGeometry args={[11.6, 11.6, 0.3, 8]} />
-            </mesh>
-            <mesh material={m.glowBlue} position={[80, y + 0.17, 0]} rotation={[Math.PI / 2, 0, Math.PI / 8]}>
-              <torusGeometry args={[11.6 / Math.cos(Math.PI / 8), 0.05, 3, 8]} />
-            </mesh>
-          </group>
-        ))}
-        {/* Núcleo: treliça (rede neural) girando e as seis colunas, uma por agente da Bezalel */}
-        <mesh material={m.darkGlass} position={[80, 9.5, 0]}>
-          <cylinderGeometry args={[1.1, 1.1, 15, 12]} />
+        <mesh material={m.glass} position={[LAB.x, LAB.base + 5.4, LAB.z]}>
+          <cylinderGeometry args={[LAB.core, LAB.core, 10.8, 32, 1, true]} />
         </mesh>
-        <mesh material={local.core} position={[80, 9.5, 0]}>
-          <sphereGeometry args={[2.6, 24, 16]} />
+        <mesh material={m.darkGlass} position={[LAB.x, LAB.base + 5.4, LAB.z]}>
+          <cylinderGeometry args={[0.6, 0.6, 10.8, 16]} />
         </mesh>
-        <lineSegments ref={latticeRef} geometry={lattice} material={local.lattice} position={[80, 9.5, 0]} />
+        <mesh material={local.core} position={[LAB.x, 5.6, LAB.z]}>
+          <sphereGeometry args={[1.3, 24, 16]} />
+        </mesh>
+        <lineSegments ref={latticeRef} geometry={lattice} material={local.lattice} position={[LAB.x, 5.6, LAB.z]} scale={0.42} userData={{ dynamic: true }} />
         {local.agents.map((mat, i) => {
           const a = (i / local.agents.length) * Math.PI * 2;
+          const x = LAB.x + Math.cos(a) * LAB.ring;
+          const z = LAB.z + Math.sin(a) * LAB.ring;
           return (
-            <mesh key={i} material={mat} position={[80 + Math.cos(a) * 7.5, 9, Math.sin(a) * 7.5]}>
-              <cylinderGeometry args={[0.22, 0.22, 13, 8]} />
-            </mesh>
+            <group key={i} position={[x, LAB.base, z]}>
+              <mesh material={mat} position={[0, 2.6, 0]}>
+                <cylinderGeometry args={[0.05, 0.05, 3.4, 8]} />
+              </mesh>
+              <mesh material={holo[i]} position={[0, 2.4, 0]}>
+                <cylinderGeometry args={[0.5, 0.5, 2.9, 20, 1, true]} />
+              </mesh>
+              <sprite position={[0, 4.35, 0]} scale={[2.6, 0.49, 1]}>
+                <spriteMaterial map={agentLabels[i]} transparent toneMapped={false} depthWrite={false} />
+              </sprite>
+            </group>
           );
         })}
-        {/* Cobertura com anel de luz, mastro e farol */}
-        <mesh material={m.steel} position={[80, 17.9, 0]} castShadow={hi}>
-          <cylinderGeometry args={[13.5, 13.5, 0.8, 8]} />
+        {/* Nome na faixa de metal, acima da porta. */}
+        <mesh position={[LAB.x - LAB.half - 0.08, LAB.wallTop - 0.55, LAB.z]} rotation={[0, -Math.PI / 2, 0]}>
+          <planeGeometry args={[13, 1.05]} />
+          <meshBasicMaterial map={labSign} transparent toneMapped={false} depthWrite={false} />
         </mesh>
-        <mesh material={m.glowBlue} position={[80, 18.36, 0]} rotation={[Math.PI / 2, 0, 0]}>
-          <torusGeometry args={[9.5, 0.12, 4, 48]} />
+        {/* Mastro e farol no alto do teto. */}
+        <mesh material={m.steel} position={[LAB.x, LAB.roofTop + 2, LAB.z]}>
+          <cylinderGeometry args={[0.15, 0.25, 4, 8]} />
         </mesh>
-        <mesh material={m.steel} position={[80, 21.3, 0]}>
-          <cylinderGeometry args={[0.18, 0.3, 6, 6]} />
-        </mesh>
-        <mesh ref={beacon} material={m.glowBlue} position={[80, 24.4, 0]} userData={{ dynamic: true }}>
+        <mesh ref={beacon} material={m.glowBlue} position={[LAB.x, LAB.roofTop + 4.3, LAB.z]} userData={{ dynamic: true }}>
           <sphereGeometry args={[0.35, 12, 8]} />
-        </mesh>
-        {/* Pórtico de entrada (oeste) */}
-        {[-4.2, 4.2].map((z) => (
-          <mesh key={z} material={m.bronze} position={[66.2, 3.9, z]} castShadow={hi}>
-            <boxGeometry args={[0.8, 7, 0.8]} />
-          </mesh>
-        ))}
-        <mesh material={m.bronze} position={[66.2, 7.6, 0]}>
-          <boxGeometry args={[0.8, 0.6, 9.2]} />
-        </mesh>
-        <mesh material={m.glowBlue} position={[65.75, 7.3, 0]}>
-          <boxGeometry args={[0.06, 0.08, 8.4]} />
         </mesh>
         {/* Painel informativo ao lado da entrada */}
         <group position={[63.5, 0, -12]} rotation={[0, -Math.PI / 2, 0]}>

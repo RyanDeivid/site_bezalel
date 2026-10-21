@@ -342,6 +342,18 @@ describe('Universe — a pé', () => {
     for (let t = 0; t < 6; t += 1 / 60) stepWalker(w2, { x: 0, z: 1, run: false }, 1 / 60, [], [{ x: 0, z: 0, r: 1 }]);
     expect(Math.hypot(w2.x, w2.z)).toBeGreaterThanOrEqual(1 + PERSON_RADIUS - 0.01);
   });
+
+  it('entra no Laboratório de IA pela porta (entre as balizas) e não pelas paredes; o carro fica do lado de fora', () => {
+    const door = createWalker({ x: 58, z: -0.05, yaw: Math.PI / 2 });
+    for (let t = 0; t < 6; t += 1 / 60) stepWalker(door, { x: 1, z: 0, run: true }, 1 / 60, solids);
+    expect(door.x).toBeGreaterThan(70);
+    const wall = createWalker({ x: 58, z: 8, yaw: Math.PI / 2 });
+    for (let t = 0; t < 6; t += 1 / 60) stepWalker(wall, { x: 1, z: 0, run: true }, 1 / 60, solids);
+    expect(wall.x).toBeLessThan(66);
+    const car = createCar({ x: 52, z: -0.05, heading: Math.PI / 2 });
+    for (let t = 0; t < 5; t += 1 / 60) stepCar(car, CAR_SPECS.sedan, { throttle: 1, brake: 0, steer: 0, handbrake: false }, 1 / 60, solids);
+    expect(car.x).toBeLessThan(62.5);
+  });
 });
 
 describe('Universe — entrar e sair dos veículos', () => {
