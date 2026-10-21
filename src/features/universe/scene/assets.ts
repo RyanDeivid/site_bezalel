@@ -83,7 +83,31 @@ export function createUniverseAssets(quality: Quality, anisotropy = 1) {
     paint: std({ color: '#d9d6cc', roughness: 0.7, metalness: 0 }),
     paintGold: std({ color: PALETTE.gold, roughness: 0.5, metalness: 0.2, emissive: new THREE.Color(PALETTE.gold), emissiveIntensity: 0.18 }),
     // Copas com a cor nos vértices (mais escuras embaixo, mais claras no alto).
-    foliage: std({ vertexColors: true, roughness: 0.9, metalness: 0, envMapIntensity: 0.4 }),
+    foliage: (() => {
+      // Vento: as copas balançam devagar, cada árvore no seu tempo (fase pela posição), mais no alto da copa.
+      const mat = std({ vertexColors: true, roughness: 0.9, metalness: 0, envMapIntensity: 0.4 });
+      const uTime = { value: 0 };
+      mat.userData.uTime = uTime;
+      mat.onBeforeCompile = (shader) => {
+        shader.uniforms.uTime = uTime;
+        shader.vertexShader = `uniform float uTime;
+${shader.vertexShader}`.replace(
+          '#include <begin_vertex>',
+          `#include <begin_vertex>
+          #ifdef USE_INSTANCING
+          vec2 treePos = instanceMatrix[3].xz;
+          #else
+          vec2 treePos = vec2(0.0);
+          #endif
+          float sway = sin(uTime * 1.1 + treePos.x * 0.35 + treePos.y * 0.21) * 0.045 + sin(uTime * 2.3 + treePos.x * 0.9) * 0.015;
+          float reach = clamp(position.y + 1.2, 0.0, 4.0);
+          transformed.x += sway * reach;
+          transformed.z += sway * 0.6 * reach;`,
+        );
+      };
+      mat.customProgramCacheKey = () => 'foliage-wind';
+      return mat;
+    })(),
     trunk: std({ color: '#2a2622', roughness: 0.9, metalness: 0 }),
     facadeA: facade(facadeA),
     facadeB: facade(facadeB, '#d8dde6'),

@@ -53,6 +53,8 @@ export interface UniverseRuntime {
   shot: { x: number; y: number; z: number; tx: number; ty: number; tz: number; fov?: number } | null;
   /** Modo apresentação: tempo (s), fusão para o preto e tomada atual (escritos pela cena); `hold` para o relógio (capturas). */
   cinema: { t: number; fade: number; shot: number; hold?: boolean } | null;
+  /** Sons pedidos pela interface (a cena os toca e esvazia a fila). */
+  sounds: Array<'chime'>;
   autopilot: (Autopilot & { place: PlaceId }) | null;
   near: PlaceId | null;
   nearVehicle: string | null;
@@ -94,6 +96,7 @@ export function createUniverseRuntime(): UniverseRuntime {
     camera: { yaw: SPAWN.yaw, pitch: CAMERA_PITCH.start, distance: CAMERA_DISTANCE.start, orbit: 0 },
     shot: null,
     cinema: null,
+    sounds: [],
     autopilot: null,
     near: null,
     nearVehicle: null,
@@ -371,6 +374,11 @@ export function attachDebug(rt: UniverseRuntime): () => void {
   return () => {
     delete (window as unknown as { __bzUniverse?: typeof api }).__bzUniverse;
   };
+}
+
+/** Pede um som de interface (ex.: o sinal ao abrir um local). */
+export function queueSound(rt: UniverseRuntime, cue: 'chime') {
+  if (rt.sounds.length < 4) rt.sounds.push(cue);
 }
 
 /** Liga ou desliga o modo apresentação (começa na primeira tomada, saindo do escuro). */

@@ -92,6 +92,8 @@ const pt = {
     lost: 'O 3D parou de responder neste aparelho. Mostrando o mapa da cidade.',
     paused: 'Animações pausadas',
     present: 'Apresentação',
+    mute: 'Desligar o som',
+    unmute: 'Ligar o som',
     exitPresent: 'Sair da apresentação',
     cinemaShots: {
       avenue: 'Avenida Bezalel',
@@ -283,6 +285,8 @@ const en: Content = {
     lost: '3D stopped responding on this device. Showing the city map.',
     paused: 'Animations paused',
     present: 'Presentation',
+    mute: 'Mute sound',
+    unmute: 'Turn sound on',
     exitPresent: 'Leave the presentation',
     cinemaShots: {
       avenue: 'Bezalel Avenue',

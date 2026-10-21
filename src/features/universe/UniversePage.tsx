@@ -1,4 +1,4 @@
-import { Box, Car, Check, CircleAlert, Clapperboard, Footprints, Gauge, HelpCircle, Home, LogOut, Map as MapIcon, MapPin, Maximize, Minimize, Pause, Play, Plane, Smartphone, TriangleAlert } from 'lucide-react';
+import { Box, Car, Check, CircleAlert, Clapperboard, Footprints, Volume2, VolumeX, Gauge, HelpCircle, Home, LogOut, Map as MapIcon, MapPin, Maximize, Minimize, Pause, Play, Plane, Smartphone, TriangleAlert } from 'lucide-react';
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { usePreferences } from '@/app/preferences-context';
 import { BezalelMark } from '@/components/brand/BezalelMark';
@@ -25,7 +25,7 @@ import { UniverseMap } from './UniverseMap';
 import { CINEMA_SHOTS } from './world/cinema';
 import { cityTowers, citySolids, PLACES, type PlaceId, type Quality } from './world/city';
 import { PRODUCTS, productText } from './world/products';
-import { attachDebug, cancelAutopilot, clearNotice, createUniverseRuntime, goToPlace, requestExit, setCinema, tryEnter, vehicleById } from './world/runtime';
+import { attachDebug, cancelAutopilot, clearNotice, createUniverseRuntime, goToPlace, queueSound, requestExit, setCinema, tryEnter, vehicleById } from './world/runtime';
 
 // three.js + R3F + a cidade só são baixados quando o visitante escolhe explorar em 3D.
 const UniverseScene = lazy(() => import('./scene/UniverseScene'));
@@ -35,6 +35,7 @@ const MODE_KEY = 'bz-universe-mode';
 const QUALITY_KEY = 'bz-universe-quality';
 const HELP_KEY = 'bz-universe-help-v2';
 const ROTATE_KEY = 'bz-universe-rotate-dismissed';
+const SOUND_KEY = 'bz-universe-sound';
 const QUALITIES: Quality[] = ['low', 'medium', 'high', 'ultra'];
 /** Nível em que a qualidade automática está (a sessão lembra o que o aparelho aguentou). */
 const AUTO_LEVEL_KEY = 'bz-universe-auto-level';
@@ -120,6 +121,14 @@ export default function UniversePage() {
   const [helpOpen, setHelpOpen] = useState(false);
   const [flying, setFlying] = useState<PlaceId | null>(null);
   const [presenting, setPresenting] = useState(false);
+  // Som da cidade (lembrado no aparelho): ligado por padrão, com o botão no HUD e a tecla M.
+  const [sound, setSoundState] = useState(() => readStorage(SOUND_KEY) !== 'off');
+  const toggleSound = useCallback(() => {
+    setSoundState((on) => {
+      writeStorage(SOUND_KEY, on ? 'off' : 'on');
+      return !on;
+    });
+  }, []);
   const [runtime] = useState(createUniverseRuntime);
   const [debug] = useState(() => readStorage('bz-universe-debug') === '1');
   // A cena só aparece depois de preparada (shaders e texturas); trocar a qualidade recria o canvas.
@@ -181,6 +190,10 @@ export default function UniversePage() {
   }, []);
   const stopPresentation = useCallback(() => setPresenting(false), []);
   useEffect(() => setCinema(runtime, presenting), [runtime, presenting]);
+  // Sinal suave ao abrir o painel de um local.
+  useEffect(() => {
+    if (open) queueSound(runtime, 'chime');
+  }, [open, runtime]);
   const takeControl = () => {
     cancelAutopilot(runtime);
     setFlying(null);
@@ -267,17 +280,19 @@ export default function UniversePage() {
       const k = e.key.toLowerCase();
       if (presenting) {
         if (k === 'escape' || (k === 'c' && !e.repeat)) stopPresentation();
+        else if (k === 'm' && !e.repeat) toggleSound();
         else if (k === 'f' && !e.repeat && canFullscreen) toggleFullscreen();
         return;
       }
-      if (k === 'c' && !e.repeat) startPresentation();
+      if (k === 'm' && !e.repeat) toggleSound();
+      else if (k === 'c' && !e.repeat) startPresentation();
       else if (k === 'e' && !e.repeat) interact();
       else if (k === 'h') goTo('arrival');
       else if (k === 'f' && !e.repeat && canFullscreen) toggleFullscreen();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [mode, open, helpOpen, interact, goTo, canFullscreen, toggleFullscreen, presenting, startPresentation, stopPresentation]);
+  }, [mode, open, helpOpen, interact, goTo, canFullscreen, toggleFullscreen, presenting, startPresentation, stopPresentation, toggleSound]);
 
   useEffect(() => {
     if (mode !== '3d') void fullscreen.exit();
@@ -435,6 +450,7 @@ export default function UniversePage() {
                 effects={effects}
                 calmCamera={reducedMotion}
                 presenting={presenting}
+                sound={sound}
                 inputEnabled={!open && !helpOpen && !presenting}
                 near={near}
                 texts={texts}
@@ -532,6 +548,9 @@ export default function UniversePage() {
                     </button>
                   ))}
                 </div>
+                <IconButton label={`${sound ? t.hud.mute : t.hud.unmute} (M)`} onClick={toggleSound} active={!sound} size="sm">
+                  {sound ? <Volume2 className="size-4" /> : <VolumeX className="size-4" />}
+                </IconButton>
                 <IconButton label={`${t.hud.present} (C)`} onClick={startPresentation} size="sm">
                   <Clapperboard className="size-4" />
                 </IconButton>

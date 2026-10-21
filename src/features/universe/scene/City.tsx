@@ -1,3 +1,4 @@
+import { useFrame } from '@react-three/fiber';
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -41,7 +42,11 @@ function treeFree(x: number, z: number): boolean {
   return true;
 }
 
-export function City({ assets, quality, pools }: { assets: UniverseAssets; quality: Quality; /** Poças de luz dos postes no chão (médio para cima). */ pools: boolean }) {
+export function City({ assets, quality, pools, animate = true }: { assets: UniverseAssets; quality: Quality; /** Poças de luz dos postes no chão (médio para cima). */ pools: boolean; /** Vento nas copas (para com "Pausar animações"). */ animate?: boolean }) {
+  const wind = (assets.materials.foliage.userData as { uTime?: { value: number } }).uTime;
+  useFrame((_, dt) => {
+    if (animate && wind) wind.value += Math.min(dt, 0.1);
+  });
   const m = assets.materials;
   // Médio e alto: mobiliário urbano denso; baixo: metade.
   const hi = quality !== 'low';

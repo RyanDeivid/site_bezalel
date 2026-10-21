@@ -16,10 +16,13 @@ import { buildCarModels, buildFarCarModels, buildTrafficCarModels, createCarMate
 import { ArrivalPark } from './ArrivalPark';
 import { City } from './City';
 import { Landmarks, type LandmarkTexts } from './Landmarks';
+import { Pedestrians } from './Pedestrians';
 import { PerfProbe } from './PerfProbe';
 import { Warmup } from './Warmup';
 import { PlayerController } from './PlayerController';
 import { PostFX } from './PostFX';
+import { headlightBeam } from './lightDecals';
+import { Soundscape } from './Soundscape';
 import { Sun } from './Sun';
 import { Traffic } from './Traffic';
 import { PlayerVehicles } from './Vehicles';
@@ -33,6 +36,8 @@ export interface UniverseSceneProps {
   calmCamera: boolean;
   /** Modo apresentação: esconde os marcadores dos locais (feixes, losangos e nomes). */
   presenting?: boolean;
+  /** Som da cidade ligado. */
+  sound?: boolean;
   inputEnabled: boolean;
   near: PlaceId | null;
   texts: LandmarkTexts;
@@ -151,6 +156,16 @@ const World = memo(function World(props: UniverseSceneProps) {
   const carModels = useMemo(() => buildCarModels('near'), []);
   const midCarModels = useMemo(() => buildCarModels('mid'), []);
   const trafficCarModels = useMemo(() => buildTrafficCarModels(), []);
+  // Facho dos faróis no asfalto (trânsito e carro em uso), da Média para cima.
+  const beam = useMemo(() => (cfg.lightPools ? headlightBeam() : null), [cfg.lightPools]);
+  useEffect(
+    () => () => {
+      beam?.geometry.dispose();
+      beam?.material.dispose();
+      beam?.texture.dispose();
+    },
+    [beam],
+  );
   const farCarModels = useMemo(() => buildFarCarModels(), []);
   const carMaterials = useMemo(() => createCarMaterials(quality), [quality]);
   useEffect(() => () => disposeCarModels(carModels), [carModels]);
@@ -173,7 +188,7 @@ const World = memo(function World(props: UniverseSceneProps) {
       <directionalLight position={[150, 38, -160]} intensity={0.5} color="#ffcfae" />
       {/* Grupos com nome: a sonda de desempenho liga e desliga cada parte para medir o custo dela. */}
       <group name="city">
-        <City assets={assets} quality={quality} pools={cfg.lightPools} />
+        <City assets={assets} quality={quality} pools={cfg.lightPools} animate={effects} />
         <ArrivalPark assets={assets} quality={quality} />
       </group>
       <group name="towers">
@@ -187,13 +202,17 @@ const World = memo(function World(props: UniverseSceneProps) {
         <Landmarks assets={assets} quality={quality} effects={effects} near={props.near} markers={!props.presenting} texts={props.texts} onSelect={props.onSelect} />
       </group>
       <group name="traffic">
-        <Traffic quality={quality} running={effects} runtime={runtime} models={trafficCarModels} farModels={farCarModels} materials={carMaterials} lodDistance={cfg.carLod} shadows={quality !== 'low'} />
+        <Traffic quality={quality} running={effects} runtime={runtime} models={trafficCarModels} farModels={farCarModels} materials={carMaterials} lodDistance={cfg.carLod} shadows={quality !== 'low'} beam={beam} />
+      </group>
+      {/* Depois do trânsito: os pedestres entram na lista de corpos que ele zera a cada quadro. */}
+      <group name="pedestrians">
+        <Pedestrians quality={quality} runtime={runtime} running={effects} />
       </group>
       <group name="air">
         <AirTraffic quality={quality} running={effects} materials={carMaterials} lodDistance={cfg.airLod} />
       </group>
       <group name="player">
-        <PlayerVehicles runtime={runtime} models={carModels} midModels={midCarModels} farModels={farCarModels} materials={carMaterials} assets={assets} effects={effects} lodDistance={cfg.carLod * 0.6} />
+        <PlayerVehicles runtime={runtime} models={carModels} midModels={midCarModels} farModels={farCarModels} materials={carMaterials} assets={assets} effects={effects} lodDistance={cfg.carLod * 0.6} beam={beam} />
         <Avatar runtime={runtime} effects={effects} />
       </group>
       <PlayerController
@@ -262,6 +281,7 @@ export default memo(function UniverseScene(props: UniverseSceneProps) {
     >
       <DprMirror quality={props.quality} onChange={setSeenDpr} />
       <World {...props} />
+      <Soundscape runtime={props.runtime} enabled={props.sound ?? true} debug={props.debug} />
       {cfg.bloom && <PostFX {...cfg.bloom} multisample={cfg.antialias} scale={startScale} />}
       <Warmup envIntensity={QUALITY_CONFIG[props.quality].envIntensity} envSize={QUALITY_CONFIG[props.quality].envSize} onReady={() => props.onReady(props.quality)} />
       <PerformanceGovernor level={props.quality} min={cfg.dprMin} max={maxDpr} canUpgrade={props.canUpgrade} probation={props.probation} onLow={props.onLowPerformance} onHeadroom={props.onHeadroom} off={props.debug && readStorage('bz-universe-governor') === 'off'} debug={props.debug} />

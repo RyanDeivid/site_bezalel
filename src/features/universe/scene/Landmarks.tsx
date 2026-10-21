@@ -9,6 +9,7 @@ import { atLeast, BUILDINGS, cubeOnVertex, MONUMENT, MONUMENT_SOLID, PLACES, typ
 import type { Quality, UniverseAssets } from './assets';
 import { towerSlotMaterial } from './towerMaterial';
 import { buildHq, buildProductsCenter, HQ, type HqSlot } from './landmarkGeometry';
+import { searchlightBeam } from './lightDecals';
 import { panelTexture, PALETTE, signTexture } from './textures';
 import { mergeStatic } from './staticMerge';
 
@@ -137,6 +138,17 @@ export function Landmarks({ assets, quality, effects, near, markers, texts, onSe
   const hq = useMemo(() => buildHq(detail), [detail]);
   const products = useMemo(() => buildProductsCenter(detail, -80, 0), [detail]);
   const hitbox = useMemo(() => new THREE.BoxGeometry(1, 1, 1), []);
+  // Holofotes da Sede: dois fachos dourados que varrem o céu devagar (da Média para cima).
+  const searchlight = useMemo(() => (quality !== 'low' ? searchlightBeam(260) : null), [quality]);
+  useEffect(
+    () => () => {
+      searchlight?.geometry.dispose();
+      searchlight?.material.dispose();
+      searchlight?.texture.dispose();
+    },
+    [searchlight],
+  );
+  const sweep = useRef<THREE.Group>(null);
   useEffect(() => () => hitbox.dispose(), [hitbox]);
   const washes = useMemo(() => {
     const spots: Array<[number, number, number]> = [
@@ -172,6 +184,7 @@ export function Landmarks({ assets, quality, effects, near, markers, texts, onSe
       monument.current.position.y = MONUMENT_Y + Math.sin(k * 0.9) * 0.25;
     }
     if (halo.current) halo.current.rotation.z = k * 0.12;
+    if (sweep.current) sweep.current.rotation.y = k * 0.16;
     if (latticeRef.current) latticeRef.current.rotation.set(k * 0.15, k * 0.22, 0);
     if (beacon.current) beacon.current.visible = Math.sin(k * 3) > -0.2;
   });
@@ -200,6 +213,13 @@ export function Landmarks({ assets, quality, effects, near, markers, texts, onSe
           <planeGeometry args={[18, 2.8]} />
           <meshBasicMaterial map={hqSign} transparent toneMapped={false} depthWrite={false} />
         </mesh>
+        {searchlight && (
+          <group ref={sweep} position={[0, HQ.lanternTop + 0.6, HQ.towerZ]} userData={{ dynamic: true }}>
+            {[1, -1].map((s) => (
+              <mesh key={s} geometry={searchlight.geometry} material={searchlight.material} position={[s * 5.5, 0, 0]} rotation={[0.22 * s, 0, -0.6 * s]} renderOrder={8} />
+            ))}
+          </group>
+        )}
         {/* Coroa: o cubo do símbolo sobre um plinto, acima da lanterna, com um halo dourado */}
         <mesh material={m.steel} position={[0, HQ.plinthY, HQ.towerZ]} rotation={[0, Math.PI / 4, 0]}>
           <boxGeometry args={[9, 1.6, 9]} />

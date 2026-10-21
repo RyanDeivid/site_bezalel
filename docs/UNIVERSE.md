@@ -1,4 +1,4 @@
-# Bezalel Universe — versão 3 (direção de arte)
+# Bezalel Universe — versão 4 (fluidez e imersão)
 
 Cidade 3D explorável da Bezalel em `/universe`. O visitante começa **a pé** no
 parque de chegada, caminha pela cidade, **entra em carros e os dirige**, sai e
@@ -16,6 +16,14 @@ própria cidade, infraestrutura de rua (asfalto, faixas, meio-fio,
 estacionamentos, ponto de táxi), voadores redesenhados e um **modo
 apresentação** com tomadas de cinema. Detalhes em
 [Direção de arte](#direção-de-arte-e-iluminação).
+
+A versão 4 tirou as travadas que ainda se sentiam mesmo em máquinas fortes (ver
+[Fluidez](#fluidez-sem-travadas): cada uma tinha uma causa medida) e deu vida à
+cidade: **som** gerado na hora (cidade, vento, motores, turbina, passos, porta,
+trânsito que passa), **pedestres** nas calçadas e na praça, **faróis que
+iluminam o asfalto**, **holofotes** da Sede varrendo o céu, **vento nas
+árvores** e um carro voador novo (da família do táxi aéreo). A Baixa ganhou
+brilho, antisserrilhado e as luzes no chão.
 
 ## Inicialização
 
@@ -58,12 +66,17 @@ features/universe/
     runtime.ts            estado do jogador (a pé → entrando → dirigindo → saindo), veículos estacionados
     traffic.ts            rotas e simulação do trânsito terrestre (passo fixo, determinística)
     air.ts                corredores e simulação do trânsito aéreo
+    pedestrians.ts        rotas dos pedestres (calçadas da região principal e anéis da praça)
     cinema.ts             tomadas do modo apresentação
     flight.ts             carro voador do jogador e piloto automático
     products.ts           produtos do Centro de Produtos (rotas reais)
   scene/                  three.js / React Three Fiber (só desenha o que world/ calcula)
     UniverseScene.tsx     Canvas, céu, luzes, grupos da cena, vigias
-    bloom.ts, PostFX.tsx  brilho (bloom) em textura HDR, ACES e antisserrilhado (MSAA ou FXAA)
+    bloom.ts, PostFX.tsx  brilho (bloom) em textura HDR, ACES, antisserrilhado (MSAA ou FXAA) e resolução dinâmica
+    shadowDepth.ts        materiais de profundidade fixos para a passada de sombras
+    audio.ts, Soundscape.tsx   som gerado na hora (Web Audio) e a ligação dele com o jogo
+    Pedestrians.tsx       pedestres instanciados, com o andar no shader
+    lightDecals.ts        fachos dos faróis no asfalto e holofotes
     nightEnvironment.ts   cena noturna que vira o mapa de reflexos
     quality.ts            o que cada nível de qualidade muda
     Warmup.tsx            preparo antes do 1º quadro (shaders, texturas, reflexos)
@@ -255,7 +268,8 @@ controlável e previsível, e é testado sem navegador.
 | Extra | Shift corre | Espaço = freio de mão | Shift = turbo |
 | Ação | E entra / abre | E sai | E pousa e sai |
 
-Em todos os modos, **F** liga e desliga a **tela cheia**; o botão "Tela cheia"
+Em todos os modos, **M** liga e desliga o **som**, **C** abre o **modo
+apresentação** (Esc sai) e **F** liga e desliga a **tela cheia**; o botão "Tela cheia"
 fica ao lado de "Sair do Universe". Depois de clicar num botão do HUD, as
 setas continuam indo para o jogo; o Espaço fica com o botão focado, que é como
 ele se aciona pelo teclado.
@@ -363,6 +377,50 @@ os modelos já permitem pilotar outros voadores no futuro.
   refletores no chão "lavam" os pilares e as laterais do pódio (decalques
   verticais somados).
 
+## Som
+
+Tudo gerado na hora com a Web Audio API (`audio.ts`), nenhum arquivo baixado:
+
+- **Cidade**: um rumor grave e o chiado do trânsito distante, que "respira"
+  devagar. No alto ele some e dá lugar ao **vento**, que cresce com a altura
+  e a velocidade.
+- **Motores por modelo**: sedã e táxi são elétricos (um zumbido em duas
+  harmônicas que sobe com a velocidade); o esportivo tem um ronco grave
+  sintético com "marchas"; o carro voador, uma **turbina** (sopro filtrado que
+  abre com o empuxo e um assobio).
+- **Trânsito que passa**: o carro mais perto da câmera soa com volume pela
+  distância e lado (estéreo) pela direção.
+- **Passos** no ritmo da passada, **porta** ao entrar e sair, **sinal** suave
+  ao abrir um local.
+
+O botão de alto-falante no HUD e a tecla **M** ligam e desligam (a escolha fica
+no aparelho, `bz-universe-sound`). O som começa depois do clique de "Explorar
+em 3D", como os navegadores exigem. Conferido com um medidor na saída
+(`window.__bzUniverseAudio.rms()`, só nos testes): parado 0,058; dirigindo
+0,073; voador subindo 0,065; no alto, em turbo, 0,081; desligado, 0,0002.
+
+## Vida na cidade
+
+- **Pedestres** (`pedestrians.ts`, `Pedestrians.tsx`): 24 a 96, conforme a
+  qualidade, andando pelas calçadas das cinco quadras da região principal (nos
+  dois sentidos, cada sentido na sua faixa, longe dos postes) e pelos anéis da
+  praça, na velocidade de gente (1,1–1,6 m/s). Roupas e tons de pele variados;
+  o andar (pernas e braços em oposição, o corpo subindo e descendo) é feito no
+  shader, numa malha instanciada só. O jogador esbarra neles como esbarra nos
+  carros. A pose é função do tempo; um teste confere que ninguém sai da
+  calçada nem entra num edifício.
+- **Faróis no asfalto**: cada carro do trânsito (e o carro em uso) projeta à
+  frente um facho em dois lóbulos que se abrem e se fundem — uma malha
+  instanciada para o trânsito inteiro, somada à imagem.
+- **Holofotes da Sede**: dois fachos dourados saem da lanterna e varrem o céu
+  devagar; vistos de toda a cidade.
+- **Vento nas árvores**: as copas balançam, cada árvore no seu tempo, mais no
+  alto da copa (no shader).
+- **Carro voador novo**: um eVTOL da família do táxi aéreo, em pérola com
+  frisos dourados (6 chamadas de desenho; o antigo tinha ~25).
+
+Tudo isso para com "Pausar animações".
+
 ## Qualidade gráfica
 
 Escolhida no HUD: **Auto** (padrão), Baixa, Média, Alta ou **Ultra**. A
@@ -381,24 +439,33 @@ escolha fica na sessão.
     mais de 8% dos quadros perderem os 60 Hz, volta, e esse nível vira o teto
     da sessão (não fica subindo e descendo).
 - **Resolução adaptativa** (`AdaptiveResolution.tsx`), em qualquer nível: a
-  meta é 60 fps, qualquer que seja a tela (em 120/144 Hz, perseguir a taxa da
-  tela sacrificaria nitidez sem necessidade). Mais de 15% de quadros abaixo de
-  ~45 fps → desce a resolução 12%; 4 s sem perder quadros → sobe 8% e testa.
-  Se descer não melhora, o gargalo é o processador: ela para de descer. Ela
-  sempre cede antes de trocar de nível (trocar de nível recria a cena).
+  meta é 60 fps **sem quadros perdidos**, qualquer que seja a tela. Desce 12%
+  quando mais de 15% dos quadros atrasam (< ~45 fps) **ou** quando, por duas
+  janelas de 1 s seguidas, mais de 6% perdem um quadro de 60 Hz (o engasgo que
+  se sente mesmo com a média boa). Sobe 8% só com folga medida: várias janelas
+  sem quadros perdidos e o custo real do quadro (cerca do `FrameCost`),
+  aumentado pelo degrau, abaixo de 80% do orçamento. Se depois de subir voltar
+  a perder quadros, desce e espera o dobro antes de tentar de novo. Se descer
+  não melhora, o gargalo é o processador: para de descer. Com o brilho (todos
+  os níveis), ela muda a **resolução interna** da cena (resolução dinâmica,
+  sem realocar nada); só a superamostragem do Ultra muda o tamanho do canvas.
+  A resolução em que o aparelho se firmou fica na sessão: a próxima entrada já
+  começa nela.
 - Num nível fixo (escolhido à mão), só a resolução se adapta; se nem assim
   der, a cena desce um nível e avisa.
 
 | | Baixa | Média | Alta | Ultra |
 |---|---|---|---|---|
 | Resolução (dpr, adaptativa) | 0,6–1 | 0,7–1,25 | 0,8–1,75 | 1–2 (acima da tela) |
-| Antisserrilhado | não | sim | sim | sim |
+| Antisserrilhado | FXAA | FXAA | FXAA | MSAA 4× |
 | Sombras (mapa / área / frequência) | não | 1024² / 140 m / a cada 2 quadros | 2048² / 190 m / todo quadro | 4096² / 260 m / todo quadro |
 | Distância visível / névoa | 300 / 280 m | 420 / 380 m | 600 / 520 m | 750 / 650 m |
 | Torres / passarelas | 76 / 0 | 156 / 10 | 176 / 10 | 176 / 10 |
 | Carros / voadores | 13 / 9 | 25 / 19 | 39 / 28 | 48 / 38 |
 | Carro com rodas e peças até (completo até 18 m) / voador detalhado | 28 / 40 m | 45 / 60 m | 58 / 90 m | 85 / 140 m |
-| Brilho (bloom) / antisserrilhado | — / — | 4 níveis / FXAA | 5 níveis / MSAA 4× | 6 níveis / MSAA 4× |
+| Brilho (bloom) | 3 níveis | 4 níveis | 5 níveis | 6 níveis |
+| Luzes no chão (postes, faróis), holofotes da Sede | luzes no chão | sim | sim | sim |
+| Pedestres | 24 | 48 | 72 (com sombra) | 96 (com sombra) |
 | Detalhe das torres (aletas, varandas, diagrid, marquises) | não | anel da praça | todas | todas |
 | Copas das árvores | facetadas | facetadas | subdivididas | subdivididas |
 | Mapa de reflexos | 64 px | 128 px | 256 px | 256 px |
@@ -424,6 +491,69 @@ par.) A Média e a Alta da versão 3 trazem o brilho (bloom) e a cidade nova por
 −2% a −7%; a Baixa custa ~7%; a Ultra, que é para placas dedicadas, ~11% a
 mais. Com a resolução adaptativa e o Auto ligados (o normal), o aparelho fica
 no nível que mantém 60 fps.
+
+Versão 4, no mesmo notebook e com o mesmo protocolo (outra rodada, não em par
+com a 3 — compare com cuidado): **Baixa 83,1 fps** (já com brilho, FXAA e as
+luzes no chão), **Média 66,3**, **Alta 46,2**, **Ultra 34,0**. O que importa
+mais para a sensação de fluidez — os quadros longos — está em
+[Fluidez](#fluidez-sem-travadas).
+
+## Fluidez: sem travadas
+
+A média de fps não mostra o engasgo; ele está nos quadros longos. A versão 4
+mediu o tempo de **cada quadro** (`node scripts/hitches-universe.mjs`) em cenas
+de quem visita — parado, a volta inteira do modo apresentação (a câmera passa
+pela cidade toda), correndo e girando a câmera, dirigindo e voando em turbo —,
+com o Auto e a resolução adaptativa **ligados**, como no site (Intel Iris Xe,
+1600×900, tela de 60 Hz):
+
+| Cena | Quadros > 25 ms antes → depois | Pior quadro antes → depois |
+|---|---|---|
+| Parado no início | 65 de 533 (12%) → 0 de 601 | 67 → 18 ms |
+| Apresentação (68 s) | 202 de 3877 (5%) → 1 de 4086 | 100 → 33 ms |
+| Correndo e girando a câmera | 179 de 1709 (10%) → 9 de 1627 | 51 → 50 ms |
+| Dirigindo | 30 de 1016 (3%) → 0 de 1049 | 50 → 17 ms |
+| Voando em turbo | 68 de 1138 (6%) → 0 de 1208 | 50 → 18 ms |
+
+Na Baixa, as três cenas medidas (parado, apresentação, dirigindo) ficaram sem
+nenhum quadro acima de 25 ms. As causas, uma a uma:
+
+1. **Geometria e shaders subindo em pleno jogo**: o preparo só desenhava o que
+   estava na frente da câmera inicial; o resto (quadrantes de torres atrás,
+   modelos de outro nível de detalhe) subia na primeira vez que aparecia — 50
+   a 90 ms. Agora o preparo desenha a cidade **inteira** uma vez, num alvo de
+   16×16 do mesmo tipo do destino real (tudo visível, sem descarte, conjuntos
+   vazios com uma instância): os shaders saem iguais e quase não há pixels a
+   pintar (sem placa de vídeo, desenhar tudo na tela cheia travaria a página).
+2. **Sombras trocando de shader** (`shadowDepth.ts`): o three desenha as
+   sombras com um material de profundidade compartilhado e copia nele a
+   textura de cada objeto — fachadas com textura e acabamentos sem textura
+   faziam o shader trocar dezenas de vezes por quadro, e a variante "com
+   textura" só compilava quando uma fachada entrava na área das sombras (~80
+   ms, no corte para a Sede). Cada objeto agora tem um material de
+   profundidade fixo, por tipo de malha.
+3. **Telões reenviando o canvas a cada 5 s**: enviar um canvas acelerado ao
+   WebGL obriga o navegador a lê-lo de volta da GPU (50–80 ms). As mensagens
+   viram texturas uma vez, no carregamento.
+4. **A resolução voltava ao valor inicial a cada renderização da cena**: o
+   Canvas reaplica o `dpr` que recebe — e recebia sempre o inicial. Com o HUD
+   atualizando a cena 5× por segundo (o velocímetro), a resolução adaptativa
+   era desfeita sem parar. A cena agora recebe a resolução atual.
+5. **A cena inteira reconciliada pelo React a cada atualização do HUD**: a
+   cena é memorizada e as funções que a página passa são estáveis.
+6. **Cada troca de resolução realocava o canvas e as texturas** (~50–75 ms):
+   com o brilho, a resolução muda **dentro** da textura da cena (resolução
+   dinâmica) e é ampliada na passada final — sem realocar nada; e a política
+   de subir e descer deixou de ir e voltar.
+7. **Teste do ponteiro contra a cidade inteira**: o clique e o "passar por
+   cima" dos edifícios eram testados contra a geometria detalhada a cada
+   movimento do mouse (dezenas de ms ao girar a câmera arrastando). Agora são
+   caixas invisíveis do tamanho de cada edifício.
+8. **Quadros no limite de 16,7 ms**: −15% de chamadas de desenho (rodas
+   instanciadas nos carros do jogador, peças pequenas dos carros e voadores do
+   trânsito juntas, conjuntos vazios sem chamada, telões e refletores numa
+   malha) e FXAA na Alta (o MSAA em meia precisão pesava ~2–3 ms num gráfico
+   integrado; a resolução dinâmica deixa a imagem nítida).
 
 ## Otimizações
 
@@ -496,11 +626,13 @@ npm run build:pages && npm run test:e2e   # navegador (inclui auditoria axe)
 npm run check:budget         # tamanhos
 node scripts/bench-universe.mjs   # fps, chamadas e triângulos por nível (com o build servido)
 node scripts/profile-universe.mjs high   # custo de cada parte da cena (liga e desliga grupos)
+node scripts/hitches-universe.mjs auto   # engasgos: tempo de cada quadro em cenas reais, com o Auto ligado
 node scripts/shots-universe.mjs <pasta> high   # capturas sempre dos mesmos ângulos (vistas, carros, voadores, tomadas)
 ```
 
-- **Unidade** (`tests/unit/universe.test.ts`, 46 testes, os de qualidade nos
-  quatro níveis): arquitetura (sete famílias, andares inteiros, geometria
+- **Unidade** (`tests/unit/universe.test.ts`, 48 testes, os de qualidade nos
+  quatro níveis): pedestres (só calçadas e praça, fora dos edifícios,
+  determinísticos, velocidade de gente), arquitetura (sete famílias, andares inteiros, geometria
   válida, a Sede como marco mais alto e colisão com as medidas desenhadas),
   modo apresentação (nenhuma tomada atravessa prédio, ordem, fusão, movimento
   reduzido), orçamento de triângulos dos carros por nível, cidade (grade,
@@ -517,7 +649,7 @@ node scripts/shots-universe.mjs <pasta> high   # capturas sempre dos mesmos âng
   qualidade (o canvas é recriado); sair sem deixar laço de quadros ativo;
   celular (aviso de girar, joystick, volante, pedais, acelerador move o carro);
   modo apresentação (botão e tecla C recolhem o HUD, a câmera anda, o jogador
-  não, Esc sai).
+  não, Esc sai); som (botão e tecla M, a escolha fica guardada).
   `a11y.spec.ts` audita o mapa, o HUD e o painel nos dois temas.
 
 Nos testes de navegador, `localStorage['bz-universe-debug'] = '1'` expõe
@@ -545,6 +677,12 @@ fixos (para medir). Só existem com essas chaves.
   de verdade só onde há detalhe). Ir além exige modelos feitos num programa de
   modelagem (glTF), com licença e orçamento de download próprios.
 - **Laboratório de IA**: mantido da versão 2 (não foi redesenhado nesta fase).
+- **Pedestres simples**: corpo estilizado, sem rosto nem cabelo; seguem a rota
+  e não desviam de quem cruza o caminho (o jogador esbarra neles); não
+  atravessam a rua nem entram nos prédios.
+- **Som sintetizado**: convincente como ambiente, mas não é gravação de
+  verdade (sem buzinas, sirenes nem vozes); um carro do trânsito soa de cada
+  vez.
 - **Ultra**: ~11% mais pesada que a da versão 2 no Iris Xe (pensada para placas
   dedicadas, onde não foi medida).
 - **Colisão simplificada**: volumes retangulares e círculos. Árvores, postes e

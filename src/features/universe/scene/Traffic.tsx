@@ -24,6 +24,8 @@ interface Props {
   materials: CarMaterials;
   /** Até que distância da câmera (m) o carro usa o modelo detalhado. */
   lodDistance: number;
+  /** Facho dos faróis no asfalto (da Média para cima). */
+  beam?: { geometry: THREE.BufferGeometry; material: THREE.Material } | null;
   shadows: boolean;
 }
 
@@ -39,7 +41,7 @@ const emptySets = () => Object.fromEntries(CLASSES.map((c) => [c, { slots: [], t
  * detalhe, com margem para não ficar trocando na fronteira). Só os de perto
  * projetam sombra. As chamadas de desenho não crescem com a quantidade de carros.
  */
-export function Traffic({ quality, running, runtime, models, farModels, materials, lodDistance, shadows }: Props) {
+export function Traffic({ quality, running, runtime, models, farModels, materials, lodDistance, shadows, beam }: Props) {
   const state = useMemo(() => createTraffic(quality), [quality]);
   const prev = useMemo(() => state.vehicles.map((v) => ({ x: v.x, z: v.z, heading: v.heading })), [state]);
   const spin = useMemo(() => state.vehicles.map(() => 0), [state]);
@@ -57,6 +59,7 @@ export function Traffic({ quality, running, runtime, models, farModels, material
   const pool = useMemo<Body[]>(() => state.vehicles.flatMap(() => [0, 1, 2].map(() => ({ x: 0, z: 0, r: 0 }))), [state]);
   const tmp = useMemo(() => ({ m: new THREE.Matrix4(), w: new THREE.Matrix4(), q: new THREE.Quaternion(), p: new THREE.Vector3(), s: new THREE.Vector3(1, 1, 1), up: new THREE.Vector3(0, 1, 0) }), []);
   const sets = useRef<Record<(typeof LODS)[number], Record<CarClass, InstSet>>>({ near: emptySets(), far: emptySets() });
+  const beams = useRef<THREE.InstancedMesh>(null);
 
   useLayoutEffect(() => {
     // A cor por instância precisa existir antes do preparo (Warmup): ela muda o shader da pintura,
@@ -104,6 +107,7 @@ export function Traffic({ quality, running, runtime, models, farModels, material
     const cz = camera.position.z;
     const enter = lodDistance * lodDistance;
     const leave = (lodDistance * 1.12) ** 2;
+    let nBeams = 0;
     for (const cls of CLASSES) {
       const spec = CAR_SPECS[cls];
       const counts = { near: 0, far: 0 };
@@ -124,6 +128,8 @@ export function Traffic({ quality, running, runtime, models, farModels, material
         tmp.m.compose(tmp.p, tmp.q, tmp.s);
         for (const mesh of set.slots) mesh?.setMatrixAt(k, tmp.m);
         set.slots[0]?.setColorAt(k, paints[vi]!);
+        // Facho no asfalto só para os carros a até ~2× a distância do modelo de perto (os de longe nem se notam).
+        if (beams.current && d2 < enter * 4) beams.current.setMatrixAt(nBeams++, tmp.m);
         // Rodas (só no modelo de perto; de longe elas fazem parte da malha): giram com a velocidade.
         if (running) spin[vi] = spin[vi]! + (v.speed / spec.wheelRadius) * Math.min(rawDt, 0.1);
         if (lod === 'near')
@@ -165,10 +171,21 @@ export function Traffic({ quality, running, runtime, models, farModels, material
         }
       }
     }
+    if (beams.current) {
+      beams.current.count = nBeams;
+      if (nBeams) beams.current.instanceMatrix.needsUpdate = true;
+    }
+  });
+
+  useFrame(() => {
+    const b = beams.current;
+    if (!b) return;
+    b.visible = b.count > 0;
   });
 
   return (
     <group>
+      {beam && <instancedMesh ref={beams} args={[beam.geometry, beam.material, state.vehicles.length]} frustumCulled={false} renderOrder={7} />}
       {LODS.map((lod) =>
         CLASSES.map((cls) => {
           const n = byClass[cls].length;

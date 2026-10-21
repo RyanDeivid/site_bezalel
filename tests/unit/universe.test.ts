@@ -30,6 +30,7 @@ import {
   type Solid,
 } from '@/features/universe/world/city';
 import { CINEMA_SHOTS, cinemaLength, cinemaPose, shotPose } from '@/features/universe/world/cinema';
+import { createPedestrians, pedestrianPose } from '@/features/universe/world/pedestrians';
 import { HQ } from '@/features/universe/scene/landmarkGeometry';
 import { buildTowerGeometry } from '@/features/universe/scene/towerGeometry';
 import { designCar } from '@/features/universe/scene/carDesign';
@@ -585,6 +586,37 @@ describe('Universe — orçamento dos carros por nível de detalhe', () => {
       expect(mid, cls).toBeLessThanOrEqual(9_000);
       expect(far, cls).toBeLessThanOrEqual(2_500);
       expect(mid, cls).toBeLessThan(near / 2.4);
+    }
+  });
+});
+
+describe('Universe — pedestres', () => {
+  it('andam só pelas calçadas da região principal e pela praça, longe dos postes e fora de qualquer edifício', () => {
+    for (const q of QUALITIES) {
+      const all = citySolids(q);
+      for (const p of createPedestrians(q))
+        for (let t = 0; t < 600; t += 3.7) {
+          const pose = pedestrianPose(p, t);
+          const ground = groundHeight(pose.x, pose.z);
+          if (p.route.kind === 'plaza') expect(ground).toBe(GROUND.plaza);
+          else expect(ground, `${pose.x.toFixed(1)},${pose.z.toFixed(1)}`).toBe(GROUND.sidewalk);
+          expect(insideSolid(pose.x, pose.z, 1, 0.3, all)).toBe(false);
+          expect(Number.isFinite(pose.heading)).toBe(true);
+        }
+    }
+  });
+
+  it('são determinísticos, mais numerosos nas qualidades maiores e andam na velocidade de gente', () => {
+    const n = QUALITIES.map((q) => createPedestrians(q).length);
+    expect(n).toEqual([...n].sort((a, b) => a - b));
+    const ps = createPedestrians('high');
+    expect(pedestrianPose(ps[3]!, 12.5)).toEqual(pedestrianPose(createPedestrians('high')[3]!, 12.5));
+    for (const p of ps) {
+      const a = pedestrianPose(p, 10);
+      const b = pedestrianPose(p, 11);
+      const v = Math.hypot(b.x - a.x, b.z - a.z);
+      expect(v).toBeGreaterThan(0.6);
+      expect(v).toBeLessThan(1.7);
     }
   });
 });

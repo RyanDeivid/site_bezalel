@@ -31,11 +31,20 @@ function drawEverything(gl: THREE.WebGLRenderer, scene: THREE.Scene, camera: THR
       restore.push(() => (im.count = 0));
     }
   });
+  // Num alvo minúsculo do mesmo tipo do destino real (HDR com o brilho): os shaders saem iguais aos do
+  // jogo, a geometria sobe toda, e quase não há pixels a pintar — sem placa de vídeo (CI, aparelhos
+  // muito fracos), desenhar a cidade inteira na tela cheia travaria a página por segundos.
+  const tiny = post
+    ? new THREE.WebGLRenderTarget(16, 16, { type: THREE.HalfFloatType, colorSpace: THREE.LinearSRGBColorSpace, depthBuffer: true })
+    : null;
+  const before = gl.getRenderTarget();
   try {
     gl.shadowMap.needsUpdate = true;
-    if (post) post.render(scene, camera);
-    else gl.render(scene, camera);
+    gl.setRenderTarget(tiny);
+    gl.render(scene, camera);
   } finally {
+    gl.setRenderTarget(before);
+    tiny?.dispose();
     restore.forEach((f) => f());
   }
 }

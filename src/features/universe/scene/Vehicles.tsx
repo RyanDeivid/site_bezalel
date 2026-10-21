@@ -20,18 +20,20 @@ interface Props {
   effects: boolean;
   /** Até que distância da câmera (m) o carro estacionado usa um modelo com rodas e peças (completo até NEAR_CAR). */
   lodDistance: number;
+  /** Facho dos faróis no asfalto, aceso no carro em uso (da Média para cima). */
+  beam?: { geometry: THREE.BufferGeometry; material: THREE.Material } | null;
 }
 
 /** Até esta distância da câmera (m), o carro estacionado usa o modelo completo; depois, o intermediário. */
 const NEAR_CAR = 18;
 
 /** Veículos que o jogador pode usar: os carros (com volante e suspensão visíveis) e o carro voador. */
-export function PlayerVehicles({ runtime, models, midModels, farModels, materials, assets, effects, lodDistance }: Props) {
+export function PlayerVehicles({ runtime, models, midModels, farModels, materials, assets, effects, lodDistance, beam }: Props) {
   return (
     <>
       {runtime.vehicles.map((v) =>
         v.kind === 'car' ? (
-          <PlayerCar key={v.id} runtime={runtime} vehicle={v} model={models[v.cls]} mid={midModels[v.cls]} far={farModels[v.cls]} materials={materials} lodDistance={lodDistance} />
+          <PlayerCar key={v.id} runtime={runtime} vehicle={v} model={models[v.cls]} mid={midModels[v.cls]} far={farModels[v.cls]} materials={materials} lodDistance={lodDistance} beam={beam ?? null} />
         ) : (
           <HoverCar key={v.id} vehicle={v} assets={assets} effects={effects} />
         ),
@@ -56,8 +58,10 @@ function PlayerCar({
   far,
   materials,
   lodDistance,
+  beam,
 }: {
   runtime: UniverseRuntime;
+  beam: { geometry: THREE.BufferGeometry; material: THREE.Material } | null;
   vehicle: Extract<PlayerVehicle, { kind: 'car' }>;
   model: CarModel;
   mid: CarModel;
@@ -69,6 +73,7 @@ function PlayerCar({
   const root = useRef<THREE.Group>(null);
   const detailed = useRef<THREE.Group>(null);
   const simple = useRef<THREE.Group>(null);
+  const lit = useRef<THREE.Mesh>(null);
   const near = useRef(true);
   const full = useRef(true);
   // Peças dos dois níveis com rodas (completo e intermediário): só um dos dois fica visível.
@@ -101,6 +106,8 @@ function PlayerCar({
     // Nível de detalhe (com margem, para não trocar na fronteira); o carro em uso é sempre o detalhado.
     const d2 = (c.x - camera.position.x) ** 2 + (c.z - camera.position.z) ** 2;
     near.current = runtime.active === vehicle.id || (near.current ? d2 < (lodDistance * 1.12) ** 2 : d2 < lodDistance ** 2);
+    // Facho dos faróis no asfalto: só no carro em uso (os estacionados ficam com o farol apagado no chão).
+    if (lit.current) lit.current.visible = runtime.active === vehicle.id;
     if (detailed.current) detailed.current.visible = near.current;
     if (simple.current) simple.current.visible = !near.current;
     if (!near.current) return;
@@ -148,6 +155,7 @@ function PlayerCar({
           </group>
         ))}
       </group>
+      {beam && <mesh ref={lit} geometry={beam.geometry} material={beam.material} renderOrder={7} visible={false} />}
       <group ref={simple} visible={false}>
         <mesh geometry={far.paint} material={own.paint} />
         <mesh geometry={far.rest} material={materials.farRest} />

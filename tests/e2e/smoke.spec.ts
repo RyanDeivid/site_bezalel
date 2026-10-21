@@ -782,9 +782,10 @@ test.describe('Universe 3D no computador', () => {
     expect(errors.filter((e) => !/GPU|WebGL|GL_/.test(e))).toEqual([]);
   });
 
-  test('Universe 3D no computador: modo apresentação (botão e tecla C) recolhe o HUD, move a câmera e sai com Esc', async ({ page, isMobile }) => {
+  test('Universe 3D no computador: modo apresentação (botão e tecla C) recolhe o HUD, move a câmera e sai com Esc; som liga e desliga (M)', async ({ page, isMobile }) => {
     test.skip(isMobile, 'Atalhos do teclado do computador.');
-    test.setTimeout(120_000);
+    // Sem placa de vídeo (CI), cada quadro é lento: folga para as esperas.
+    test.setTimeout(180_000);
     const errors = trackErrors(page);
     const state = await enterUniverse3d(page);
     const places = page.getByRole('button', { name: 'Locais' });
@@ -807,13 +808,20 @@ test.describe('Universe 3D no computador', () => {
     // Esc sai: o HUD volta e a câmera do jogo também.
     await page.keyboard.press('Escape');
     await expect(places).toBeVisible({ timeout: 10_000 });
-    await expect.poll(async () => (await state()).cinema, { timeout: 10_000 }).toBeNull();
+    await expect.poll(async () => (await state()).cinema, { timeout: 30_000 }).toBeNull();
     // A tecla C entra de novo; o botão sai.
     await page.mouse.move(640, 400);
     await page.keyboard.press('c');
     await expect(exit).toBeVisible({ timeout: 10_000 });
     await exit.click();
     await expect(places).toBeVisible({ timeout: 10_000 });
+    // Som da cidade: botão e tecla M; a escolha fica guardada no aparelho.
+    await page.getByRole('button', { name: 'Desligar o som (M)' }).click();
+    await expect(page.getByRole('button', { name: 'Ligar o som (M)' })).toBeVisible();
+    expect(await page.evaluate(() => localStorage.getItem('bz-universe-sound'))).toBe('off');
+    await page.mouse.move(640, 400);
+    await page.keyboard.press('m');
+    await expect(page.getByRole('button', { name: 'Desligar o som (M)' })).toBeVisible();
     expect(errors.filter((e) => !/GPU|WebGL|GL_/.test(e))).toEqual([]);
   });
 
