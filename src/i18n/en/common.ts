@@ -88,6 +88,8 @@ export const common: Widen<typeof base> = {
       'An educational intelligence platform connecting people to courses, certifications and skills, with transparency about every source.',
     product: 'Product',
     institutional: 'Institutional',
+    experiences: 'Experiences',
+    experienceLinks: { forja: 'The Forge', origem: 'The origin', lion: 'The Lion of Judah' },
     transparency: 'Transparency',
     transparencyText:
       'Records with the Verified badge were manually checked at the official source. The Demo badge marks fictional data. No autonomous agent is in production in this version.',
@@ -276,6 +278,10 @@ export const common: Widen<typeof base> = {
     agents: {
       title: 'Agent ecosystem',
       description: 'Meet Scout, Verifier, Vigia, Atlas, Trend and Sol: roles, states, limitations and recent events (demonstration mode).',
+    },
+    lion: {
+      title: 'The Lion of the tribe of Judah',
+      description: 'A 3D sculpture that takes shape from line drawing to bronze, inspired by Revelation 5:5 — with the text, its context and the artistic interpretation side by side.',
     },
     universe: {
       title: 'Bezalel Universe',

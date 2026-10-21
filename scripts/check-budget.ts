@@ -23,11 +23,11 @@ const BUDGET = {
   // Sob demanda. three.js fica num chunk compartilhado pela Forja (home) e
   // pelo laboratório; cada um soma só o próprio código por cima dele.
   three: 200,
-  lazy: { scene: 30, LabScene: 100, UniverseScene: 60, UniversePage: 30, InsightsPage: 130 },
+  lazy: { scene: 30, LabScene: 100, UniverseScene: 60, UniversePage: 30, InsightsPage: 130, LionScene: 15, LionPage: 12 },
   // Download total de cada experiência 3D: o chunk dela e tudo o que ele importa
   // (three.js, React Three Fiber, texturas, robôs), menos o que a primeira carga já trouxe.
   // Universe 5: +5 kB (interior dos veículos com painel digital, Laboratório de IA para percorrer a pé).
-  experience: { LabScene: 300, UniverseScene: 330 },
+  experience: { LabScene: 300, UniverseScene: 330, LionScene: 215 },
 };
 
 const gz = async (file: string) => gzipSync(await readFile(file)).length / KB;

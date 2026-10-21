@@ -26,6 +26,7 @@ const ROUTES = [
   'agents/',
   'lab/',
   'universe/',
+  'lion/',
   'assistant/',
   'about/',
   'methodology/',

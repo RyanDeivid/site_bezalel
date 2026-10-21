@@ -89,6 +89,8 @@ export const common = {
       'Plataforma de inteligência educacional que conecta pessoas a cursos, certificações e competências, com transparência sobre cada fonte.',
     product: 'Produto',
     institutional: 'Institucional',
+    experiences: 'Experiências',
+    experienceLinks: { forja: 'A Forja', origem: 'A origem', lion: 'O Leão de Judá' },
     transparency: 'Transparência',
     transparencyText:
       'Registros com o selo Verificado foram conferidos manualmente na fonte oficial. O selo Demo identifica dados fictícios. Nenhum agente autônomo está em produção nesta versão.',
@@ -277,6 +279,10 @@ export const common = {
     agents: {
       title: 'Ecossistema de agentes',
       description: 'Conheça Scout, Verifier, Vigia, Atlas, Trend e Sol: funções, estados, limitações e eventos recentes (modo demonstração).',
+    },
+    lion: {
+      title: 'O Leão da tribo de Judá',
+      description: 'Uma escultura em 3D que se forma do traço ao bronze, inspirada em Apocalipse 5:5 — com o texto, o contexto e a interpretação artística lado a lado.',
     },
     universe: {
       title: 'Bezalel Universe',

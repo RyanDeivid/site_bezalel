@@ -20,7 +20,8 @@ Plataforma de inteligência educacional que conecta pessoas a cursos, certifica�
 | `/agents` | Perfis, estados ao vivo (ativo/ocioso/com falha/demo), fluxo entre agentes e trilha de eventos |
 | `/lab` | Campus 3D explorável (WASD/setas, clique, toque): seis setores com robôs articulados levando registros entre eles, Central de Operações, **tour guiado** e **"seguir um curso"** (dados reais do registro em cada etapa), e versão 2D completa; `?setor=vigia` abre de frente para um setor e `?curso=<slug>` já segue um curso |
 | `/assistant` | Assistente Sol com regras locais transparentes |
-| `/about` | "A origem": a história de Bezalel construída pelo visitante com uma manivela (7 voltas, 7 capítulos), missão e compromissos |
+| `/about` | "A origem": a história de Bezalel construída pelo visitante com uma manivela (7 voltas, 7 capítulos), a ponte para o Leão de Judá, missão e compromissos |
+| `/lion` | **O Leão da tribo de Judá**: escultura em 3D gerada em código que se forma em seis estágios (contorno, armação, gesso, argila, bronze, obra) — girar, aproximar, detalhes, reiniciar —, com Apocalipse 5:5 citado, o contexto e a interpretação artística separados; sem 3D, o desenho do contorno |
 | `/methodology`, `/privacy`, `/terms` | Institucional (privacidade e termos são rascunhos preliminares) |
 
 ## Stack

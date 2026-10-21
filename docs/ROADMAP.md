@@ -15,6 +15,14 @@ Executado fase a fase; cada fase é publicada ao terminar.
 | 5 · Psicologia aplicada (ética) | Pico-final, curiosidade, progresso, poucas escolhas por tela, polegar; prova social só com números reais — nada de escassez ou contador falso | **Concluída** (`docs/ETHICS.md`; medições em `ARCHITECTURE.md`) — guarda ética automática sobre todos os textos; pico-final ao concluir curso e trilha e um "Próximo passo" no fim das páginas internas (catálogo, curso, Insights, agentes, metodologia, Sobre); "Continue de onde parou" para quem volta; contagens reais ao vivo no questionário; filtros do catálogo com 7 temas que se abrem sob demanda e "Mais filtros"; barras na zona do polegar na home, no catálogo, no curso e na trilha; teste de que os números da home são contagens reais |
 | 6 · Qualidade | Testes de tudo que for novo, auditoria de acessibilidade, documentação | **Em andamento** — auditoria automática WCAG 2.2 AA (axe-core) em todas as rotas, nos dois temas e tamanhos de tela, no CI; primeira rodada corrigida (contraste do texto secundário e das cores dos agentes, nomes acessíveis, rolagem por teclado, `<dl>`) — ver `docs/ACCESSIBILITY.md`; `/lab` sem a travada da abertura (formatadores `Intl` recriados a cada evento: ~350 ms de CPU no celular simulado, e travadas de 60–95 ms a cada evento novo) |
 
+## Experience Layer (21/10/2026)
+
+| Item | Estado |
+|---|---|
+| O Leão da tribo de Judá (`/lion`) — escultura em seis estágios, Apocalipse 5:5 com contexto e interpretação artística | **Concluído** (escultura procedural; ver limitações em `ARCHITECTURE.md`) |
+| Ponte da origem para o Leão; mapa "um estúdio, várias obras" (Sobre e Leão); coluna Experiências no rodapé; Leão no Ctrl+K | **Concluído** |
+| Forja e origem | Preservadas sem mudança de comportamento (a auditoria não achou defeito concreto que justificasse mexer) |
+
 ## Bezalel Universe
 
 | Fase | Escopo | Estado |

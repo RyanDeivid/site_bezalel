@@ -248,6 +248,45 @@ test('laboratório 3D: o guia leva o visitante até o setor (efeitos pausados = 
   expect(errors.filter((e) => !/GPU|WebGL|GL_/.test(e))).toEqual([]);
 });
 
+test('Leão de Judá: a origem leva até ele; texto bíblico, contexto e interpretação estão no HTML', async ({ page }) => {
+  const errors = trackErrors(page);
+  await gotoReady(page, 'about/');
+  await page.getByRole('link', { name: 'Ver a escultura do Leão de Judá' }).click();
+  await expect(page.getByRole('heading', { level: 1, name: 'O Leão da tribo de Judá' })).toBeVisible();
+  await expect(page.locator('blockquote').first()).toContainText('eis aqui o Leão da tribo de Judá, a raiz de Davi, que venceu');
+  await expect(page.getByText('Tradução: Almeida Corrigida Fiel (ACF).')).toBeVisible();
+  for (const badge of ['Texto bíblico', 'Explicação', 'Interpretação artística']) await expect(page.getByText(badge, { exact: true })).toBeVisible();
+  await expect(page.getByText(/Não é um retrato de Jesus/)).toBeVisible();
+  const steps = page.getByRole('navigation', { name: 'Estágios da construção' }).getByRole('button');
+  await expect(steps).toHaveCount(6);
+  expect(errors.filter((e) => !/GPU|WebGL|GL_/.test(e))).toEqual([]);
+});
+
+test('Leão de Judá: os estágios da escultura (3D) ou, sem aceleração de vídeo, o desenho do contorno', async ({ page }) => {
+  test.setTimeout(120_000);
+  const errors = trackErrors(page);
+  await gotoReady(page, 'lion/');
+  const stage = page.locator('[data-lion-stage]');
+  await stage.scrollIntoViewIfNeeded();
+  await expect(stage).not.toHaveAttribute('data-lion-stage', 'idle', { timeout: 30_000 });
+  const mode = await stage.getAttribute('data-lion-stage');
+  if (mode === '3d') {
+    // Escolher um estágio interrompe a sequência automática e leva direto a ele.
+    await page.getByRole('button', { name: /A obra/ }).click();
+    await expect(stage).toHaveAttribute('data-stage', '5');
+    await expect(page.getByRole('status').filter({ hasText: 'Estágio 6 de 6: A obra' })).toBeAttached();
+    await page.getByRole('button', { name: 'Estágio anterior' }).click();
+    await expect(stage).toHaveAttribute('data-stage', '4');
+    await page.getByRole('button', { name: 'Cabeça', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Cabeça', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  } else {
+    await expect(stage.locator('svg path')).toBeAttached({ timeout: 30_000 });
+    await expect(page.getByText(/O desenho do contorno e todo o texto continuam aqui/)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Próximo estágio' })).toBeDisabled();
+  }
+  expect(errors.filter((e) => !/GPU|WebGL|GL_/.test(e))).toEqual([]);
+});
+
 test('Agentes: o Vigia está entre os seis agentes e leva ao seu setor no laboratório', async ({ page }) => {
   await gotoReady(page, 'agents/');
   await expect(page.getByRole('heading', { level: 3, name: 'Vigia' })).toBeVisible();

@@ -57,5 +57,10 @@ novo, conferir:
 - **Gráficos interativos em SVG** (grafo de Insights, constelação): quando há
   dezenas de pontos, o mapa responde a ponteiro e a navegação por teclado fica
   na lista equivalente — 104 paradas de Tab num mapa seriam um labirinto.
-- **Canvas 3D** (laboratório, Forja) fica fora da auditoria do axe; o conteúdo
+- **Leão de Judá**: o palco é um `role="img"` focável com o estágio e o que ele mostra no nome acessível;
+  setas giram e + / − aproximam; estágios, detalhes e reinício são botões (`aria-current="step"`,
+  `aria-pressed`); a troca de estágio é anunciada (`role="status"`). Com movimento reduzido, a obra
+  aparece pronta e as trocas são cortes secos. No toque, o arrastar só gira a escultura depois de
+  "Tocar para girar" — a página nunca fica presa. Texto bíblico, contexto e interpretação estão no HTML.
+- **Canvas 3D** (laboratório, Forja, Leão) fica fora da auditoria do axe; o conteúdo
   equivalente existe em HTML e é auditado.

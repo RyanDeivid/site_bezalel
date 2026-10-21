@@ -6,6 +6,7 @@ import { PageHero } from '@/components/layout/PageHero';
 import { ButtonLink } from '@/components/ui/Button';
 import { Reveal } from '@/components/visual/Reveal';
 import { useDocumentMeta } from '@/hooks/useDocumentMeta';
+import { LionBridge, StudioExperiences } from '@/components/layout/StudioExperiences';
 import { OrigemSection } from '../about/origem/OrigemSection';
 
 export default function AboutPage() {
@@ -29,6 +30,8 @@ export default function AboutPage() {
 
       {/* A origem do nome, construída pelo visitante com a manivela. */}
       <OrigemSection />
+      {/* Bezalel era da tribo de Judá: a origem leva à escultura do leão. */}
+      <LionBridge />
 
       <div className="container-page grid grid-cols-1 gap-16 py-20 lg:grid-cols-12">
         <div className="space-y-16 lg:col-span-7">
@@ -96,6 +99,7 @@ export default function AboutPage() {
           </ButtonLink>
         </aside>
       </div>
+      <StudioExperiences current="origem" />
       <NextStep kind="about" primaryTo={'/trail'} secondaryTo={'/explore'} className="pt-0" />
     </>
   );

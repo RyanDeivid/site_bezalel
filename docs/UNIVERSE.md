@@ -25,6 +25,24 @@ iluminam o asfalto**, **holofotes** da Sede varrendo o céu, **vento nas
 árvores** e um carro voador novo (da família do táxi aéreo). A Baixa ganhou
 brilho, antisserrilhado e as luzes no chão.
 
+**Depois da versão 5** (Experience Layer):
+
+- **Toque**: botão grande "Ver de dentro / de fora" ao lado do velocímetro (o da barra, com a tecla V, fica
+  para o computador).
+- **Interior refeito** nas medidas de um carro, a partir dos olhos do motorista. O painel tem duas camadas,
+  friso de bronze e saídas de ar. O quadro de instrumentos fica sobre o painel (embutido sob uma coifa no
+  esportivo, que é baixo), com marcas a cada 20 km/h, P R N D, modo e autonomia. A tela central é virada
+  para o motorista e mostra o **mapa real da cidade** (frente para cima, os cinco locais, rumo em graus). Há
+  volante de três raios com o losango da marca, bancos com abas e miolo em outro tom, portas com apoio e luz,
+  e retrovisor. Cores no vértice: quatro materiais para tudo, compilados no preparo como o resto. O filete de
+  luz ficou fino (o grosso "estourava" no brilho).
+- **Sombras de contato** sob os carros do jogador, o trânsito, o visitante e os pedestres, em todas as
+  qualidades: uma mancha macia instanciada, sem luz nem profundidade. Na Baixa, que não tem mapa de sombras, é
+  ela que põe as coisas no chão.
+- **Baixa mais nítida**: a resolução adaptativa voltou a subir na Baixa (o teto era o próprio valor inicial,
+  de 85%: ela nunca saía dali). O teto agora é 1,15, os reflexos têm 128 px (antes 64), a anisotropia é 4 e o
+  miolo da cidade tem a densidade da Média (o horizonte continua mais leve).
+
 A versão 5 leva o visitante **para dentro**:
 
 - **O Laboratório de IA virou um pavilhão para percorrer a pé.** É uma caixa de

@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { nextStepContent } from '@/components/layout/next-step-content';
+import { studioContent } from '@/components/layout/studio-content';
 import { originContent } from '@/features/about/origem/content';
 import { continueText } from '@/features/home/continue-content';
 import { journeyContent } from '@/features/lab/journey-content';
+import { lionContent } from '@/features/lion/content';
 import { toolsContent } from '@/features/tools/content';
 import { constellationContent } from '@/features/tools/constellation-content';
 import { universeContent } from '@/features/universe/universe-content';
@@ -58,6 +60,8 @@ const sources: Record<string, unknown> = {
   tools: toolsContent,
   constellation: constellationContent,
   universe: universeContent,
+  lion: lionContent,
+  studio: studioContent,
   journeys: journeyContent,
   origem: originContent,
   continue: continueText,
