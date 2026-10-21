@@ -69,6 +69,13 @@ export const STATION_LINKS: Array<[AgentId, AgentId]> = [
   ['atlas', 'trend'],
 ];
 
+/**
+ * Porta do portal (sul): saída para o Bezalel Universe. Perto dela (raio `EXIT_REACH`), o HUD oferece
+ * sair; do outro lado, o visitante chega à porta do Laboratório de IA da cidade.
+ */
+export const EXIT_DOOR = { x: 0, z: LAB_RADIUS - 1.6 };
+export const EXIT_REACH = 4.2;
+
 /** Posição inicial do visitante: logo depois da entrada, olhando para a Central. */
 export const SPAWN = { x: 0, z: 13.5 };
 /** Onde o robô-guia espera o visitante quando não há tour. */
@@ -122,6 +129,8 @@ export interface LabRuntime {
   target: { x: number; z: number } | null;
   camera: { yaw: number; pitch: number; distance: number };
   near: AgentId | null;
+  /** O visitante está na porta do portal (a saída para o Bezalel Universe). */
+  nearExit: boolean;
   /** Guia em ação (tour ou "seguir um curso"): a cena o move e o visitante o acompanha. */
   guide: GuideRuntime | null;
 }
@@ -163,6 +172,7 @@ export function createLabRuntime(at?: AgentId | null): LabRuntime {
     target: null,
     camera: pose.camera,
     near: null,
+    nearExit: false,
     guide: null,
   };
 }

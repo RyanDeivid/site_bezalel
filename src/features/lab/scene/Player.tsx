@@ -2,7 +2,7 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import type { AgentId } from '@/types/domain';
-import { constrainToFloor, INTERACT_DISTANCE, LAB_RADIUS, nearestStation, SECTOR_SIZE, STATIONS, type LabRuntime } from '../layout';
+import { constrainToFloor, EXIT_DOOR, EXIT_REACH, INTERACT_DISTANCE, LAB_RADIUS, nearestStation, SECTOR_SIZE, STATIONS, type LabRuntime } from '../layout';
 
 const SPEED = 6;
 const PITCH_MIN = 0.38;
@@ -20,6 +20,8 @@ interface PlayerProps {
   inputEnabled: boolean;
   effects: boolean;
   onNearChange: (id: AgentId | null) => void;
+  /** Chegou ou saiu da porta do portal (saída para o Universe). */
+  onNearExitChange?: (near: boolean) => void;
 }
 
 /**
@@ -28,7 +30,7 @@ interface PlayerProps {
  * para aproximar. Câmera com amortecimento exponencial: confortável e sem
  * trancos. Não usa pointer lock (funciona igual em mouse e toque).
  */
-export function Player({ runtime, inputEnabled, effects, onNearChange }: PlayerProps) {
+export function Player({ runtime, inputEnabled, effects, onNearChange, onNearExitChange }: PlayerProps) {
   const body = useRef<THREE.Group>(null);
   const marker = useRef<THREE.Mesh>(null);
   const markerMat = useRef<THREE.MeshBasicMaterial>(null);
@@ -227,6 +229,11 @@ export function Player({ runtime, inputEnabled, effects, onNearChange }: PlayerP
     // Proximidade das estações
     const near = nearestStation(runtime.player.x, runtime.player.z);
     const nearId = near.distance < INTERACT_DISTANCE ? near.id : null;
+    const atExit = Math.hypot(runtime.player.x - EXIT_DOOR.x, runtime.player.z - EXIT_DOOR.z) < EXIT_REACH;
+    if (atExit !== runtime.nearExit) {
+      runtime.nearExit = atExit;
+      onNearExitChange?.(atExit);
+    }
     if (nearId !== lastNear.current) {
       lastNear.current = nearId;
       runtime.near = nearId;

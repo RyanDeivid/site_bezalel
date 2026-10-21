@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { AGENT_HEX } from '@/components/agents/AgentGlyph';
 import { EnvironmentMap } from '@/components/three/EnvironmentMap';
-import { ENTRANCE_ANGLE, LAB_RADIUS, PLAZA_RADIUS, RING_RADIUS, SECTOR_RADIUS, SECTOR_SIZE, STATIONS } from '../layout';
+import { ENTRANCE_ANGLE, EXIT_DOOR, LAB_RADIUS, PLAZA_RADIUS, RING_RADIUS, SECTOR_RADIUS, SECTOR_SIZE, STATIONS } from '../layout';
 import { drawCampusFloor, makeCanvasTexture } from './textures';
 
 const WALL_R = LAB_RADIUS + 0.9;
@@ -22,7 +22,7 @@ const pillarAngles = Array.from({ length: PILLARS }, (_, i) => (i / PILLARS) * M
  * sul; coroa luminosa e campo de estrelas. Geometrias instanciadas para
  * manter o custo de renderização baixo.
  */
-export function Environment({ quality, effects, onFloorClick }: { quality: 'high' | 'low'; effects: boolean; onFloorClick: (p: THREE.Vector3) => void }) {
+export function Environment({ quality, effects, onFloorClick, exitLabel }: { quality: 'high' | 'low'; effects: boolean; onFloorClick: (p: THREE.Vector3) => void; exitLabel: string }) {
   const floorTex = useMemo(() => {
     const size = quality === 'high' ? 2048 : 1024;
     const { ctx, texture } = makeCanvasTexture(size, size);
@@ -77,7 +77,22 @@ export function Environment({ quality, effects, onFloorClick }: { quality: 'high
   }, [quality]);
   useEffect(() => () => stars.dispose(), [stars]);
 
-  useFrame((_, dt) => {
+  // Porta do portal: duas folhas de vidro que correm quando a câmera chega perto; atrás, a cidade.
+  const doorLeaves = useRef<Array<THREE.Mesh | null>>([]);
+  const doorOpen = useRef(0);
+  const outside = useMemo(() => cityBackdrop(), []);
+  const sign = useMemo(() => exitSign(exitLabel), [exitLabel]);
+  useEffect(
+    () => () => {
+      outside.dispose();
+      sign.dispose();
+    },
+    [outside, sign],
+  );
+  useFrame(({ camera }, dt) => {
+    const near = Math.hypot(camera.position.x - EXIT_DOOR.x, camera.position.z - EXIT_DOOR.z) < 14;
+    doorOpen.current += ((near ? 1 : 0) - doorOpen.current) * Math.min(1, dt * 4);
+    doorLeaves.current.forEach((d, i) => d && (d.position.x = (i ? 1 : -1) * (1.15 + doorOpen.current * 1.9)));
     if (!effects || !crownRef.current) return;
     crownRef.current.rotation.z += dt * 0.02;
   });
@@ -149,6 +164,22 @@ export function Environment({ quality, effects, onFloorClick }: { quality: 'high
           <boxGeometry args={[5.4, 0.06, 0.02]} />
           <meshBasicMaterial color="#ead9b2" toneMapped={false} />
         </mesh>
+        {/* Porta de vidro (correr) e a placa de saída para o Universe, voltada para dentro. */}
+        {[-1, 1].map((s, i) => (
+          <mesh key={s} ref={(m) => void (doorLeaves.current[i] = m)} position={[s * 1.15, 2.6, 0]}>
+            <boxGeometry args={[2.3, 5.2, 0.08]} />
+            <meshStandardMaterial color="#9fc3ff" transparent opacity={0.22} roughness={0.05} metalness={0.3} depthWrite={false} />
+          </mesh>
+        ))}
+        <mesh position={[0, 5.75, -0.5]} rotation={[0, Math.PI, 0]}>
+          <planeGeometry args={[4.6, 0.62]} />
+          <meshBasicMaterial map={sign} transparent toneMapped={false} depthWrite={false} />
+        </mesh>
+        {/* Lá fora: a cidade da Bezalel à noite (um painel distante, visto pela porta). */}
+        <mesh position={[0, 7, 9]} rotation={[0, Math.PI, 0]}>
+          <planeGeometry args={[46, 16]} />
+          <meshBasicMaterial map={outside} toneMapped={false} fog={false} />
+        </mesh>
       </group>
 
       {/* Coroa */}
@@ -162,4 +193,75 @@ export function Environment({ quality, effects, onFloorClick }: { quality: 'high
       </points>
     </group>
   );
+}
+
+/** Silhueta da cidade à noite (céu em gradiente, torres com janelas acesas, a Sede com a fenda dourada). */
+function cityBackdrop() {
+  const w = 1024;
+  const h = 356;
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  const ctx = c.getContext('2d')!;
+  const sky = ctx.createLinearGradient(0, 0, 0, h);
+  sky.addColorStop(0, '#04070f');
+  sky.addColorStop(0.65, '#1b2142');
+  sky.addColorStop(1, '#4a3d5c');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, w, h);
+  let seed = 7;
+  const rand = () => {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return seed / 2 ** 32;
+  };
+  for (let i = 0; i < 70; i++) {
+    ctx.fillStyle = `rgba(242,232,213,${0.3 + rand() * 0.6})`;
+    ctx.fillRect(rand() * w, rand() * h * 0.45, 1.5, 1.5);
+  }
+  for (let x = 0; x < w; ) {
+    const bw = 30 + rand() * 60;
+    const bh = h * (0.25 + rand() * 0.5);
+    ctx.fillStyle = rand() < 0.5 ? '#0b1020' : '#121a2c';
+    ctx.fillRect(x, h - bh, bw - 4, bh);
+    for (let y = h - bh + 8; y < h - 6; y += 9)
+      for (let wx = x + 4; wx < x + bw - 8; wx += 7)
+        if (rand() < 0.22) {
+          ctx.fillStyle = rand() < 0.7 ? 'rgba(255,210,150,0.85)' : 'rgba(190,215,255,0.8)';
+          ctx.fillRect(wx, y, 3, 4);
+        }
+    x += bw;
+  }
+  // A Sede, no meio: mais alta, com a fenda dourada e o cubo no alto.
+  const cx = w / 2;
+  ctx.fillStyle = '#1a160f';
+  ctx.fillRect(cx - 34, h * 0.14, 68, h * 0.86);
+  ctx.fillStyle = '#e8c77a';
+  ctx.fillRect(cx - 2, h * 0.14, 4, h * 0.86);
+  ctx.save();
+  ctx.translate(cx, h * 0.08);
+  ctx.rotate(Math.PI / 4);
+  ctx.fillStyle = '#c7a86a';
+  ctx.fillRect(-12, -12, 24, 24);
+  ctx.restore();
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+/** Placa "→ Bezalel Universe" (letras douradas num fundo escuro). */
+function exitSign(label: string) {
+  const c = document.createElement('canvas');
+  c.width = 768;
+  c.height = 104;
+  const ctx = c.getContext('2d')!;
+  ctx.fillStyle = 'rgba(7,13,23,0.85)';
+  ctx.fillRect(0, 0, c.width, c.height);
+  ctx.fillStyle = '#ead9b2';
+  ctx.font = "600 52px 'Geist Variable', system-ui, sans-serif";
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(`${label}  →`, c.width / 2, c.height / 2 + 2);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
 }

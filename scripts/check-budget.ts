@@ -26,7 +26,8 @@ const BUDGET = {
   lazy: { scene: 30, LabScene: 100, UniverseScene: 60, UniversePage: 30, InsightsPage: 130 },
   // Download total de cada experiência 3D: o chunk dela e tudo o que ele importa
   // (three.js, React Three Fiber, texturas, robôs), menos o que a primeira carga já trouxe.
-  experience: { LabScene: 300, UniverseScene: 320 },
+  // Universe 5: +5 kB (interior dos veículos com painel digital, Laboratório de IA para percorrer a pé).
+  experience: { LabScene: 300, UniverseScene: 330 },
 };
 
 const gz = async (file: string) => gzipSync(await readFile(file)).length / KB;

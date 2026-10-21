@@ -376,6 +376,15 @@ export function attachDebug(rt: UniverseRuntime): () => void {
   };
 }
 
+/**
+ * Chegada pela porta do laboratório 3D (`/universe?from=lab`): o visitante aparece do lado de fora da porta
+ * do Laboratório de IA da cidade, de costas para ela, olhando a praça e a Sede.
+ */
+export function arriveFromLab(rt: UniverseRuntime) {
+  Object.assign(rt.walker, { x: 60.6, z: -0.05, vx: 0, vz: 0, heading: -Math.PI / 2 });
+  rt.camera.yaw = -Math.PI / 2;
+}
+
 /** Troca a câmera do veículo entre de fora e de dentro (primeira pessoa); o olhar volta para a frente. */
 export function toggleView(rt: UniverseRuntime) {
   rt.camera.view = rt.camera.view === 'first' ? 'third' : 'first';

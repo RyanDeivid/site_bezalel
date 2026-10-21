@@ -1,4 +1,4 @@
-# Bezalel Universe — versão 4 (fluidez e imersão)
+# Bezalel Universe — versão 5 (por dentro)
 
 Cidade 3D explorável da Bezalel em `/universe`. O visitante começa **a pé** no
 parque de chegada, caminha pela cidade, **entra em carros e os dirige**, sai e
@@ -24,6 +24,29 @@ trânsito que passa), **pedestres** nas calçadas e na praça, **faróis que
 iluminam o asfalto**, **holofotes** da Sede varrendo o céu, **vento nas
 árvores** e um carro voador novo (da família do táxi aéreo). A Baixa ganhou
 brilho, antisserrilhado e as luzes no chão.
+
+A versão 5 leva o visitante **para dentro**:
+
+- **O Laboratório de IA virou um pavilhão para percorrer a pé.** É uma caixa de
+  vidro de 28 × 28 m sob um disco de cobertura. Do lado da avenida (oeste),
+  um pórtico de bronze tem **portas automáticas de correr** e balizas que deixam
+  passar quem anda, mas não os carros. Lá dentro ficam o núcleo de vidro, as seis
+  estações dos agentes com hologramas e nomes, e as faixas de luz no teto.
+- **Saída do laboratório para a cidade.** No `/lab` em 3D, o portal de entrada
+  ganhou uma porta de vidro com a placa "Bezalel Universe →", e a cidade à
+  noite aparece do lado de fora. Na porta, o HUD oferece **"Sair para o Bezalel
+  Universe"** (botão ou **E**). Isso abre `/universe?from=lab`, que entra direto
+  no 3D com o visitante **na porta do Laboratório de IA da cidade**, de frente
+  para a avenida e a Sede.
+- **Interior dos veículos e primeira pessoa.** **V** (ou o botão do olho no
+  HUD, "Ver de dentro (V)") põe a câmera no banco do motorista. A cabine tem
+  bancos, volante que gira com o esterço, console, faixa de luz e **duas telas**:
+  - o quadro de instrumentos mostra o **velocímetro** digital com arco,
+    a marcha (P/R/D, ou o número no esportivo) e a bateria; no carro voador
+    mostra a altitude e ↑/↓/H;
+  - a tela central mostra a hora.
+
+  Arrastar olha em volta; com o carro andando, o olhar volta para a frente.
 
 ## Inicialização
 
@@ -267,6 +290,7 @@ controlável e previsível, e é testado sem navegador.
 | Subir / descer | — | — | **↑ ↓**, Espaço/R · C/Q |
 | Extra | Shift corre | Espaço = freio de mão | Shift = turbo |
 | Ação | E entra / abre | E sai | E pousa e sai |
+| Câmera | — | **V** dentro/fora | **V** dentro/fora |
 
 Em todos os modos, **M** liga e desliga o **som**, **C** abre o **modo
 apresentação** (Esc sai) e **F** liga e desliga a **tela cheia**; o botão "Tela cheia"
@@ -276,7 +300,8 @@ ele se aciona pelo teclado.
 
 ## Câmera
 
-Terceira pessoa nos três modos, sempre amortecida (sem saltos):
+Terceira pessoa nos três modos, sempre amortecida (sem saltos). Dentro de um
+veículo, **V** alterna para a primeira pessoa (abaixo):
 
 - **A pé**: atrás do ombro, a 6,5 m. Arrastar gira; a roda ou a pinça
   aproxima.
@@ -289,6 +314,22 @@ Terceira pessoa nos três modos, sempre amortecida (sem saltos):
   posição desejada e para antes do primeiro volume.
 - **Movimento reduzido**: sem variação do campo de visão e sem tremor nas
   batidas.
+
+**Primeira pessoa** (V, só dentro de um veículo; vale até trocar de volta):
+
+- **Posição dos olhos.** Vem do desenho de cada carro (`cabinOf` em
+  `carDesign.ts`). O motorista senta à esquerda, então a câmera fica do lado do
+  volante. Cada classe olha um pouco para baixo, na medida certa para ver o
+  painel e a rua.
+- **Paredes da cabine.** São a própria carroceria, desenhada pelo avesso
+  (`BackSide`). Os vidros ficam de fora, então a vista pela janela é aberta. O
+  carro voador não tem essa casca, porque o casco fechado taparia a vista.
+- **Telas.** São canvas na CPU (`willReadFrequently`, que evita uma leitura
+  de volta da GPU no envio). Só são redesenhadas quando o número mostrado muda,
+  e no máximo 10 vezes por segundo.
+- **Ordem do quadro.** O controle do jogador roda com prioridade −1 no
+  `useFrame`, antes do desenho dos veículos. Sem isso, a câmera ficava um
+  quadro à frente da carroceria e "entrava" no painel.
 
 **Modo apresentação** (botão de claquete no HUD ou tecla **C**; **Esc** sai):
 a câmera percorre a região principal em seis tomadas — travelling pela
@@ -676,7 +717,13 @@ fixos (para medir). Só existem com essas chaves.
   texturas pintadas; as janelas são textura (com aletas, varandas e cornijas
   de verdade só onde há detalhe). Ir além exige modelos feitos num programa de
   modelagem (glTF), com licença e orçamento de download próprios.
-- **Laboratório de IA**: mantido da versão 2 (não foi redesenhado nesta fase).
+- **Interiores**: só os veículos do jogador e o Laboratório de IA têm interior. A
+  Sede e o Centro de Produtos continuam fechados. A cabine é estilizada: os
+  bancos e o painel são volumes simples, sem costuras nem botões, e a bateria
+  mostrada é fixa por carro.
+- **Saída do `/lab`**: a cidade vista pela porta do laboratório é um painel
+  pintado, não o Universe de verdade. A passagem é uma troca de página, e a
+  cidade carrega em seguida.
 - **Pedestres simples**: corpo estilizado, sem rosto nem cabelo; seguem a rota
   e não desviam de quem cruza o caminho (o jogador esbarra neles); não
   atravessam a rua nem entram nos prédios.
@@ -690,7 +737,6 @@ fixos (para medir). Só existem com essas chaves.
 - **Trânsito**: sem semáforos visíveis (os cruzamentos são zonas invisíveis),
   sem troca de faixa e sem ultrapassagem. Os carros do trânsito freiam para o
   jogador, mas não desviam.
-- **Pedestres**: não há (por decisão de escopo: nada de multidões genéricas).
 - **Pilotar outros voadores**: fora desta fase (só o carro voador do jogador).
 - **Tela cheia**: os avisos (toasts) do site não aparecem nela.
 

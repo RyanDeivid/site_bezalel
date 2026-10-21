@@ -751,6 +751,11 @@ test.describe('Universe 3D no computador', () => {
     await expect(stage).toHaveAttribute('data-player-mode', 'car', { timeout: 10_000 });
     await expect(page.getByRole('status').filter({ hasText: 'Dirigindo: Sedã Aurora' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Sair do veículo' })).toBeVisible();
+    // V troca para a câmera de dentro (painel com velocímetro) e volta para fora.
+    await page.keyboard.press('v');
+    await expect(page.getByRole('button', { name: 'Ver de fora (V)' })).toBeVisible();
+    await page.keyboard.press('v');
+    await expect(page.getByRole('button', { name: 'Ver de dentro (V)' })).toBeVisible();
     // Acelera (W), vira (D) e freia (S).
     const car0 = aurora(await state());
     await page.keyboard.down('w');
@@ -780,6 +785,22 @@ test.describe('Universe 3D no computador', () => {
     await page.keyboard.up('w');
     expect(aurora(await state())).toMatchObject({ x: car.x, z: car.z });
     expect(errors.filter((e) => !/GPU|WebGL|GL_/.test(e))).toEqual([]);
+  });
+
+  test('Universe 3D: quem sai pela porta do laboratório chega à porta do Laboratório de IA, já no 3D', async ({ page }) => {
+    test.setTimeout(120_000);
+    await page.addInitScript(() => {
+      localStorage.setItem('bz-universe-help-v2', 'seen');
+      localStorage.setItem('bz-universe-debug', '1');
+      sessionStorage.setItem('bz-universe-quality', 'low');
+    });
+    await gotoReady(page, 'universe/?from=lab');
+    // Sem WebGL a página fica no mapa 2D (com o botão de entrar desligado).
+    const enter = page.getByRole('button', { name: 'Explorar em 3D' });
+    test.skip((await enter.isVisible()) && (await enter.isDisabled()), 'WebGL indisponível neste navegador de teste.');
+    await page.waitForFunction(() => Boolean((window as UniverseWindow).__bzUniverse), undefined, { timeout: 60_000 });
+    const w = (await page.evaluate(() => (window as UniverseWindow).__bzUniverse!.state())).walker;
+    expect(Math.hypot(w.x - 60.6, w.z)).toBeLessThan(1);
   });
 
   test('Universe 3D no computador: modo apresentação (botão e tecla C) recolhe o HUD, move a câmera e sai com Esc; som liga e desliga (M)', async ({ page, isMobile }) => {

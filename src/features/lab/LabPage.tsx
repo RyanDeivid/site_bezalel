@@ -1,6 +1,6 @@
 import { Box, Building2, Check, CircleAlert, Compass, Footprints, Gauge, Map as MapIcon, Pause, Play, Sparkles, TriangleAlert } from 'lucide-react';
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 import { usePreferences } from '@/app/preferences-context';
 import { AgentPanel } from '@/components/agents/AgentPanel';
 import { AGENT_COLOR } from '@/components/agents/AgentGlyph';
@@ -62,6 +62,10 @@ export default function LabPage() {
   const [quality, setQuality] = useState<'high' | 'low'>(() => (device.tier === 'high' ? 'high' : 'low'));
   const [effects, setEffects] = useState(!reducedMotion);
   const [near, setNear] = useState<AgentId | null>(null);
+  // Na porta do portal: sair para o Bezalel Universe (chega-se à porta do Laboratório de IA da cidade).
+  const [nearExit, setNearExit] = useState(false);
+  const navigate = useNavigate();
+  const exitToUniverse = useCallback(() => navigate('/universe?from=lab'), [navigate]);
   const [open, setOpen] = useState<AgentId | 'hub' | null>(null);
   const [opsOpen, setOpsOpen] = useState(true);
   // `?setor=vigia` (link do painel de cada agente): o visitante começa de frente para o setor.
@@ -254,10 +258,11 @@ export default function LabPage() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key.toLowerCase() !== 'e' || open || (e.target as HTMLElement | null)?.closest('input, textarea, select')) return;
       if (runtime.near) setOpen(runtime.near);
+      else if (runtime.nearExit) exitToUniverse();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [mode, open, runtime]);
+  }, [mode, open, runtime, exitToUniverse]);
 
   const selected = open && open !== 'hub' ? agents.data?.find((a) => a.id === open) : undefined;
 
@@ -391,6 +396,8 @@ export default function LabPage() {
                 onSelectStation={(id) => setOpen(id)}
                 onSelectHub={() => setOpsOpen(true)}
                 onNearChange={setNear}
+                onNearExitChange={setNearExit}
+                exitLabel={ul.door}
                 guideTarget={guideTarget}
                 onGuideArrive={onGuideArrive}
                 onLowPerformance={() => {
@@ -472,6 +479,17 @@ export default function LabPage() {
                 <span className="kbd hidden md:inline">{l.hud.pressE}</span>
                 <span className="md:hidden font-mono text-xs uppercase text-fg-subtle">{l.hud.tap}</span>
                 <span className="font-medium">{l.hud.openStation(names[near])}</span>
+              </button>
+            </div>
+          )}
+
+          {/* Na porta do portal: sair para o Universe */}
+          {nearExit && !near && !open && !journey && (
+            <div className="absolute bottom-24 left-1/2 -translate-x-1/2 md:bottom-28">
+              <button type="button" onClick={exitToUniverse} className="page-enter glass flex items-center gap-3 rounded-xl border border-accent/60 px-4 py-2.5 text-sm shadow-3">
+                <span className="kbd hidden md:inline">{l.hud.pressE}</span>
+                <span className="md:hidden font-mono text-xs uppercase text-fg-subtle">{l.hud.tap}</span>
+                <span className="font-medium">{ul.exit}</span>
               </button>
             </div>
           )}

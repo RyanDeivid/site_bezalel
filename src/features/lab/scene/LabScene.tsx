@@ -32,12 +32,15 @@ export interface LabSceneProps {
   onSelectStation: (id: AgentId) => void;
   onSelectHub: () => void;
   onNearChange: (id: AgentId | null) => void;
+  onNearExitChange: (near: boolean) => void;
   onLowPerformance: () => void;
   onContextLost: () => void;
   /** Parada atual da jornada guiada (tour / seguir um curso), ou nenhuma. */
   guideTarget: GuideTarget | null;
   /** O guia chegou à parada. */
   onGuideArrive: () => void;
+  /** Texto da placa acima da porta do portal. */
+  exitLabel: string;
 }
 
 /**
@@ -59,7 +62,7 @@ export default function LabScene(props: LabSceneProps) {
       }}
       className="!absolute inset-0"
     >
-      <Environment quality={quality} effects={effects} onFloorClick={(p) => (runtime.target = { x: p.x, z: p.z })} />
+      <Environment quality={quality} effects={effects} exitLabel={props.exitLabel} onFloorClick={(p) => (runtime.target = { x: p.x, z: p.z })} />
       <Hub content={hub} effects={effects} onSelect={props.onSelectHub} />
       {STATIONS.map((s) => (
         <Sector
@@ -79,7 +82,7 @@ export default function LabScene(props: LabSceneProps) {
       ))}
       <Robots runtime={runtime} statuses={statuses} near={near} pulse={pulse} effects={effects} carriers={quality === 'high' ? 6 : 3} guideTarget={props.guideTarget} onGuideArrive={props.onGuideArrive} />
       <Flows key={quality} effects={effects} quality={quality} pulse={pulse} />
-      <Player runtime={runtime} inputEnabled={inputEnabled} effects={effects} onNearChange={props.onNearChange} />
+      <Player runtime={runtime} inputEnabled={inputEnabled} effects={effects} onNearChange={props.onNearChange} onNearExitChange={props.onNearExitChange} />
       {quality === 'high' && <PerformanceWatch onLow={props.onLowPerformance} />}
       {props.bloom && <Bloom />}
       <ContextLossWatcher onLost={props.onContextLost} />

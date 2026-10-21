@@ -25,7 +25,7 @@ import { UniverseMap } from './UniverseMap';
 import { CINEMA_SHOTS } from './world/cinema';
 import { cityTowers, citySolids, PLACES, type PlaceId, type Quality } from './world/city';
 import { PRODUCTS, productText } from './world/products';
-import { attachDebug, cancelAutopilot, clearNotice, createUniverseRuntime, goToPlace, queueSound, requestExit, setCinema, toggleView, tryEnter, vehicleById } from './world/runtime';
+import { arriveFromLab, attachDebug, cancelAutopilot, clearNotice, createUniverseRuntime, goToPlace, queueSound, requestExit, setCinema, toggleView, tryEnter, vehicleById } from './world/runtime';
 
 // three.js + R3F + a cidade só são baixados quando o visitante escolhe explorar em 3D.
 const UniverseScene = lazy(() => import('./scene/UniverseScene'));
@@ -48,7 +48,11 @@ const isQuality = (v: unknown): v is Quality => QUALITIES.includes(v as Quality)
 const below = (q: Quality) => QUALITIES[Math.max(0, QUALITIES.indexOf(q) - 1)]!;
 const above = (q: Quality): Quality | null => QUALITIES[QUALITIES.indexOf(q) + 1] ?? null;
 
+/** Veio pela porta do laboratório 3D (`?from=lab`): entra direto no 3D, na porta do Laboratório de IA. */
+const fromLab = () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('from') === 'lab';
+
 function savedMode(): Mode {
+  if (fromLab() && hasWebGL()) return '3d';
   const saved = readSession(MODE_KEY);
   if (saved === '2d') return '2d';
   if (saved === '3d' && hasWebGL()) return '3d';
@@ -129,7 +133,11 @@ export default function UniversePage() {
       return !on;
     });
   }, []);
-  const [runtime] = useState(createUniverseRuntime);
+  const [runtime] = useState(() => {
+    const rt = createUniverseRuntime();
+    if (fromLab()) arriveFromLab(rt);
+    return rt;
+  });
   // Câmera do veículo: de fora ou de dentro (primeira pessoa, com o painel). Tecla V.
   const [inside, setInside] = useState(false);
   const toggleInside = useCallback(() => {
