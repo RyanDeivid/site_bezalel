@@ -142,6 +142,24 @@ for (const scene of scenes) {
     await report('dirigindo o sedã');
     await page.keyboard.press('e');
     await page.waitForFunction(() => window.__bzUniverse.state().mode === 'foot', null, { timeout: 30_000 });
+  } else if (scene === 'drive-fp') {
+    await u(() => window.__bzUniverse.placeWalker(-8.6, 86, -Math.PI / 2));
+    await page.getByRole('button', { name: /Entrar: / }).waitFor({ timeout: 15_000 });
+    await page.keyboard.press('e');
+    await page.waitForFunction(() => window.__bzUniverse.state().mode === 'driving', null, { timeout: 15_000 });
+    await page.keyboard.press('v');
+    await begin();
+    await page.keyboard.down('w');
+    await page.waitForTimeout(6000);
+    await page.keyboard.down('d');
+    await page.waitForTimeout(1200);
+    await page.keyboard.up('d');
+    await page.waitForTimeout(5000);
+    await page.keyboard.up('w');
+    await report('dirigindo em primeira pessoa');
+    await page.keyboard.press('v');
+    await page.keyboard.press('e');
+    await page.waitForFunction(() => window.__bzUniverse.state().mode === 'foot', null, { timeout: 30_000 });
   } else if (scene === 'fly') {
     await u(() => window.__bzUniverse.placeWalker(-2.5, 78, Math.PI / 2));
     await page.waitForTimeout(600);

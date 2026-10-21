@@ -48,7 +48,7 @@ export interface UniverseRuntime {
    * Câmera: a pé, `yaw` é a direção para onde ela olha (absoluta; o jogador anda relativo a ela);
    * num veículo, `orbit` é um giro extra em volta dele que volta a zero sozinho.
    */
-  camera: { yaw: number; pitch: number; distance: number; orbit: number };
+  camera: { yaw: number; pitch: number; distance: number; orbit: number; /** Dentro de um veículo: de fora (terceira pessoa) ou do banco do motorista. */ view: 'third' | 'first' };
   /** Câmera fixa (vista de apresentação / capturas): posição e ponto olhado. Null = câmera do jogo. */
   shot: { x: number; y: number; z: number; tx: number; ty: number; tz: number; fov?: number } | null;
   /** Modo apresentação: tempo (s), fusão para o preto e tomada atual (escritos pela cena); `hold` para o relógio (capturas). */
@@ -93,7 +93,7 @@ export function createUniverseRuntime(): UniverseRuntime {
     joystick: { x: 0, y: 0 },
     target: null,
     buttons: { up: false, down: false, run: false, gas: false, brake: false, handbrake: false },
-    camera: { yaw: SPAWN.yaw, pitch: CAMERA_PITCH.start, distance: CAMERA_DISTANCE.start, orbit: 0 },
+    camera: { yaw: SPAWN.yaw, pitch: CAMERA_PITCH.start, distance: CAMERA_DISTANCE.start, orbit: 0, view: 'third' },
     shot: null,
     cinema: null,
     sounds: [],
@@ -374,6 +374,12 @@ export function attachDebug(rt: UniverseRuntime): () => void {
   return () => {
     delete (window as unknown as { __bzUniverse?: typeof api }).__bzUniverse;
   };
+}
+
+/** Troca a câmera do veículo entre de fora e de dentro (primeira pessoa); o olhar volta para a frente. */
+export function toggleView(rt: UniverseRuntime) {
+  rt.camera.view = rt.camera.view === 'first' ? 'third' : 'first';
+  rt.camera.orbit = 0;
 }
 
 /** Pede um som de interface (ex.: o sinal ao abrir um local). */

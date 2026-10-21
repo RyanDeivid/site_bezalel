@@ -186,6 +186,43 @@ function subset(positions: Float32Array, normals: Float32Array, indices: number[
   return out;
 }
 
+/** Medidas da cabine de um modelo (coordenadas do carro: frente em +z, motorista à esquerda, em +x, chão em y = 0). */
+export interface Cabin {
+  /** Base do para-brisa e do vidro traseiro (z). */
+  front: number;
+  back: number;
+  /** Altura da cintura (base dos vidros) na frente da cabine: o alto do painel. */
+  dash: number;
+  /** Olhos do motorista. */
+  head: [number, number, number];
+  /** Meia-largura interna na altura da cintura. */
+  half: number;
+  /** Altura do teto sobre o motorista. */
+  roof: number;
+}
+
+/**
+ * Onde fica a cabine, tirado das curvas do próprio desenho (o mesmo de onde
+ * sai a carroceria): o painel na base do para-brisa, o motorista ~1 m atrás,
+ * os olhos ~20 cm abaixo do teto. Serve ao interior e à câmera em primeira pessoa.
+ */
+export function cabinOf(cls: CarClass): Cabin {
+  const D = DESIGNS[cls];
+  const L = CAR_SPECS[cls].length;
+  const top = curve(D.top);
+  const belt = curve(D.belt);
+  const shoulder = curve(D.shoulder);
+  const zOf = (u: number) => (u - 0.5) * L;
+  const uOf = (z: number) => z / L + 0.5;
+  const front = zOf(D.cabin[1]);
+  const back = zOf(D.cabin[0]);
+  const headZ = front - (cls === 'sport' ? 0.95 : cls === 'taxi' ? 1.0 : 1.05);
+  const u = uOf(headZ);
+  const roof = top(u);
+  const headY = Math.min(roof - 0.2, belt(u) + 0.38);
+  return { front, back, dash: belt(D.cabin[1]), head: [0.38, headY, headZ], half: shoulder(u) - 0.1, roof };
+}
+
 /**
  * Monta um carro em um de três níveis de detalhe: `near` (o do jogador e os
  * de até ~18 m), `mid` (o trânsito de perto: a mesma pele e os mesmos

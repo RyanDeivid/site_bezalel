@@ -93,6 +93,8 @@ const pt = {
     paused: 'Animações pausadas',
     present: 'Apresentação',
     mute: 'Desligar o som',
+    viewInside: 'Ver de dentro',
+    viewOutside: 'Ver de fora',
     unmute: 'Ligar o som',
     exitPresent: 'Sair da apresentação',
     cinemaShots: {
@@ -286,6 +288,8 @@ const en: Content = {
     paused: 'Animations paused',
     present: 'Presentation',
     mute: 'Mute sound',
+    viewInside: 'Inside view',
+    viewOutside: 'Outside view',
     unmute: 'Turn sound on',
     exitPresent: 'Leave the presentation',
     cinemaShots: {

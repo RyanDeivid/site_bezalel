@@ -1,4 +1,4 @@
-import { Box, Car, Check, CircleAlert, Clapperboard, Footprints, Volume2, VolumeX, Gauge, HelpCircle, Home, LogOut, Map as MapIcon, MapPin, Maximize, Minimize, Pause, Play, Plane, Smartphone, TriangleAlert } from 'lucide-react';
+import { Box, Car, Check, CircleAlert, Clapperboard, Eye, Footprints, Volume2, VolumeX, Gauge, HelpCircle, Home, LogOut, Map as MapIcon, MapPin, Maximize, Minimize, Pause, Play, Plane, Smartphone, TriangleAlert } from 'lucide-react';
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { usePreferences } from '@/app/preferences-context';
 import { BezalelMark } from '@/components/brand/BezalelMark';
@@ -25,7 +25,7 @@ import { UniverseMap } from './UniverseMap';
 import { CINEMA_SHOTS } from './world/cinema';
 import { cityTowers, citySolids, PLACES, type PlaceId, type Quality } from './world/city';
 import { PRODUCTS, productText } from './world/products';
-import { attachDebug, cancelAutopilot, clearNotice, createUniverseRuntime, goToPlace, queueSound, requestExit, setCinema, tryEnter, vehicleById } from './world/runtime';
+import { attachDebug, cancelAutopilot, clearNotice, createUniverseRuntime, goToPlace, queueSound, requestExit, setCinema, toggleView, tryEnter, vehicleById } from './world/runtime';
 
 // three.js + R3F + a cidade só são baixados quando o visitante escolhe explorar em 3D.
 const UniverseScene = lazy(() => import('./scene/UniverseScene'));
@@ -130,6 +130,12 @@ export default function UniversePage() {
     });
   }, []);
   const [runtime] = useState(createUniverseRuntime);
+  // Câmera do veículo: de fora ou de dentro (primeira pessoa, com o painel). Tecla V.
+  const [inside, setInside] = useState(false);
+  const toggleInside = useCallback(() => {
+    toggleView(runtime);
+    setInside(runtime.camera.view === 'first');
+  }, [runtime]);
   const [debug] = useState(() => readStorage('bz-universe-debug') === '1');
   // A cena só aparece depois de preparada (shaders e texturas); trocar a qualidade recria o canvas.
   const [readyQuality, setReadyQuality] = useState<Quality | null>(null);
@@ -285,6 +291,7 @@ export default function UniversePage() {
         return;
       }
       if (k === 'm' && !e.repeat) toggleSound();
+      else if (k === 'v' && !e.repeat) toggleInside();
       else if (k === 'c' && !e.repeat) startPresentation();
       else if (k === 'e' && !e.repeat) interact();
       else if (k === 'h') goTo('arrival');
@@ -292,7 +299,7 @@ export default function UniversePage() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [mode, open, helpOpen, interact, goTo, canFullscreen, toggleFullscreen, presenting, startPresentation, stopPresentation, toggleSound]);
+  }, [mode, open, helpOpen, interact, goTo, canFullscreen, toggleFullscreen, presenting, startPresentation, stopPresentation, toggleSound, toggleInside]);
 
   useEffect(() => {
     if (mode !== '3d') void fullscreen.exit();
@@ -548,6 +555,11 @@ export default function UniversePage() {
                     </button>
                   ))}
                 </div>
+                {hud.mode !== 'foot' && (
+                  <IconButton label={`${inside ? t.hud.viewOutside : t.hud.viewInside} (V)`} onClick={toggleInside} active={inside} size="sm">
+                    <Eye className="size-4" />
+                  </IconButton>
+                )}
                 <IconButton label={`${sound ? t.hud.mute : t.hud.unmute} (M)`} onClick={toggleSound} active={!sound} size="sm">
                   {sound ? <Volume2 className="size-4" /> : <VolumeX className="size-4" />}
                 </IconButton>

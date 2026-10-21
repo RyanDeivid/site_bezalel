@@ -7,6 +7,7 @@ import type { PlayerVehicle, UniverseRuntime } from '../world/runtime';
 import { CAR_SPECS, type CarClass } from '../world/vehicles';
 import type { UniverseAssets } from './assets';
 import { buildAirModel, type AirSlot } from './airModels';
+import { carInterior, dashboardScreen, HOVER_SCALE, hoverInterior, paintCenter, paintCluster, type Interior } from './interior';
 import type { CarMaterials, CarModel, CarSlot, FarCarModel } from './carModels';
 
 interface Props {
@@ -35,10 +36,113 @@ export function PlayerVehicles({ runtime, models, midModels, farModels, material
         v.kind === 'car' ? (
           <PlayerCar key={v.id} runtime={runtime} vehicle={v} model={models[v.cls]} mid={midModels[v.cls]} far={farModels[v.cls]} materials={materials} lodDistance={lodDistance} beam={beam ?? null} />
         ) : (
-          <HoverCar key={v.id} vehicle={v} assets={assets} effects={effects} />
+          <HoverCar key={v.id} runtime={runtime} vehicle={v} assets={assets} effects={effects} />
         ),
       )}
     </>
+  );
+}
+
+/** Materiais do interior (um conjunto para todos os veículos do jogador). */
+function useInteriorMaterials() {
+  const mats = useMemo(
+    () => ({
+      // As paredes por dentro: a carroceria pelo avesso, num acabamento escuro e fosco.
+      shell: new THREE.MeshStandardMaterial({ color: '#17191e', roughness: 0.9, metalness: 0, side: THREE.BackSide }),
+      leather: new THREE.MeshStandardMaterial({ color: '#2d2622', roughness: 0.62, metalness: 0 }),
+      trim: new THREE.MeshStandardMaterial({ color: '#23262c', roughness: 0.45, metalness: 0.35, envMapIntensity: 0.8 }),
+      wheel: new THREE.MeshStandardMaterial({ color: '#15161a', roughness: 0.55, metalness: 0.2 }),
+      glow: new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false }),
+    }),
+    [],
+  );
+  useEffect(() => () => Object.values(mats).forEach((m) => m.dispose()), [mats]);
+  return mats;
+}
+
+/**
+ * Cabine vista de dentro: bancos, painel, volante que gira com o esterço e as
+ * duas telas — o quadro de instrumentos (velocidade, marcha, bateria ou
+ * altitude) e a tela central (hora e a "navegação" da cidade). Só aparece em
+ * primeira pessoa, no veículo em uso; as telas só são redesenhadas quando o
+ * valor mostrado muda.
+ */
+function Cockpit({
+  interior,
+  shell,
+  visible,
+  read,
+}: {
+  interior: Interior;
+  /** Peças da carroceria que viram as paredes por dentro. */
+  shell: THREE.BufferGeometry[];
+  /** Mostra a cabine agora? (lido a cada quadro) */
+  visible: () => boolean;
+  /** O que o quadro mostra: km/h, máximo, marcha, extra, esterço. */
+  read: () => { kmh: number; max: number; gear: string; extra: { label: string; value: string; share: number }; steer: number };
+}) {
+  const mats = useInteriorMaterials();
+  const group = useRef<THREE.Group>(null);
+  const wheel = useRef<THREE.Group>(null);
+  const screens = useMemo(() => ({ cluster: dashboardScreen(512, 192), center: dashboardScreen(256, 160) }), []);
+  const screenMats = useMemo(
+    () => ({ cluster: new THREE.MeshBasicMaterial({ map: screens.cluster.texture, toneMapped: false }), center: new THREE.MeshBasicMaterial({ map: screens.center.texture, toneMapped: false }) }),
+    [screens],
+  );
+  useEffect(
+    () => () => {
+      screens.cluster.texture.dispose();
+      screens.center.texture.dispose();
+      screenMats.cluster.dispose();
+      screenMats.center.dispose();
+    },
+    [screens, screenMats],
+  );
+  const since = useRef(1);
+  useFrame((_, dt) => {
+    const g = group.current;
+    if (!g) return;
+    g.visible = visible();
+    if (!g.visible) return;
+    const r = read();
+    if (wheel.current) wheel.current.rotation.z = -r.steer * 2.4;
+    // Telas: no máximo 10 atualizações por segundo (cada uma é um canvas enviado à placa de vídeo).
+    since.current += dt;
+    if (since.current < 0.1) return;
+    since.current = 0;
+    screens.cluster.draw(`${Math.round(r.kmh)}|${r.gear}|${r.extra.value}`, (ctx, w, h) => paintCluster(ctx, w, h, r.kmh, r.max, r.gear, r.extra));
+    const now = new Date();
+    const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    screens.center.draw(time, (ctx, w, h) => paintCenter(ctx, w, h, time, 'BEZALEL · UNIVERSE'));
+  });
+  const { wheelAt, cluster, screen } = interior;
+  return (
+    <group ref={group} visible={false}>
+      {shell.map((geo, i) => (
+        <mesh key={i} geometry={geo} material={mats.shell} />
+      ))}
+      <mesh geometry={interior.leather} material={mats.leather} />
+      <mesh geometry={interior.trim} material={mats.trim} />
+      <mesh geometry={interior.glow} material={mats.glow} />
+      <group position={wheelAt.position} rotation={[wheelAt.tilt, 0, 0]}>
+        <group ref={wheel}>
+          <mesh geometry={interior.wheel} material={mats.wheel} />
+        </group>
+      </group>
+      {[
+        [cluster, screenMats.cluster],
+        [screen, screenMats.center],
+      ].map(([at, mat], i) => {
+        const a = at as Interior['cluster'];
+        return (
+          <group key={i} position={a.position} rotation={[a.tilt, 0, 0]}>
+            <mesh rotation={[0, Math.PI, 0]} material={mat as THREE.Material}>
+              <planeGeometry args={a.size} />
+            </mesh>
+          </group>
+        );
+      })}
+    </group>
   );
 }
 
@@ -131,6 +235,8 @@ function PlayerCar({
     // Freio: a lanterna acende mais forte (HDR: com o brilho ligado, ela "estoura").
     own.tail.color.copy(c.braking ? BRAKE_ON : BRAKE_OFF);
   });
+  const interior = useMemo(() => carInterior(vehicle.cls), [vehicle.cls]);
+  const shell = useMemo(() => (['paint', 'trim'] as const).flatMap((k) => (model.slots.get(k) ? [model.slots.get(k)!] : [])), [model]);
 
   const material = (slot: CarSlot) => (slot === 'paint' ? own.paint : slot === 'tail' ? own.tail : materials[slot]);
   return (
@@ -142,6 +248,19 @@ function PlayerCar({
               <mesh key={slot} geometry={geo} material={material(slot)} castShadow={slot === 'paint'} />
             ))}
           </group>
+          <Cockpit
+            interior={interior}
+            shell={shell}
+            visible={() => runtime.active === vehicle.id && runtime.mode === 'driving' && runtime.camera.view === 'first'}
+            read={() => {
+              const c = vehicle.car;
+              const kmh = Math.abs(c.speed) * 3.6;
+              // Elétricos (sedã e táxi) mostram D/R; o esportivo, a "marcha" do ronco.
+              const gear = c.speed < -0.3 ? 'R' : Math.abs(c.speed) < 0.3 ? 'P' : vehicle.cls === 'sport' ? String(Math.min(7, 1 + Math.floor(Math.abs(c.speed) / 11))) : 'D';
+              const battery = vehicle.id.length * 7 + 40;
+              return { kmh, max: spec.maxSpeed * 3.6, gear, extra: { label: 'BAT', value: `${battery}%`, share: battery / 100 }, steer: c.steer };
+            }}
+          />
           <group ref={(g) => void (midParts.current[0] = g)} visible={false}>
             {[...mid.slots.entries()].map(([slot, geo]) => (
               <mesh key={slot} geometry={geo} material={material(slot)} castShadow={slot === 'paint'} />
@@ -181,7 +300,7 @@ const HOVER_LIGHTS: Partial<Record<AirSlot, [number, number, number]>> = {
  * luzes (propulsores e navegação) numa malha só, com a cor no vértice. Escala
  * 0,85: a largura com os rotores fica no raio de colisão do voo (2,2 m).
  */
-function HoverCar({ vehicle, assets, effects }: { vehicle: Extract<PlayerVehicle, { kind: 'hover' }>; assets: UniverseAssets; effects: boolean }) {
+function HoverCar({ runtime, vehicle, assets, effects }: { runtime: UniverseRuntime; vehicle: Extract<PlayerVehicle, { kind: 'hover' }>; assets: UniverseAssets; effects: boolean }) {
   const car = useRef<THREE.Group>(null);
   const body = useRef<THREE.Group>(null);
   const shadow = useRef<THREE.Mesh>(null);
@@ -266,12 +385,23 @@ function HoverCar({ vehicle, assets, effects }: { vehicle: Extract<PlayerVehicle
   return (
     <>
       <group ref={car}>
-        <group ref={body} scale={0.85}>
+        <group ref={body} scale={HOVER_SCALE}>
           {parts.map(([slot, mat, cast]) => {
             const geo = model.slots.get(slot);
             return geo ? <mesh key={slot} geometry={geo} material={mat} castShadow={cast} /> : null;
           })}
           <mesh geometry={model.lights} material={local.lights} />
+          <Cockpit
+            interior={hoverInterior()}
+            // Sem parede por dentro: o casco é fechado e taparia a vista; a cúpula fica aberta (o friso dourado marca a borda).
+            shell={[]}
+            visible={() => runtime.active === vehicle.id && runtime.mode === 'driving' && runtime.camera.view === 'first'}
+            read={() => {
+              const c = vehicle.craft;
+              const alt = Math.max(0, Math.round(c.y - 1.8));
+              return { kmh: Math.abs(c.speed) * 3.6, max: 180, gear: c.climb > 0.5 ? '↑' : c.climb < -0.5 ? '↓' : 'H', extra: { label: 'ALT', value: `${alt} m`, share: alt / 110 }, steer: c.turnRate * 0.25 };
+            }}
+          />
           {pods.map(([x, z], i) => (
             <sprite key={i} ref={(sp) => void (glows.current[i] = sp)} position={[x, -0.35, z]}>
               <spriteMaterial map={glow} transparent depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />

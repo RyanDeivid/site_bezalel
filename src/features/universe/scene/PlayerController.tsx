@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { insideSolid, PLACES, type PlaceId, type Solid } from '../world/city';
 import { cinemaPose } from '../world/cinema';
 import { autopilotInput, stepCraft } from '../world/flight';
+import { carInterior, HOVER_SCALE, hoverInterior } from './interior';
 import {
   CAMERA_DISTANCE,
   CAMERA_PITCH,
@@ -262,82 +263,114 @@ export function PlayerController({ runtime, solids, inputEnabled, calmCamera, on
     }
 
     // ---- Câmera ---------------------------------------------------------------------
-    const pitch = rt.camera.pitch;
-    let fov = 55;
-    if ((rt.mode === 'driving' || rt.mode === 'entering' || rt.mode === 'exiting') && active) {
+    // Primeira pessoa: os olhos do motorista dentro da cabine; arrastar olha em volta (o olhar volta
+    // para a frente sozinho com o veículo andando). Sem amortecimento de posição: ela anda com o veículo.
+    if (rt.camera.view === 'first' && rt.mode === 'driving' && active && !rt.cinema && !rt.shot) {
       const p = vehiclePose(active);
       const speed = active.kind === 'car' ? active.car.speed : active.craft.speed;
-      const desired = p.heading + rt.camera.orbit;
-      chaseYaw.current += Math.atan2(Math.sin(desired - chaseYaw.current), Math.cos(desired - chaseYaw.current)) * (1 - Math.exp(-dt * (active.kind === 'car' ? 3.2 : 4)));
-      // Ao pilotar, o giro manual da câmera volta aos poucos para trás do veículo.
       if (Math.abs(speed) > 2) rt.camera.orbit *= Math.exp(-dt * 0.9);
-      const dist = rt.camera.distance + Math.abs(speed) * (active.kind === 'car' ? 0.05 : 0.12);
-      const lift = active.kind === 'car' ? 1.3 : 1.5;
-      target.set(p.x, p.y + lift, p.z);
-      goal.set(p.x - Math.sin(chaseYaw.current) * Math.cos(pitch) * dist, p.y + lift + Math.sin(pitch) * dist, p.z - Math.cos(chaseYaw.current) * Math.cos(pitch) * dist);
+      rt.camera.orbit = THREE.MathUtils.clamp(rt.camera.orbit, -2.3, 2.3);
+      const head = active.kind === 'car' ? carInterior(active.cls).head : hoverInterior().head;
+      const k = active.kind === 'car' ? 1 : HOVER_SCALE;
       const f = forwardOf(p.heading);
-      look.lerp(aim.set(p.x + f.x * 4, p.y + lift, p.z + f.z * 4), 1 - Math.exp(-dt * 8));
-      if (!calmCamera && active.kind === 'car') fov = 56 + Math.min(16, Math.abs(speed) * 0.4);
-    } else {
-      const w = rt.walker;
-      const dist = rt.camera.distance;
-      target.set(w.x, w.y + 1.55, w.z);
-      goal.set(w.x - Math.sin(rt.camera.yaw) * Math.cos(pitch) * dist, w.y + 1.55 + Math.sin(pitch) * dist, w.z - Math.cos(rt.camera.yaw) * Math.cos(pitch) * dist);
-      const f = forwardOf(rt.camera.yaw);
-      look.lerp(aim.set(w.x + f.x * 1.2, w.y + 1.45, w.z + f.z * 1.2), 1 - Math.exp(-dt * 10));
-    }
-    // Não atravessa prédios: percorre do jogador até o ponto desejado e para antes do primeiro volume.
-    const steps = 12;
-    for (let i = 1; i <= steps; i++) {
-      const k = i / steps;
-      const x = target.x + (goal.x - target.x) * k;
-      const y = target.y + (goal.y - target.y) * k;
-      const z = target.z + (goal.z - target.z) * k;
-      if (insideSolid(x, z, y, 0.35, solids)) {
-        const back = Math.max(0, (i - 1) / steps - 0.02);
-        goal.set(target.x + (goal.x - target.x) * back, target.y + (goal.y - target.y) * back, target.z + (goal.z - target.z) * back);
-        break;
-      }
-    }
-    goal.y = Math.max(goal.y, 0.8);
-    if (!init.current) {
-      camPos.copy(goal);
-      look.copy(target);
-      init.current = true;
-    } else camPos.lerp(goal, 1 - Math.exp(-dt * (rt.mode === 'foot' ? 7 : 6)));
-    camera.position.copy(camPos);
-    if (rt.cinema) {
-      // Modo apresentação: as tomadas de cinema da região principal (o jogador fica parado onde estava).
-      const c = rt.cinema;
-      if (!c.hold) c.t += Math.min(dt, 0.1);
-      const s = cinemaPose(c.t, calmCamera);
-      c.fade = s.fade;
-      c.shot = s.shot;
-      camera.position.set(s.x, s.y, s.z);
-      camera.lookAt(s.tx, s.ty, s.tz);
-      if (Math.abs(persp.fov - s.fov) > 0.05) {
-        persp.fov = s.fov;
-        persp.updateProjectionMatrix();
-      }
-    } else if (rt.shot) {
-      // Vista fixa (apresentação / capturas): ignora a câmera do jogo.
-      const s = rt.shot;
-      camera.position.set(s.x, s.y, s.z);
-      camera.lookAt(s.tx, s.ty, s.tz);
-      if (s.fov && Math.abs(persp.fov - s.fov) > 0.05) {
-        persp.fov = s.fov;
+      const r = rightOf(p.heading);
+      // No carro, +x local é a esquerda (lado do motorista): no mundo, o oposto de `rightOf`.
+      const x = p.x - r.x * head[0] * k + f.x * head[2] * k;
+      const z = p.z - r.z * head[0] * k + f.z * head[2] * k;
+      const y = p.y + head[1] * k;
+      const yaw = p.heading + rt.camera.orbit;
+      // Olhar levemente para baixo (o painel e a rua à frente); arrastar para cima/baixo inclina a partir daí.
+      const base = active.kind === 'car' ? 0.17 : 0.32;
+      // Quanto cada cabine olha para baixo de saída: o táxi é alto, o esportivo é baixo.
+      const down = active.kind === 'hover' ? 0.22 : active.cls === 'taxi' ? 0.36 : active.cls === 'sport' ? 0.12 : 0.16;
+      const tilt = THREE.MathUtils.clamp((base - rt.camera.pitch) * 0.9 - down, -0.75, 0.45);
+      camera.position.set(x, y, z);
+      camera.lookAt(x + Math.sin(yaw) * Math.cos(tilt), y + Math.sin(tilt), z + Math.cos(yaw) * Math.cos(tilt));
+      camPos.copy(camera.position);
+      look.set(x + Math.sin(yaw), y, z + Math.cos(yaw));
+      const fpFov = active.kind === 'car' ? 70 + Math.min(10, Math.abs(speed) * 0.25) : 72;
+      if (Math.abs(persp.fov - fpFov) > 0.05) {
+        persp.fov += (fpFov - persp.fov) * (1 - Math.exp(-dt * 4));
         persp.updateProjectionMatrix();
       }
     } else {
-      if (shake.current > 0.001) {
-        camera.position.x += (Math.random() - 0.5) * shake.current;
-        camera.position.y += (Math.random() - 0.5) * shake.current;
-        shake.current *= Math.exp(-dt * 8);
+      const pitch = rt.camera.pitch;
+      let fov = 55;
+      if ((rt.mode === 'driving' || rt.mode === 'entering' || rt.mode === 'exiting') && active) {
+        const p = vehiclePose(active);
+        const speed = active.kind === 'car' ? active.car.speed : active.craft.speed;
+        const desired = p.heading + rt.camera.orbit;
+        chaseYaw.current += Math.atan2(Math.sin(desired - chaseYaw.current), Math.cos(desired - chaseYaw.current)) * (1 - Math.exp(-dt * (active.kind === 'car' ? 3.2 : 4)));
+        // Ao pilotar, o giro manual da câmera volta aos poucos para trás do veículo.
+        if (Math.abs(speed) > 2) rt.camera.orbit *= Math.exp(-dt * 0.9);
+        const dist = rt.camera.distance + Math.abs(speed) * (active.kind === 'car' ? 0.05 : 0.12);
+        const lift = active.kind === 'car' ? 1.3 : 1.5;
+        target.set(p.x, p.y + lift, p.z);
+        goal.set(p.x - Math.sin(chaseYaw.current) * Math.cos(pitch) * dist, p.y + lift + Math.sin(pitch) * dist, p.z - Math.cos(chaseYaw.current) * Math.cos(pitch) * dist);
+        const f = forwardOf(p.heading);
+        look.lerp(aim.set(p.x + f.x * 4, p.y + lift, p.z + f.z * 4), 1 - Math.exp(-dt * 8));
+        if (!calmCamera && active.kind === 'car') fov = 56 + Math.min(16, Math.abs(speed) * 0.4);
+      } else {
+        const w = rt.walker;
+        const dist = rt.camera.distance;
+        target.set(w.x, w.y + 1.55, w.z);
+        goal.set(w.x - Math.sin(rt.camera.yaw) * Math.cos(pitch) * dist, w.y + 1.55 + Math.sin(pitch) * dist, w.z - Math.cos(rt.camera.yaw) * Math.cos(pitch) * dist);
+        const f = forwardOf(rt.camera.yaw);
+        look.lerp(aim.set(w.x + f.x * 1.2, w.y + 1.45, w.z + f.z * 1.2), 1 - Math.exp(-dt * 10));
       }
-      camera.lookAt(look);
-      if (Math.abs(persp.fov - fov) > 0.05) {
-        persp.fov += (fov - persp.fov) * (1 - Math.exp(-dt * 3));
-        persp.updateProjectionMatrix();
+      // Não atravessa prédios: percorre do jogador até o ponto desejado e para antes do primeiro volume.
+      const steps = 12;
+      for (let i = 1; i <= steps; i++) {
+        const k = i / steps;
+        const x = target.x + (goal.x - target.x) * k;
+        const y = target.y + (goal.y - target.y) * k;
+        const z = target.z + (goal.z - target.z) * k;
+        if (insideSolid(x, z, y, 0.35, solids)) {
+          const back = Math.max(0, (i - 1) / steps - 0.02);
+          goal.set(target.x + (goal.x - target.x) * back, target.y + (goal.y - target.y) * back, target.z + (goal.z - target.z) * back);
+          break;
+        }
+      }
+      goal.y = Math.max(goal.y, 0.8);
+      if (!init.current) {
+        camPos.copy(goal);
+        look.copy(target);
+        init.current = true;
+      } else camPos.lerp(goal, 1 - Math.exp(-dt * (rt.mode === 'foot' ? 7 : 6)));
+      camera.position.copy(camPos);
+      if (rt.cinema) {
+        // Modo apresentação: as tomadas de cinema da região principal (o jogador fica parado onde estava).
+        const c = rt.cinema;
+        if (!c.hold) c.t += Math.min(dt, 0.1);
+        const s = cinemaPose(c.t, calmCamera);
+        c.fade = s.fade;
+        c.shot = s.shot;
+        camera.position.set(s.x, s.y, s.z);
+        camera.lookAt(s.tx, s.ty, s.tz);
+        if (Math.abs(persp.fov - s.fov) > 0.05) {
+          persp.fov = s.fov;
+          persp.updateProjectionMatrix();
+        }
+      } else if (rt.shot) {
+        // Vista fixa (apresentação / capturas): ignora a câmera do jogo.
+        const s = rt.shot;
+        camera.position.set(s.x, s.y, s.z);
+        camera.lookAt(s.tx, s.ty, s.tz);
+        if (s.fov && Math.abs(persp.fov - s.fov) > 0.05) {
+          persp.fov = s.fov;
+          persp.updateProjectionMatrix();
+        }
+      } else {
+        if (shake.current > 0.001) {
+          camera.position.x += (Math.random() - 0.5) * shake.current;
+          camera.position.y += (Math.random() - 0.5) * shake.current;
+          shake.current *= Math.exp(-dt * 8);
+        }
+        camera.lookAt(look);
+        if (Math.abs(persp.fov - fov) > 0.05) {
+          persp.fov += (fov - persp.fov) * (1 - Math.exp(-dt * 3));
+          persp.updateProjectionMatrix();
+        }
       }
     }
 
@@ -372,7 +405,9 @@ export function PlayerController({ runtime, solids, inputEnabled, calmCamera, on
       rt.nearVehicle = nv;
       onNearVehicleChange(nv);
     }
-  });
+    // Antes dos veículos (prioridade −1): a física e a câmera andam primeiro, e o carro é desenhado já na
+    // posição nova — senão, em primeira pessoa, os olhos ficavam um quadro à frente do carro (dentro do painel).
+  }, -1);
 
   return null;
 }

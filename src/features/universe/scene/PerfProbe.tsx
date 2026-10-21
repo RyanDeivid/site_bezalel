@@ -1,5 +1,6 @@
 import { useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useRef } from 'react';
+import type * as THREE from 'three';
 import { postFor } from './bloom';
 
 /**
@@ -29,6 +30,8 @@ export interface PerfApi {
   programs: () => string[];
   /** Passa a anotar quem é desenhado na passada de sombras com um material de profundidade "com textura" (variante própria). */
   watchShadowVariants: () => string[];
+  /** A cena (só para depurar nos testes). */
+  scene: () => THREE.Scene;
   /** Malhas visíveis (camada 0) dentro de um grupo, agrupadas por tipo — para achar o que ainda custa chamadas. */
   meshesIn: (name: string) => string[];
 }
@@ -118,6 +121,7 @@ export function PerfProbe() {
         });
       },
       setDpr: (dpr) => setDpr(dpr),
+      scene: () => scene,
       watchShadowVariants: () => {
         const seen: string[] = [];
         scene.traverse((o) => {
