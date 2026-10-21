@@ -5,7 +5,7 @@ import type { Quality } from '../world/city';
 import { onFoot, vehiclePose, type UniverseRuntime } from '../world/runtime';
 import { createTraffic, stepTraffic, TRAFFIC_STEP, type TrafficObstacle } from '../world/traffic';
 import { CAR_SPECS, type Body, type CarClass } from '../world/vehicles';
-import type { CarMaterials, CarModel, CarSlot, FarCarModel } from './carModels';
+import type { CarMaterials, CarSlot, FarCarModel, TrafficCarModel } from './carModels';
 
 /** Cores das carrocerias do trânsito (paleta da marca: marfim, aço, marinho e um dourado discreto). */
 const PAINT = ['#e6dfd0', '#4d6a8c', '#1a2a44', '#b8995c'];
@@ -18,7 +18,8 @@ interface Props {
   running: boolean;
   runtime: UniverseRuntime;
   /** Modelo detalhado (perto) e a versão leve, já juntada em 3 malhas (longe), de cada classe. */
-  models: Record<CarClass, CarModel>;
+  /** Nível intermediário do trânsito (peças pequenas e luzes juntas). */
+  models: Record<CarClass, TrafficCarModel>;
   farModels: Record<CarClass, FarCarModel>;
   materials: CarMaterials;
   /** Até que distância da câmera (m) o carro usa o modelo detalhado. */
@@ -148,16 +149,19 @@ export function Traffic({ quality, running, runtime, models, farModels, material
       for (const lod of LODS) {
         const set = sets.current[lod][cls];
         const n = counts[lod];
+        // Conjunto vazio fica invisível: uma chamada de desenho com zero instâncias ainda custa CPU.
         for (const mesh of set.slots) {
           if (!mesh) continue;
           mesh.count = n;
-          mesh.instanceMatrix.needsUpdate = true;
+          mesh.visible = n > 0;
+          if (n) mesh.instanceMatrix.needsUpdate = true;
         }
-        if (set.slots[0]?.instanceColor) set.slots[0].instanceColor.needsUpdate = true;
+        if (n && set.slots[0]?.instanceColor) set.slots[0].instanceColor.needsUpdate = true;
         for (const mesh of [set.tire, set.rim]) {
           if (!mesh) continue;
           mesh.count = n * 4;
-          mesh.instanceMatrix.needsUpdate = true;
+          mesh.visible = n > 0;
+          if (n) mesh.instanceMatrix.needsUpdate = true;
         }
       }
     }
@@ -192,7 +196,7 @@ export function Traffic({ quality, running, runtime, models, farModels, material
                 <instancedMesh
                   key={slot}
                   ref={(m) => void (sets.current.near[cls].slots[i] = m)}
-                  args={[geo, materials[slot as CarSlot], n]}
+                  args={[geo, slot === 'rest' ? materials.farRest : slot === 'lights' ? materials.farLights : materials[slot as CarSlot], n]}
                   castShadow={shadows && slot === 'paint'}
                   frustumCulled={false}
                 />

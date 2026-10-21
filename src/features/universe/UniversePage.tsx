@@ -1,5 +1,5 @@
 import { Box, Car, Check, CircleAlert, Clapperboard, Footprints, Gauge, HelpCircle, Home, LogOut, Map as MapIcon, MapPin, Maximize, Minimize, Pause, Play, Plane, Smartphone, TriangleAlert } from 'lucide-react';
-import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { usePreferences } from '@/app/preferences-context';
 import { BezalelMark } from '@/components/brand/BezalelMark';
 import { Badge } from '@/components/ui/Badge';
@@ -217,6 +217,48 @@ export default function UniversePage() {
     [fullscreenActive, enterFullscreen, exitFullscreen, device.coarse],
   );
 
+  // Ações que a cena 3D chama. A cena é memorizada: se recebesse funções novas a cada atualização do HUD
+  // (o velocímetro muda 5× por segundo dirigindo), o React reconciliaria a cidade inteira a cada vez —
+  // um quadro perdido por atualização. As funções passadas são estáveis e chamam sempre a versão atual.
+  const live = useRef<{ onAutopilotEnd: () => void; onInteract: () => void; onLowPerformance: () => void; onHeadroom: () => void; onContextLost: () => void } | null>(null);
+  useLayoutEffect(() => {
+    live.current = {
+      onAutopilotEnd: () => setFlying(null),
+      onInteract: interact,
+      onLowPerformance: () => {
+        if (quality === 'low') return;
+        // No Auto, o nível que pesou vira o teto da sessão; num nível fixo, a escolha desce um.
+        if (choice === 'auto') {
+          writeSession(AUTO_CEILING_KEY, quality);
+          setCeiling(quality);
+          setAutoLevel(below(quality));
+          setTrialLevel(null);
+        } else setQuality(below(quality));
+        notify({ tone: 'info', message: probation ? t.hud.trialFailed(t.hud.qualityNames[quality]) : t.hud.lowFps });
+      },
+      onHeadroom: () => {
+        if (!canUpgrade || !next) return;
+        setAutoLevel(next);
+        setTrialLevel(next);
+        notify({ tone: 'info', message: t.hud.highFps(t.hud.qualityNames[next]) });
+      },
+      onContextLost: () => {
+        notify({ tone: 'error', message: t.hud.lost });
+        setMode('2d');
+      },
+    };
+  });
+  const sceneHandlers = useMemo(
+    () => ({
+      onAutopilotEnd: () => live.current?.onAutopilotEnd(),
+      onInteract: () => live.current?.onInteract(),
+      onLowPerformance: () => live.current?.onLowPerformance(),
+      onHeadroom: () => live.current?.onHeadroom(),
+      onContextLost: () => live.current?.onContextLost(),
+    }),
+    [],
+  );
+
   // Atalhos do palco: E (ação do momento), H (voltar ao início), F (tela cheia), C (apresentação; Esc sai dela).
   useEffect(() => {
     if (mode !== '3d') return;
@@ -400,33 +442,15 @@ export default function UniversePage() {
                 onSelect={setOpen}
                 onNearChange={setNear}
                 onNearVehicleChange={setNearVehicle}
-                onAutopilotEnd={() => setFlying(null)}
-                onInteract={interact}
+                onAutopilotEnd={sceneHandlers.onAutopilotEnd}
+                onInteract={sceneHandlers.onInteract}
                 canUpgrade={canUpgrade}
                 probation={probation}
-                onLowPerformance={() => {
-                  if (quality === 'low') return;
-                  // No Auto, o nível que pesou vira o teto da sessão; num nível fixo, a escolha desce um.
-                  if (choice === 'auto') {
-                    writeSession(AUTO_CEILING_KEY, quality);
-                    setCeiling(quality);
-                    setAutoLevel(below(quality));
-                    setTrialLevel(null);
-                  } else setQuality(below(quality));
-                  notify({ tone: 'info', message: probation ? t.hud.trialFailed(t.hud.qualityNames[quality]) : t.hud.lowFps });
-                }}
-                onHeadroom={() => {
-                  if (!canUpgrade || !next) return;
-                  setAutoLevel(next);
-                  setTrialLevel(next);
-                  notify({ tone: 'info', message: t.hud.highFps(t.hud.qualityNames[next]) });
-                }}
+                onLowPerformance={sceneHandlers.onLowPerformance}
+                onHeadroom={sceneHandlers.onHeadroom}
                 debug={debug}
-                onReady={() => setReadyQuality(quality)}
-                onContextLost={() => {
-                  notify({ tone: 'error', message: t.hud.lost });
-                  setMode('2d');
-                }}
+                onReady={setReadyQuality}
+                onContextLost={sceneHandlers.onContextLost}
               />
             </Suspense>
           </SceneBoundary>

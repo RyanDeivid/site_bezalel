@@ -1,4 +1,4 @@
-import { useFrame } from '@react-three/fiber';
+import { useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
@@ -114,76 +114,95 @@ export function Skybridges({ assets, bridges }: { assets: UniverseAssets; bridge
 
 /**
  * Telões de LED: alternam, a cada poucos segundos, os produtos reais do site
- * e a marca. A textura só é redesenhada quando a mensagem muda (não por quadro).
+ * e a marca. Cada mensagem vira uma textura **uma vez**, no carregamento, e o
+ * telão só troca qual textura mostra. Antes, a cada 5 s o canvas era
+ * redesenhado e reenviado à placa de vídeo — enviar um canvas acelerado para o
+ * WebGL obriga o navegador a lê-lo de volta da GPU: 50–80 ms de travada a cada
+ * troca, bem visível na vista aérea (medido). Pilares e molduras: uma malha só.
  */
 export function Billboards({ assets, messages, animate }: { assets: UniverseAssets; messages: Array<{ title: string; line: string }>; animate: boolean }) {
   const m = assets.materials;
-  const screens = useMemo(
+  const gl = useThree((st) => st.gl);
+  const list = useMemo(() => (messages.length ? messages : [{ title: '', line: '' }]), [messages]);
+  const textures = useMemo(
     () =>
-      BILLBOARDS.map(() => {
+      list.map(() => {
         const canvas = document.createElement('canvas');
         canvas.width = 512;
         canvas.height = 292;
         const texture = new THREE.CanvasTexture(canvas);
         texture.colorSpace = THREE.SRGBColorSpace;
-        return { canvas, texture, ctx: canvas.getContext('2d')! };
+        return { canvas, texture };
       }),
-    [],
+    [list],
   );
-  useEffect(() => () => screens.forEach((s) => s.texture.dispose()), [screens]);
-  const shown = useRef(-1);
-  const clock = useRef(0);
-  const draw = (k: number) => {
-    screens.forEach((s, i) => {
-      const msg = messages[(k + i) % Math.max(1, messages.length)];
-      const { ctx, canvas } = s;
-      const g = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-      g.addColorStop(0, '#0b1730');
-      g.addColorStop(1, '#14223a');
-      ctx.fillStyle = g;
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = PALETTE.gold;
-      ctx.fillRect(0, 0, canvas.width, 8);
-      ctx.font = "500 22px 'Geist Mono Variable', ui-monospace, monospace";
-      ctx.fillStyle = '#8f9aab';
-      ctx.fillText('BEZALEL', 32, 56);
-      ctx.font = "600 44px 'Geist Variable', system-ui, sans-serif";
-      ctx.fillStyle = PALETTE.ivory;
-      ctx.fillText(msg?.title ?? '', 32, 140, canvas.width - 64);
-      ctx.font = "400 26px 'Geist Variable', system-ui, sans-serif";
-      ctx.fillStyle = '#c9ccd2';
-      ctx.fillText(msg?.line ?? '', 32, 196, canvas.width - 64);
-      s.texture.needsUpdate = true;
-    });
-  };
-  useFrame((_, dt) => {
-    if (shown.current === -1) {
-      shown.current = 0;
-      draw(0);
+  useEffect(() => {
+    let alive = true;
+    const draw = () => {
+      textures.forEach(({ canvas, texture }, k) => {
+        const msg = list[k]!;
+        const ctx = canvas.getContext('2d')!;
+        const g = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+        g.addColorStop(0, '#0b1730');
+        g.addColorStop(1, '#14223a');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = PALETTE.gold;
+        ctx.fillRect(0, 0, canvas.width, 8);
+        ctx.font = "500 22px 'Geist Mono Variable', ui-monospace, monospace";
+        ctx.fillStyle = '#8f9aab';
+        ctx.fillText('BEZALEL', 32, 56);
+        ctx.font = "600 44px 'Geist Variable', system-ui, sans-serif";
+        ctx.fillStyle = PALETTE.ivory;
+        ctx.fillText(msg.title, 32, 140, canvas.width - 64);
+        ctx.font = "400 26px 'Geist Variable', system-ui, sans-serif";
+        ctx.fillStyle = '#c9ccd2';
+        ctx.fillText(msg.line, 32, 196, canvas.width - 64);
+        texture.needsUpdate = true;
+        // Sobe já (ainda sob a tela de carregamento), não na primeira vez que a mensagem aparecer.
+        gl.initTexture(texture);
+      });
+    };
+    // Com as fontes do site prontas (o desenho sem elas sairia com a fonte do sistema).
+    void (document.fonts?.ready ?? Promise.resolve()).then(() => alive && draw());
+    return () => {
+      alive = false;
+      textures.forEach((t) => t.texture.dispose());
+    };
+  }, [textures, list, gl]);
+  const screens = useMemo(() => BILLBOARDS.map((_, i) => new THREE.MeshBasicMaterial({ map: textures[i % textures.length]!.texture, toneMapped: false })), [textures]);
+  useEffect(() => () => screens.forEach((s) => s.dispose()), [screens]);
+  const frames = useMemo(() => {
+    const parts: THREE.BufferGeometry[] = [];
+    const mtx = new THREE.Matrix4();
+    for (const b of BILLBOARDS) {
+      mtx.makeRotationY(b.facing).setPosition(b.x, 0.3, b.z);
+      const pole = b.y - b.h / 2;
+      parts.push(new THREE.BoxGeometry(1.4, pole, 1.4).translate(0, pole / 2, 0).applyMatrix4(mtx));
+      parts.push(new THREE.BoxGeometry(b.w + 0.6, b.h + 0.6, 0.4).translate(0, b.y, -0.25).applyMatrix4(mtx));
     }
+    const g = mergeGeometries(parts)!;
+    parts.forEach((x) => x.dispose());
+    return g;
+  }, []);
+  useEffect(() => () => frames.dispose(), [frames]);
+  const shown = useRef(0);
+  const clock = useRef(0);
+  useFrame((_, dt) => {
     if (!animate) return;
     clock.current += Math.min(dt, 0.1);
     const k = Math.floor(clock.current / 5);
-    if (k !== shown.current) {
-      shown.current = k;
-      draw(k);
-    }
+    if (k === shown.current) return;
+    shown.current = k;
+    screens.forEach((mat, i) => (mat.map = textures[(k + i) % textures.length]!.texture));
   });
   return (
     <>
+      <mesh geometry={frames} material={m.steel} />
       {BILLBOARDS.map((b, i) => (
-        <group key={i} position={[b.x, 0.3, b.z]} rotation={[0, b.facing, 0]}>
-          <mesh material={m.steel} position={[0, (b.y - b.h / 2) / 2, 0]}>
-            <boxGeometry args={[1.4, b.y - b.h / 2, 1.4]} />
-          </mesh>
-          <mesh material={m.steel} position={[0, b.y, -0.25]}>
-            <boxGeometry args={[b.w + 0.6, b.h + 0.6, 0.4]} />
-          </mesh>
-          <mesh position={[0, b.y, 0]}>
-            <planeGeometry args={[b.w, b.h]} />
-            <meshBasicMaterial map={screens[i]!.texture} toneMapped={false} />
-          </mesh>
-        </group>
+        <mesh key={i} position={[b.x, 0.3 + b.y, b.z]} rotation={[0, b.facing, 0]} material={screens[i]}>
+          <planeGeometry args={[b.w, b.h]} />
+        </mesh>
       ))}
     </>
   );

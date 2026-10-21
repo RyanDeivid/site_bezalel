@@ -3,10 +3,42 @@ import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { createEnvironmentAsync } from '@/components/three/environment';
 import { MaterialSplitter } from './materialSplit';
+import { ShadowDepth } from './shadowDepth';
 import { disposeScene, nightCityEnvironment } from './nightEnvironment';
 import { postFor } from './bloom';
 
 const nextFrame = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
+
+/**
+ * Desenha a cena inteira uma vez (atrás da tela de carregamento): liga o que está escondido, desliga o
+ * descarte por enquadramento (também o da passada de sombras) e dá uma instância aos conjuntos vazios.
+ * Depois devolve tudo como estava.
+ */
+function drawEverything(gl: THREE.WebGLRenderer, scene: THREE.Scene, camera: THREE.Camera, post: ReturnType<typeof postFor>) {
+  const restore: Array<() => void> = [];
+  scene.traverse((o) => {
+    if (!o.visible) {
+      o.visible = true;
+      restore.push(() => (o.visible = false));
+    }
+    if (o.frustumCulled) {
+      o.frustumCulled = false;
+      restore.push(() => (o.frustumCulled = true));
+    }
+    const im = o as THREE.InstancedMesh;
+    if (im.isInstancedMesh && im.count === 0) {
+      im.count = 1;
+      restore.push(() => (im.count = 0));
+    }
+  });
+  try {
+    gl.shadowMap.needsUpdate = true;
+    if (post) post.render(scene, camera);
+    else gl.render(scene, camera);
+  } finally {
+    restore.forEach((f) => f());
+  }
+}
 
 /**
  * Prepara a cena antes do primeiro quadro, para a entrada não travar.
@@ -24,10 +56,17 @@ const nextFrame = () => new Promise<void>((r) => requestAnimationFrame(() => r()
  *     quadro: no Windows (ANGLE sobre Direct3D 11) a compilação de verdade só
  *     termina nesse momento;
  *  5. as texturas sobem para a placa de vídeo aos poucos;
- *  6. um quadro completo é desenhado escondido: sobe a geometria para a placa
- *     e compila o que só o quadro real usa (a passada de sombras). Desenhar uma
- *     parte por quadro foi testado e descartado: com partes escondidas o three
- *     cria outras variantes de shader (36 → 63 programas).
+ *  6. um quadro com a cidade **inteira** é desenhado escondido: tudo visível,
+ *     sem descartar o que está fora da câmera (nem da área das sombras), os
+ *     níveis de detalhe escondidos e os conjuntos instanciados vazios também.
+ *     Assim sobe toda a geometria para a placa e compila o que só o quadro
+ *     real usa (as variantes da passada de sombras). Antes, só ia o que estava
+ *     na frente da câmera inicial: o resto subia na primeira vez que aparecia,
+ *     em pleno jogo — travadas de 50 a 90 ms ao virar para a Sede ou subir para
+ *     a vista aérea (medido no modo apresentação). Desenhar uma parte por
+ *     quadro foi testado e descartado: com partes escondidas o three cria
+ *     outras variantes de shader (36 → 63 programas);
+ *  7. um quadro normal, escondido, para fechar.
  * Só então o laço começa. Medido num Intel Iris Xe com o cache de shaders frio,
  * o primeiro quadro travava de 3 a 9 s antes deste preparo.
  */
@@ -37,6 +76,7 @@ export function Warmup({ envIntensity, envSize, onReady }: { envIntensity: numbe
   const camera = useThree((s) => s.camera);
   const setFrameloop = useThree((s) => s.setFrameloop);
   const splitter = useMemo(() => new MaterialSplitter(), []);
+  const shadowDepth = useMemo(() => new ShadowDepth(), []);
   // Durante o jogo, confere de novo a cada ~2 s (um componente pode recriar uma malha com o material original).
   const since = useRef(0);
   useFrame((_, dt) => {
@@ -44,6 +84,7 @@ export function Warmup({ envIntensity, envSize, onReady }: { envIntensity: numbe
     if (since.current < 2) return;
     since.current = 0;
     splitter.split(scene);
+    shadowDepth.apply(scene);
   });
   useEffect(() => {
     let cancelled = false;
@@ -67,6 +108,7 @@ export function Warmup({ envIntensity, envSize, onReady }: { envIntensity: numbe
       for (let i = 0; i < 3; i++) await nextFrame();
       if (cancelled) return;
       splitter.split(scene);
+      shadowDepth.apply(scene);
       // Com brilho, a cena é desenhada numa textura HDR (sem tone mapping, cor linear): o three gera
       // shaders diferentes para esse destino. Compila para o destino real, e as passadas do brilho também.
       const post = postFor(gl);
@@ -102,6 +144,11 @@ export function Warmup({ envIntensity, envSize, onReady }: { envIntensity: numbe
         if (++k % 4 === 0) await nextFrame();
         if (cancelled) return;
       }
+      drawEverything(gl, scene, camera, post);
+      await nextFrame();
+      // Os programas que só o quadro inteiro criou (sombras) também recebem o primeiro uso agora.
+      for (const program of [...(gl.info.programs ?? [])]) (program as unknown as { getUniforms: () => unknown }).getUniforms();
+      if (cancelled) return;
       if (post) post.render(scene, camera);
       else gl.render(scene, camera);
       await nextFrame();
@@ -114,6 +161,7 @@ export function Warmup({ envIntensity, envSize, onReady }: { envIntensity: numbe
       if (scene.environment === env) scene.environment = null;
       env?.dispose();
       splitter.dispose();
+      shadowDepth.dispose();
     };
     // Uma vez por canvas (trocar a qualidade recria o canvas e repete o preparo).
     // eslint-disable-next-line react-hooks/exhaustive-deps

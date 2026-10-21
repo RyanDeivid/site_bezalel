@@ -15,10 +15,12 @@ interface Props {
   off?: boolean;
   /** Expõe as leituras em `window.__bzUniversePerf` (testes). */
   debug?: boolean;
+  /** Nível de qualidade da cena (a resolução firmada é lembrada por nível). */
+  level?: string;
 }
 
 /** Resolução adaptativa + qualidade automática, com as leituras compartilhadas (novas a cada cena). */
-export function PerformanceGovernor({ min, max, canUpgrade, probation, onLow, onHeadroom, off, debug }: Props) {
+export function PerformanceGovernor({ min, max, canUpgrade, probation, onLow, onHeadroom, off, debug, level }: Props) {
   const perf = useMemo(() => createPerfState(), []);
   useEffect(() => {
     if (!debug) return;
@@ -32,7 +34,7 @@ export function PerformanceGovernor({ min, max, canUpgrade, probation, onLow, on
   return (
     <>
       <FrameCost perf={perf} />
-      <AdaptiveResolution min={min} max={max} perf={perf} />
+      <AdaptiveResolution min={min} max={max} perf={perf} level={level} />
       <AutoQuality perf={perf} canUpgrade={canUpgrade} probation={probation} onLow={onLow} onHeadroom={onHeadroom} />
     </>
   );

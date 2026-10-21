@@ -35,11 +35,12 @@ void main() {
 
 const BRIGHT = /* glsl */ `
 uniform sampler2D tColor;
+uniform vec2 uvScale;
 uniform float threshold;
 uniform float knee;
 varying vec2 vUv;
 void main() {
-  vec3 c = texture2D(tColor, vUv).rgb;
+  vec3 c = texture2D(tColor, vUv * uvScale).rgb;
   float l = max(c.r, max(c.g, c.b));
   float soft = clamp(l - threshold + knee, 0.0, 2.0 * knee);
   soft = soft * soft / (4.0 * knee + 1e-4);
@@ -89,6 +90,8 @@ uniform sampler2D tColor;
 uniform sampler2D tBloom;
 uniform float strength;
 uniform vec2 texel;
+uniform vec2 uvScale;
+uniform vec2 uvMax;
 varying vec2 vUv;
 #ifdef FXAA
 float lumaOf(vec3 c) { c = c / (1.0 + c); return dot(c, vec3(0.299, 0.587, 0.114)); }
@@ -112,10 +115,12 @@ vec3 fxaa(vec2 uv) {
 }
 #endif
 void main() {
+  // A cena pode ocupar só um canto da textura (resolução dinâmica): amplia para a tela inteira.
+  vec2 suv = min(vUv * uvScale, uvMax);
   #ifdef FXAA
-  vec3 c = fxaa(vUv);
+  vec3 c = fxaa(suv);
   #else
-  vec3 c = texture2D(tColor, vUv).rgb;
+  vec3 c = texture2D(tColor, suv).rgb;
   #endif
   c += texture2D(tBloom, vUv).rgb * strength;
   gl_FragColor = vec4(c, 1.0);
@@ -140,6 +145,12 @@ export class BloomPipeline {
   private size = new THREE.Vector2();
   private gl: THREE.WebGLRenderer;
   private settings: BloomSettings;
+  /**
+   * Resolução dinâmica (0,5–1): fração da tela em que a cena é desenhada, dentro da mesma textura, e
+   * ampliada na passada final. Mudar a escala não realoca nada — trocar a resolução do canvas realoca o
+   * canvas e todas as texturas, uma travada de ~50–75 ms (medido) a cada degrau da resolução adaptativa.
+   */
+  scale = 1;
 
   constructor(gl: THREE.WebGLRenderer, settings: BloomSettings, multisample: boolean) {
     this.gl = gl;
@@ -149,10 +160,14 @@ export class BloomPipeline {
     const tri = new THREE.BufferGeometry();
     tri.setAttribute('position', new THREE.BufferAttribute(new Float32Array([-1, -1, 0, 3, -1, 0, -1, 3, 0]), 3));
     const mat = (fragmentShader: string, uniforms: Record<string, THREE.IUniform>, toneMapped = false) => new THREE.ShaderMaterial({ vertexShader: VERT, fragmentShader, uniforms, depthTest: false, depthWrite: false, toneMapped });
-    this.bright = mat(BRIGHT, { tColor: { value: null }, threshold: { value: settings.threshold }, knee: { value: settings.knee } });
+    this.bright = mat(BRIGHT, { tColor: { value: null }, uvScale: { value: new THREE.Vector2(1, 1) }, threshold: { value: settings.threshold }, knee: { value: settings.knee } });
     this.down = mat(DOWN, { tSrc: { value: null }, texel: { value: new THREE.Vector2() } });
     this.up = mat(UP, { tSrc: { value: null }, tBase: { value: null }, texel: { value: new THREE.Vector2() } });
-    this.composite = mat(COMPOSITE, { tColor: { value: null }, tBloom: { value: null }, strength: { value: settings.strength }, texel: { value: new THREE.Vector2() } }, true);
+    this.composite = mat(
+      COMPOSITE,
+      { tColor: { value: null }, tBloom: { value: null }, strength: { value: settings.strength }, texel: { value: new THREE.Vector2() }, uvScale: { value: new THREE.Vector2(1, 1) }, uvMax: { value: new THREE.Vector2(1, 1) } },
+      true,
+    );
     if (fxaa) this.composite.defines = { FXAA: '' };
     this.quad = new THREE.Mesh(tri, this.bright);
     this.quad.frustumCulled = false;
@@ -189,6 +204,17 @@ export class BloomPipeline {
   render(scene: THREE.Scene, camera: THREE.Camera) {
     this.resize();
     const gl = this.gl;
+    const k = Math.min(1, Math.max(0.5, this.scale));
+    const vw = Math.max(1, Math.round(this.size.x * k));
+    const vh = Math.max(1, Math.round(this.size.y * k));
+    this.target.viewport.set(0, 0, vw, vh);
+    this.target.scissor.set(0, 0, vw, vh);
+    this.target.scissorTest = vw < this.size.x || vh < this.size.y;
+    const sx = vw / this.size.x;
+    const sy = vh / this.size.y;
+    (this.bright.uniforms.uvScale!.value as THREE.Vector2).set(sx, sy);
+    (this.composite.uniforms.uvScale!.value as THREE.Vector2).set(sx, sy);
+    (this.composite.uniforms.uvMax!.value as THREE.Vector2).set((vw - 0.5) / this.size.x, (vh - 0.5) / this.size.y);
     gl.setRenderTarget(this.target);
     gl.render(scene, camera);
     this.bright.uniforms.tColor!.value = this.target.texture;

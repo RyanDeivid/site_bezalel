@@ -1,5 +1,6 @@
 import { useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useRef } from 'react';
+import { postFor } from './bloom';
 
 /**
  * Sonda de desempenho para os testes e para medir a cena (só existe com
@@ -12,7 +13,7 @@ import { useEffect, useRef } from 'react';
  * isolado, no aparelho real, e dá para saber quem segura o quadro.
  */
 export interface PerfApi {
-  info: () => { calls: number; triangles: number; geometries: number; textures: number; programs: number; dpr: number; width: number; height: number; gpuTimer: boolean };
+  info: () => { calls: number; triangles: number; geometries: number; textures: number; programs: number; dpr: number; width: number; height: number; gpuTimer: boolean; /** Escala da resolução dinâmica (1 sem brilho). */ scale: number };
   /** Média, p95 e pior tempo de quadro (ms) dos últimos ~2 s; `cpu`/`render`/`gpu` são médias. */
   frames: () => { avg: number; p95: number; worst: number; fps: number; samples: number; cpu: number; render: number; gpu: number | null };
   setVisible: (name: string, visible: boolean) => boolean;
@@ -24,6 +25,10 @@ export interface PerfApi {
    * no mesmo quadro o faz recalcular o programa — custo de CPU a cada quadro. Deve vir vazio.
    */
   materialConflicts: () => string[];
+  /** Programas de shader compilados (nome do material e um trecho da chave) — para achar o que compila em pleno jogo. */
+  programs: () => string[];
+  /** Passa a anotar quem é desenhado na passada de sombras com um material de profundidade "com textura" (variante própria). */
+  watchShadowVariants: () => string[];
   /** Malhas visíveis (camada 0) dentro de um grupo, agrupadas por tipo — para achar o que ainda custa chamadas. */
   meshesIn: (name: string) => string[];
 }
@@ -93,7 +98,7 @@ export function PerfProbe() {
     const api: PerfApi = {
       info: () => {
         const canvas = gl.domElement;
-        return { calls: s.frameCalls, triangles: s.frameTris, geometries: gl.info.memory.geometries, textures: gl.info.memory.textures, programs: gl.info.programs?.length ?? 0, dpr: gl.getPixelRatio(), width: canvas.width, height: canvas.height, gpuTimer: !!timer };
+        return { calls: s.frameCalls, triangles: s.frameTris, geometries: gl.info.memory.geometries, textures: gl.info.memory.textures, programs: gl.info.programs?.length ?? 0, dpr: gl.getPixelRatio(), width: canvas.width, height: canvas.height, gpuTimer: !!timer, scale: postFor(gl)?.scale ?? 1 };
       },
       frames: () => {
         const f = [...s.frame].sort((a, b) => a - b);
@@ -113,6 +118,21 @@ export function PerfProbe() {
         });
       },
       setDpr: (dpr) => setDpr(dpr),
+      watchShadowVariants: () => {
+        const seen: string[] = [];
+        scene.traverse((o) => {
+          o.onBeforeShadow = (_r, obj, _c, _sc, _g, depth) => {
+            const d = depth as unknown as { map?: unknown; alphaMap?: unknown };
+            if (d.map || d.alphaMap) {
+              const m = (obj as unknown as { material: { type: string; name: string; alphaTest: number; map: unknown } }).material;
+              const k = `${obj.type} "${obj.name}" ${m.type} alphaTest=${m.alphaTest} pai=${obj.parent?.type}/${obj.parent?.name}`;
+              if (!seen.includes(k)) seen.push(k);
+            }
+          };
+        });
+        return seen;
+      },
+      programs: () => (gl.info.programs ?? []).map((p) => `${p.name} #${p.id} ${p.cacheKey as string}`),
       meshesIn: (name: string) => {
         const root = scene.getObjectByName(name);
         const out = new Map<string, number>();

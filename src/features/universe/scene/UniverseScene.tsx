@@ -1,5 +1,5 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { useEffect, useMemo, useRef } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { readStorage } from '@/lib/storage';
 import { ContextLossWatcher } from '@/components/three/watchers';
@@ -9,9 +9,10 @@ import type { UniverseRuntime } from '../world/runtime';
 import { AirTraffic } from './AirTraffic';
 import { useUniverseAssets } from './assets';
 import { PerformanceGovernor } from './PerformanceGovernor';
+import { settledDpr } from './perfState';
 import { Avatar } from './Avatar';
 import { Billboards, Skybridges, Towers } from './Buildings';
-import { buildCarModels, buildFarCarModels, createCarMaterials, disposeCarMaterials, disposeCarModels, disposeFarCarModels } from './carModels';
+import { buildCarModels, buildFarCarModels, buildTrafficCarModels, createCarMaterials, disposeCarMaterials, disposeCarModels, disposeFarCarModels, disposeTrafficCarModels } from './carModels';
 import { ArrivalPark } from './ArrivalPark';
 import { City } from './City';
 import { Landmarks, type LandmarkTexts } from './Landmarks';
@@ -54,7 +55,8 @@ export interface UniverseSceneProps {
   /** Sonda de desempenho dos testes (`bz-universe-debug`). */
   debug?: boolean;
   /** Shaders compilados e texturas enviadas: o laço de quadros começou. */
-  onReady: () => void;
+  /** A cena deste nível ficou pronta (recebe o nível, para a página saber qual). */
+  onReady: (quality: Quality) => void;
 }
 
 /** Cores do céu noturno: zênite profundo, azul do meio e o brilho da cidade no horizonte (a mesma cor da névoa). */
@@ -135,7 +137,7 @@ function Sky({ quality }: { quality: Quality }) {
   );
 }
 
-function World(props: UniverseSceneProps) {
+const World = memo(function World(props: UniverseSceneProps) {
   const { quality, effects, runtime } = props;
   const cfg = QUALITY_CONFIG[quality];
   const maxAniso = useThree((s) => s.gl.capabilities.getMaxAnisotropy());
@@ -148,10 +150,12 @@ function World(props: UniverseSceneProps) {
   // (o trânsito de perto, instanciado) e o de longe (3 malhas).
   const carModels = useMemo(() => buildCarModels('near'), []);
   const midCarModels = useMemo(() => buildCarModels('mid'), []);
+  const trafficCarModels = useMemo(() => buildTrafficCarModels(), []);
   const farCarModels = useMemo(() => buildFarCarModels(), []);
   const carMaterials = useMemo(() => createCarMaterials(quality), [quality]);
   useEffect(() => () => disposeCarModels(carModels), [carModels]);
   useEffect(() => () => disposeCarModels(midCarModels), [midCarModels]);
+  useEffect(() => () => disposeTrafficCarModels(trafficCarModels), [trafficCarModels]);
   useEffect(() => () => disposeFarCarModels(farCarModels), [farCarModels]);
   useEffect(() => () => disposeCarMaterials(carMaterials), [carMaterials]);
   return (
@@ -183,7 +187,7 @@ function World(props: UniverseSceneProps) {
         <Landmarks assets={assets} quality={quality} effects={effects} near={props.near} markers={!props.presenting} texts={props.texts} onSelect={props.onSelect} />
       </group>
       <group name="traffic">
-        <Traffic quality={quality} running={effects} runtime={runtime} models={midCarModels} farModels={farCarModels} materials={carMaterials} lodDistance={cfg.carLod} shadows={quality !== 'low'} />
+        <Traffic quality={quality} running={effects} runtime={runtime} models={trafficCarModels} farModels={farCarModels} materials={carMaterials} lodDistance={cfg.carLod} shadows={quality !== 'low'} />
       </group>
       <group name="air">
         <AirTraffic quality={quality} running={effects} materials={carMaterials} lodDistance={cfg.airLod} />
@@ -204,7 +208,7 @@ function World(props: UniverseSceneProps) {
       />
     </>
   );
-}
+});
 
 /**
  * Cena 3D do Bezalel Universe (three.js + React Three Fiber). Este módulo e
@@ -213,21 +217,38 @@ function World(props: UniverseSceneProps) {
  * recriando todos os recursos da GPU de forma previsível; sair da página
  * desmonta o canvas (o R3F encerra o laço de quadros e libera o contexto).
  */
-export default function UniverseScene(props: UniverseSceneProps) {
+/**
+ * Memorizada: a página atualiza o HUD várias vezes por segundo, e cada nova renderização daqui faria o
+ * React reconciliar a cidade inteira (centenas de elementos) — um quadro perdido a cada atualização.
+ */
+export default memo(function UniverseScene(props: UniverseSceneProps) {
   const cfg = QUALITY_CONFIG[props.quality];
   // Resolução: começa no que a tela pede (dentro da faixa do nível) e a AdaptiveResolution ajusta.
   // Só o Ultra sobe além da tela (superamostragem), e só se o aparelho aguentar.
   const device = typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1;
   // A Baixa começa em 85% (aparelho modesto: melhor começar folgado; a resolução adaptativa sobe se sobrar).
-  const startDpr = Math.max(cfg.dprMin, Math.min(cfg.dprMax, device) * (props.quality === 'low' ? 0.85 : 1));
-  const maxDpr = props.quality === 'ultra' ? cfg.dprMax : startDpr;
+  // Numa nova entrada na mesma sessão, começa na resolução em que o aparelho já se firmou (sem os degraus
+  // do início, cada um uma pequena travada).
+  const settled = props.debug && readStorage('bz-universe-governor') === 'off' ? null : settledDpr(props.quality);
+  const naturalDpr = Math.max(cfg.dprMin, Math.min(cfg.dprMax, device) * (props.quality === 'low' ? 0.85 : 1));
+  // Com o brilho, o canvas fica na resolução da tela e a resolução firmada vira a escala interna da cena
+  // (resolução dinâmica, sem realocar o canvas); sem ele (Baixa), o canvas já nasce na resolução firmada.
+  const firm = settled === null ? null : Math.max(cfg.dprMin, Math.min(cfg.dprMax, settled));
+  const startDpr = cfg.bloom ? naturalDpr : (firm ?? naturalDpr);
+  const startScale = cfg.bloom && firm !== null ? Math.min(1, firm / naturalDpr) : 1;
+  const maxDpr = props.quality === 'ultra' ? cfg.dprMax : naturalDpr;
+  // O Canvas reaplica o `dpr` a cada renderização: passar sempre o valor inicial desfazia o ajuste da
+  // resolução adaptativa toda vez que a cena renderizava de novo (entrar na apresentação, chegar perto de
+  // um local...). Aqui vai sempre a resolução atual, espelhada de dentro do Canvas.
+  const [seenDpr, setSeenDpr] = useState<{ quality: Quality; value: number } | null>(null);
+  const currentDpr = seenDpr?.quality === props.quality ? seenDpr.value : startDpr;
   return (
     <Canvas
       key={props.quality}
       // Parado até o Warmup compilar os shaders e enviar as texturas (sem tela congelada na entrada).
       frameloop="never"
       shadows={cfg.shadows > 0 ? 'percentage' : false}
-      dpr={startDpr}
+      dpr={currentDpr}
       // Com brilho, o antisserrilhado (MSAA) é feito na textura HDR da cena, não na tela.
       gl={{ antialias: cfg.antialias && !cfg.bloom, powerPreference: 'high-performance', alpha: false, preserveDrawingBuffer: false }}
       camera={{ fov: 55, near: 0.2, far: cfg.far, position: [0, 6, 100] }}
@@ -239,12 +260,20 @@ export default function UniverseScene(props: UniverseSceneProps) {
       }}
       className="!absolute inset-0"
     >
+      <DprMirror quality={props.quality} onChange={setSeenDpr} />
       <World {...props} />
-      {cfg.bloom && <PostFX {...cfg.bloom} multisample={cfg.antialias} />}
-      <Warmup envIntensity={QUALITY_CONFIG[props.quality].envIntensity} envSize={QUALITY_CONFIG[props.quality].envSize} onReady={props.onReady} />
-      <PerformanceGovernor min={cfg.dprMin} max={maxDpr} canUpgrade={props.canUpgrade} probation={props.probation} onLow={props.onLowPerformance} onHeadroom={props.onHeadroom} off={props.debug && readStorage('bz-universe-governor') === 'off'} debug={props.debug} />
+      {cfg.bloom && <PostFX {...cfg.bloom} multisample={cfg.antialias} scale={startScale} />}
+      <Warmup envIntensity={QUALITY_CONFIG[props.quality].envIntensity} envSize={QUALITY_CONFIG[props.quality].envSize} onReady={() => props.onReady(props.quality)} />
+      <PerformanceGovernor level={props.quality} min={cfg.dprMin} max={maxDpr} canUpgrade={props.canUpgrade} probation={props.probation} onLow={props.onLowPerformance} onHeadroom={props.onHeadroom} off={props.debug && readStorage('bz-universe-governor') === 'off'} debug={props.debug} />
       <ContextLossWatcher onLost={props.onContextLost} />
       {props.debug && <PerfProbe />}
     </Canvas>
   );
+});
+
+/** Avisa a resolução atual do Canvas (que a resolução adaptativa muda), para a próxima renderização mantê-la. */
+function DprMirror({ quality, onChange }: { quality: Quality; onChange: (v: { quality: Quality; value: number }) => void }) {
+  const value = useThree((s) => s.viewport.dpr);
+  useEffect(() => onChange({ quality, value }), [quality, value, onChange]);
+  return null;
 }

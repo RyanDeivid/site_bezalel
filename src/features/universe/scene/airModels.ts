@@ -188,6 +188,9 @@ function build(cls: AirClass, far = false): AirModel {
 
 export const AIR_CLASSES: AirClass[] = ['taxi', 'private', 'cargo', 'drone'];
 
+/** Um modelo de perto (o carro voador do jogador usa o do táxi aéreo). */
+export const buildAirModel = (cls: AirClass) => build(cls);
+
 export function buildAirModels(): Record<AirClass, AirModel> {
   return { taxi: build('taxi'), private: build('private'), cargo: build('cargo'), drone: build('drone') };
 }
@@ -244,3 +247,35 @@ export function disposeFarAirModels(models: Record<AirClass, FarAirModel>) {
 
 /** Pintura de cada classe (a mesma linguagem da marca: pérola, marinho, grafite). */
 export const AIR_PAINT: Record<AirClass, string> = { taxi: '#efe6d3', private: '#22344f', cargo: '#5d6b7f', drone: '#2c3440' };
+
+/** Voador de perto, com as peças juntas por material: casco, vidro, rotores, acabamentos (cor no vértice), luzes fixas e as de navegação. */
+export type NearAirSlot = 'hull' | 'glass' | 'rotor' | 'rest' | 'lights' | 'nav' | 'navWhite';
+
+/**
+ * Os quatro voadores de perto para o trânsito instanciado: estrutura, frisos e
+ * letreiro numa malha com a cor no vértice; propulsores numa malha de luz;
+ * vermelha e verde (piscam juntas) noutra. 7 conjuntos por classe em vez de 10.
+ */
+export function buildNearAirModels(): Record<AirClass, Map<NearAirSlot, THREE.BufferGeometry>> {
+  const out = {} as Record<AirClass, Map<NearAirSlot, THREE.BufferGeometry>>;
+  for (const cls of AIR_CLASSES) {
+    const m = build(cls);
+    const rest: THREE.BufferGeometry[] = [];
+    const lights: THREE.BufferGeometry[] = [];
+    const nav: THREE.BufferGeometry[] = [];
+    const slots = new Map<NearAirSlot, THREE.BufferGeometry>();
+    for (const [slot, geo] of m.slots) {
+      if (slot === 'hull' || slot === 'glass' || slot === 'rotor' || slot === 'navWhite') slots.set(slot, geo.clone());
+      else if (slot === 'navRed' || slot === 'navGreen') nav.push(painted(geo, FAR_COLORS[slot]!));
+      else if (slot === 'thrust') lights.push(painted(geo, FAR_COLORS.thrust!));
+      else rest.push(painted(geo, FAR_COLORS[slot] ?? '#555a62'));
+    }
+    if (rest.length) slots.set('rest', mergeGeometries(rest)!);
+    if (lights.length) slots.set('lights', mergeGeometries(lights)!);
+    if (nav.length) slots.set('nav', mergeGeometries(nav)!);
+    [...rest, ...lights, ...nav].forEach((g) => g.dispose());
+    m.slots.forEach((g) => g.dispose());
+    out[cls] = slots;
+  }
+  return out;
+}

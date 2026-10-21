@@ -1,3 +1,5 @@
+import { readSession } from '@/lib/storage';
+
 /** Leituras compartilhadas com o AutoQuality (atualizadas a cada janela de ~1 s). */
 export interface PerfState {
   windows: number;
@@ -15,3 +17,10 @@ export interface PerfState {
 }
 
 export const createPerfState = (): PerfState => ({ windows: 0, lateShare: 0, tightShare: 0, atFloor: false, atMax: true, cpuMs: 0, frameMs: null });
+
+/** Resolução em que o aparelho se firmou, por nível, guardada na sessão: a próxima entrada já começa nela. */
+export const SETTLED_KEY = (level: string) => `bz-universe-dpr-${level}`;
+export function settledDpr(level: string): number | null {
+  const v = Number(readSession(SETTLED_KEY(level)));
+  return Number.isFinite(v) && v > 0 ? v : null;
+}

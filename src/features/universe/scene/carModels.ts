@@ -163,3 +163,49 @@ export function buildFarCarModels(): Record<CarClass, FarCarModel> {
 export function disposeFarCarModels(models: Record<CarClass, FarCarModel>) {
   for (const m of Object.values(models)) [m.paint, m.rest, m.lights].forEach((g) => g.dispose());
 }
+
+/** Carro do trânsito de perto: pintura, vidro, o resto (cor por vértice) e as luzes, mais as rodas. */
+export interface TrafficCarModel {
+  slots: Map<'paint' | 'glass' | 'rest' | 'lights', THREE.BufferGeometry>;
+  tire: THREE.BufferGeometry;
+  rim: THREE.BufferGeometry;
+  wheels: Array<[number, number, number]>;
+}
+
+/**
+ * O nível intermediário, para o trânsito instanciado: a mesma pele, com as
+ * peças pequenas (plásticos, cromados, frisos, sensor, letreiro) juntas numa
+ * malha com a cor no vértice e faróis e lanternas noutra — os mesmos materiais
+ * do modelo de longe. 4 conjuntos + rodas por modelo, em vez de 6 a 9 + rodas:
+ * cada chamada de desenho a menos é CPU a menos em todo quadro.
+ */
+export function buildTrafficCarModels(): Record<CarClass, TrafficCarModel> {
+  const base = buildCarModels('mid');
+  const out = {} as Record<CarClass, TrafficCarModel>;
+  for (const cls of Object.keys(base) as CarClass[]) {
+    const m = base[cls];
+    const rest: THREE.BufferGeometry[] = [];
+    const lights: THREE.BufferGeometry[] = [];
+    for (const [slot, geo] of m.slots) {
+      if (slot === 'paint' || slot === 'glass') continue;
+      (slot === 'head' || slot === 'tail' ? lights : rest).push(painted(geo, FAR_COLORS[slot] ?? '#555a62'));
+    }
+    const slots = new Map<'paint' | 'glass' | 'rest' | 'lights', THREE.BufferGeometry>();
+    slots.set('paint', m.slots.get('paint')!.clone());
+    slots.set('glass', m.slots.get('glass')!.clone());
+    slots.set('rest', mergeGeometries(rest)!);
+    slots.set('lights', mergeGeometries(lights)!);
+    [...rest, ...lights].forEach((g) => g.dispose());
+    out[cls] = { slots, tire: m.tire.clone(), rim: m.rim.clone(), wheels: m.wheels };
+  }
+  disposeCarModels(base);
+  return out;
+}
+
+export function disposeTrafficCarModels(models: Record<CarClass, TrafficCarModel>) {
+  for (const m of Object.values(models)) {
+    m.slots.forEach((g) => g.dispose());
+    m.tire.dispose();
+    m.rim.dispose();
+  }
+}

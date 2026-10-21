@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { airDebug, airPose, createAirTraffic, type AirClass } from '../world/air';
 import { atLeast, type Quality } from '../world/city';
-import { AIR_CLASSES, AIR_PAINT, buildAirModels, buildFarAirModels, disposeAirModels, disposeFarAirModels, type AirSlot } from './airModels';
+import { AIR_CLASSES, AIR_PAINT, buildFarAirModels, buildNearAirModels, disposeFarAirModels, type NearAirSlot } from './airModels';
 import type { CarMaterials } from './carModels';
 
 /**
@@ -16,13 +16,13 @@ import type { CarMaterials } from './carModels';
  */
 export function AirTraffic({ quality, running, materials, lodDistance }: { quality: Quality; running: boolean; materials: CarMaterials; lodDistance: number }) {
   const traffic = useMemo(() => createAirTraffic(quality), [quality]);
-  const models = useMemo(() => buildAirModels(), []);
+  const models = useMemo(() => buildNearAirModels(), []);
   const farModels = useMemo(() => buildFarAirModels(), []);
-  useEffect(() => () => disposeAirModels(models), [models]);
+  useEffect(() => () => Object.values(models).forEach((m) => m.forEach((g) => g.dispose())), [models]);
   useEffect(() => () => disposeFarAirModels(farModels), [farModels]);
   const near = useMemo(() => traffic.vehicles.map(() => false), [traffic]);
 
-  // Materiais próprios: casco por classe, rotor translúcido, brilhos.
+  // Materiais próprios: casco por classe, rotor translúcido e as luzes de navegação (que piscam).
   const mats = useMemo(() => {
     const hull = Object.fromEntries(
       AIR_CLASSES.map((c) => [c, new THREE.MeshStandardMaterial({ color: AIR_PAINT[c], metalness: 0.6, roughness: 0.3, envMapIntensity: 1.1 })]),
@@ -30,33 +30,34 @@ export function AirTraffic({ quality, running, materials, lodDistance }: { quali
     return {
       hull,
       rotor: new THREE.MeshBasicMaterial({ color: '#a9b1bd', transparent: true, opacity: 0.18, depthWrite: false, side: THREE.DoubleSide }),
-      thrust: new THREE.MeshBasicMaterial({ color: '#7fa6f5', toneMapped: false, side: THREE.DoubleSide }),
-      navRed: new THREE.MeshBasicMaterial({ color: '#ff4a3d', toneMapped: false }),
-      navGreen: new THREE.MeshBasicMaterial({ color: '#3dff8a', toneMapped: false }),
-      navWhite: new THREE.MeshBasicMaterial({ color: '#ffffff', toneMapped: false }),
+      // Vermelha e verde numa malha só (a cor vem do vértice), acima de 1 para acender com o brilho.
+      nav: new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false, color: new THREE.Color(2.2, 2.2, 2.2) }),
+      navWhite: new THREE.MeshBasicMaterial({ color: new THREE.Color(2.2, 2.2, 2.2), toneMapped: false }),
     };
   }, []);
   useEffect(
     () => () => {
       Object.values(mats.hull).forEach((m) => m.dispose());
-      [mats.rotor, mats.thrust, mats.navRed, mats.navGreen, mats.navWhite].forEach((m) => m.dispose());
+      [mats.rotor, mats.nav, mats.navWhite].forEach((m) => m.dispose());
     },
     [mats],
   );
-  const material = (cls: AirClass, slot: AirSlot): THREE.Material => {
+  const material = (cls: AirClass, slot: NearAirSlot): THREE.Material => {
     switch (slot) {
       case 'hull':
         return mats.hull[cls];
       case 'glass':
         return materials.glass;
-      case 'frame':
-        return materials.trim;
-      case 'gold':
-        return materials.gold;
-      case 'sign':
-        return materials.sign;
-      default:
-        return mats[slot];
+      case 'rotor':
+        return mats.rotor;
+      case 'rest':
+        return materials.farRest;
+      case 'lights':
+        return materials.farLights;
+      case 'nav':
+        return mats.nav;
+      case 'navWhite':
+        return mats.navWhite;
     }
   };
 
@@ -81,7 +82,7 @@ export function AirTraffic({ quality, running, materials, lodDistance }: { quali
     if (running && !airDebug.frozen) clock.current += Math.min(dt, 0.1);
     const t = (airDebug.t = clock.current);
     // Luzes de navegação piscam em ciclo (a branca, de leve).
-    mats.navRed.visible = mats.navGreen.visible = (t * 1.2) % 1 < 0.75;
+    mats.nav.visible = (t * 1.2) % 1 < 0.75;
     mats.navWhite.visible = (t * 0.8) % 1 < 0.2;
     const enter = lodDistance * lodDistance;
     const leave = (lodDistance * 1.12) ** 2;
@@ -111,7 +112,9 @@ export function AirTraffic({ quality, running, materials, lodDistance }: { quali
         for (const mesh of list) {
           if (!mesh) continue;
           mesh.count = n;
-          mesh.instanceMatrix.needsUpdate = true;
+          // Vazio, não desenha (a chamada com zero instâncias ainda custa CPU).
+          mesh.visible = n > 0;
+          if (n) mesh.instanceMatrix.needsUpdate = true;
         }
     });
   });
@@ -123,7 +126,7 @@ export function AirTraffic({ quality, running, materials, lodDistance }: { quali
         if (!n) return null;
         const far = farModels[cls];
         return [
-          ...[...models[cls].slots.entries()].map(([slot, geo], i) => (
+          ...[...models[cls].entries()].map(([slot, geo], i) => (
             <instancedMesh key={`${cls}-${slot}`} ref={(m) => void (meshes.current[cls][i] = m)} args={[geo, material(cls, slot), n]} count={0} frustumCulled={false} castShadow={atLeast(quality, 'high') && slot === 'hull'} />
           )),
           ...(

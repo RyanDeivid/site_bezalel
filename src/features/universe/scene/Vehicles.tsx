@@ -1,10 +1,12 @@
 import { useFrame } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { makeGlowTexture } from '@/features/lab/scene/textures';
 import type { PlayerVehicle, UniverseRuntime } from '../world/runtime';
 import { CAR_SPECS, type CarClass } from '../world/vehicles';
 import type { UniverseAssets } from './assets';
+import { buildAirModel, type AirSlot } from './airModels';
 import type { CarMaterials, CarModel, CarSlot, FarCarModel } from './carModels';
 
 interface Props {
@@ -73,8 +75,10 @@ function PlayerCar({
   const fullParts = useRef<Array<THREE.Object3D | null>>([]);
   const midParts = useRef<Array<THREE.Object3D | null>>([]);
   const body = useRef<THREE.Group>(null);
-  const wheels = useRef<Array<THREE.Group | null>>([]);
-  const spinners = useRef<Array<THREE.Group | null>>([]);
+  // Rodas: um conjunto instanciado de pneus e um de aros (4 cada) por nível — 2 chamadas de desenho em vez de 8.
+  const tires = useRef<Array<THREE.InstancedMesh | null>>([]);
+  const rims = useRef<Array<THREE.InstancedMesh | null>>([]);
+  const wheelTmp = useMemo(() => ({ m: new THREE.Matrix4(), r: new THREE.Matrix4() }), []);
   // Pintura e lanternas próprias (cor do carro; lanternas mais fortes ao frear).
   const own = useMemo(() => {
     const paint = materials.paint.clone();
@@ -110,8 +114,13 @@ function PlayerCar({
     const lateral = (c.speed * Math.tan(c.steer)) / spec.wheelbase;
     roll.current += (THREE.MathUtils.clamp(lateral * c.speed * 0.0016, -0.06, 0.06) - roll.current) * Math.min(1, dt * 6);
     if (body.current) body.current.rotation.set(pitch.current, 0, roll.current);
-    wheels.current.forEach((w, i) => w && (w.rotation.y = i < 2 ? -c.steer : 0));
-    spinners.current.forEach((s) => s && (s.rotation.x = c.wheelSpin));
+    // Rodas: posição, esterço (só as da frente) e giro, nos dois níveis (só um está visível).
+    model.wheels.forEach((wp, i) => {
+      wheelTmp.m.makeRotationY(i < 2 ? -c.steer : 0).setPosition(wp[0], wp[1], wp[2]);
+      wheelTmp.m.multiply(wheelTmp.r.makeRotationX(c.wheelSpin));
+      for (const set of [tires.current, rims.current]) for (const mesh of set) mesh?.setMatrixAt(i, wheelTmp.m);
+    });
+    for (const set of [tires.current, rims.current]) for (const mesh of set) if (mesh) mesh.instanceMatrix.needsUpdate = true;
     // Freio: a lanterna acende mais forte (HDR: com o brilho ligado, ela "estoura").
     own.tail.color.copy(c.braking ? BRAKE_ON : BRAKE_OFF);
   });
@@ -132,18 +141,10 @@ function PlayerCar({
             ))}
           </group>
         </group>
-        {model.wheels.map((p, i) => (
-          <group key={i} ref={(g) => void (wheels.current[i] = g)} position={p}>
-            <group ref={(g) => void (spinners.current[i] = g)}>
-              <group ref={(g) => void (fullParts.current[1 + i] = g)}>
-                <mesh geometry={model.tire} material={materials.tire} castShadow />
-                <mesh geometry={model.rim} material={materials.rim} />
-              </group>
-              <group ref={(g) => void (midParts.current[1 + i] = g)} visible={false}>
-                <mesh geometry={mid.tire} material={materials.tire} castShadow />
-                <mesh geometry={mid.rim} material={materials.rim} />
-              </group>
-            </group>
+        {[model, mid].map((lod, k) => (
+          <group key={k} ref={(g) => void ((k ? midParts : fullParts).current[1] = g)} visible={k === 0}>
+            <instancedMesh ref={(m) => void (tires.current[k] = m)} args={[lod.tire, materials.tire, 4]} castShadow frustumCulled={false} />
+            <instancedMesh ref={(m) => void (rims.current[k] = m)} args={[lod.rim, materials.rim, 4]} frustumCulled={false} />
           </group>
         ))}
       </group>
@@ -156,7 +157,22 @@ function PlayerCar({
   );
 }
 
-/** O carro voador da fase 1 (casco perolado, cabine escura, quatro propulsores). */
+/** Luzes do carro voador (HDR: com o brilho ligado, acendem de verdade). */
+const HOVER_LIGHTS: Partial<Record<AirSlot, [number, number, number]>> = {
+  thrust: [0.55, 0.78, 1.6],
+  navRed: [2.4, 0.2, 0.15],
+  navGreen: [0.2, 2.2, 0.6],
+  navWhite: [2.2, 2.2, 2.2],
+};
+
+/**
+ * O carro voador do jogador: um eVTOL da mesma família do táxi aéreo (casco em
+ * gota, cabine envidraçada, esquis, quatro rotores carenados), em pérola com
+ * frisos dourados — a pintura da Bezalel — e sem o letreiro de táxi. As peças
+ * vêm juntas por material (6 chamadas de desenho; o da fase 1 tinha ~25) e as
+ * luzes (propulsores e navegação) numa malha só, com a cor no vértice. Escala
+ * 0,85: a largura com os rotores fica no raio de colisão do voo (2,2 m).
+ */
 function HoverCar({ vehicle, assets, effects }: { vehicle: Extract<PlayerVehicle, { kind: 'hover' }>; assets: UniverseAssets; effects: boolean }) {
   const car = useRef<THREE.Group>(null);
   const body = useRef<THREE.Group>(null);
@@ -166,12 +182,40 @@ function HoverCar({ vehicle, assets, effects }: { vehicle: Extract<PlayerVehicle
   const prevSpeed = useRef(0);
   const glow = useMemo(() => makeGlowTexture('rgba(127,166,245,0.9)'), []);
   const shadowMat = useMemo(() => assets.materials.shadowBlob.clone(), [assets]);
+  const model = useMemo(() => {
+    const m = buildAirModel('taxi');
+    const lights: THREE.BufferGeometry[] = [];
+    for (const [slot, rgb] of Object.entries(HOVER_LIGHTS) as Array<[AirSlot, [number, number, number]]>) {
+      const g = m.slots.get(slot);
+      if (!g) continue;
+      const out = g.clone();
+      const n = out.attributes.position!.count;
+      const colors = new Float32Array(n * 3);
+      for (let v = 0; v < n; v++) colors.set(rgb, v * 3);
+      out.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+      lights.push(out);
+    }
+    const lit = mergeGeometries(lights)!;
+    lights.forEach((g) => g.dispose());
+    return { slots: m.slots, lights: lit };
+  }, []);
+  const local = useMemo(
+    () => ({
+      rotor: new THREE.MeshBasicMaterial({ color: '#c9d3e0', transparent: true, opacity: 0.2, depthWrite: false, side: THREE.DoubleSide }),
+      lights: new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false }),
+    }),
+    [],
+  );
   useEffect(
     () => () => {
       glow.dispose();
       shadowMat.dispose();
+      model.slots.forEach((g) => g.dispose());
+      model.lights.dispose();
+      local.rotor.dispose();
+      local.lights.dispose();
     },
-    [glow, shadowMat],
+    [glow, shadowMat, model, local],
   );
   useFrame((_, rawDt) => {
     const dt = Math.min(rawDt, 0.05);
@@ -194,58 +238,36 @@ function HoverCar({ vehicle, assets, effects }: { vehicle: Extract<PlayerVehicle
       shadowMat.opacity = 0.45 * k;
     }
     const pulse = 0.85 + Math.abs(c.speed) / 60 + (effects ? Math.sin(t.current * 9) * 0.05 : 0);
-    glows.current.forEach((g) => g?.scale.setScalar(1.3 * pulse));
+    glows.current.forEach((g) => g?.scale.setScalar(1.1 * pulse));
   });
   const m = assets.materials;
+  const parts: Array<[AirSlot, THREE.Material, boolean]> = [
+    ['hull', m.pearl, true],
+    ['glass', m.darkGlass, false],
+    ['gold', m.gold, false],
+    ['frame', m.steel, false],
+    ['rotor', local.rotor, false],
+  ];
+  // Centros dos rotores do táxi aéreo (os brilhos dos propulsores ficam embaixo de cada um).
   const pods: Array<[number, number]> = [
-    [-1.25, 1.25],
-    [1.25, 1.25],
-    [-1.25, -1.35],
-    [1.25, -1.35],
+    [1.95, 1.15],
+    [-1.95, 1.15],
+    [1.95, -1.35],
+    [-1.95, -1.35],
   ];
   return (
     <>
       <group ref={car}>
-        <group ref={body}>
-          <mesh material={m.pearl} scale={[1.2, 0.34, 2.55]} castShadow>
-            <sphereGeometry args={[1, 32, 16]} />
-          </mesh>
-          <mesh material={m.darkGlass} position={[0, 0.22, 0.45]} scale={[0.66, 0.3, 1.25]}>
-            <sphereGeometry args={[1, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2]} />
-          </mesh>
-          {[-0.62, 0.62].map((x) => (
-            <group key={x} position={[x, 0.32, -1.85]} rotation={[0.35, 0, x > 0 ? -0.25 : 0.25]}>
-              <mesh material={m.pearl}>
-                <boxGeometry args={[0.08, 0.55, 0.7]} />
-              </mesh>
-              <mesh material={m.glowGold} position={[0, 0.28, -0.05]}>
-                <boxGeometry args={[0.09, 0.05, 0.62]} />
-              </mesh>
-            </group>
-          ))}
-          <group position={[0, 0.02, 0]} scale={[1.22, 1, 2.57]}>
-            <mesh material={m.gold} rotation={[Math.PI / 2, 0, 0]}>
-              <torusGeometry args={[1, 0.025, 6, 48]} />
-            </mesh>
-          </group>
-          <mesh material={m.glowIvory} position={[0, 0.04, 2.5]}>
-            <boxGeometry args={[0.9, 0.07, 0.06]} />
-          </mesh>
-          <mesh material={m.glowBrake} position={[0, 0.1, -2.5]}>
-            <boxGeometry args={[1.3, 0.08, 0.06]} />
-          </mesh>
+        <group ref={body} scale={0.85}>
+          {parts.map(([slot, mat, cast]) => {
+            const geo = model.slots.get(slot);
+            return geo ? <mesh key={slot} geometry={geo} material={mat} castShadow={cast} /> : null;
+          })}
+          <mesh geometry={model.lights} material={local.lights} />
           {pods.map(([x, z], i) => (
-            <group key={i} position={[x, -0.22, z]}>
-              <mesh material={m.steelLight} rotation={[Math.PI / 2, 0, 0]}>
-                <cylinderGeometry args={[0.42, 0.42, 0.85, 16]} />
-              </mesh>
-              <mesh material={m.glowBlue} position={[0, -0.24, 0]} rotation={[Math.PI / 2, 0, 0]}>
-                <torusGeometry args={[0.34, 0.05, 6, 20]} />
-              </mesh>
-              <sprite ref={(s) => void (glows.current[i] = s)} position={[0, -0.45, 0]}>
-                <spriteMaterial map={glow} transparent depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
-              </sprite>
-            </group>
+            <sprite key={i} ref={(sp) => void (glows.current[i] = sp)} position={[x, -0.35, z]}>
+              <spriteMaterial map={glow} transparent depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+            </sprite>
           ))}
         </group>
       </group>

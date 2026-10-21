@@ -1,10 +1,11 @@
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { AGENT_HEX } from '@/components/agents/AgentGlyph';
 import { drawLabel, makeCanvasTexture } from '@/features/lab/scene/textures';
 import { STATION_ORDER } from '@/features/lab/layout';
-import { atLeast, cubeOnVertex, MONUMENT, PLACES, type PlaceId } from '../world/city';
+import { atLeast, BUILDINGS, cubeOnVertex, MONUMENT, MONUMENT_SOLID, PLACES, type PlaceId } from '../world/city';
 import type { Quality, UniverseAssets } from './assets';
 import { towerSlotMaterial } from './towerMaterial';
 import { buildHq, buildProductsCenter, HQ, type HqSlot } from './landmarkGeometry';
@@ -135,7 +136,23 @@ export function Landmarks({ assets, quality, effects, near, markers, texts, onSe
   const detail = quality !== 'low';
   const hq = useMemo(() => buildHq(detail), [detail]);
   const products = useMemo(() => buildProductsCenter(detail, -80, 0), [detail]);
-  useEffect(() => () => [...hq.values(), ...products.values()].forEach((g) => g.dispose()), [hq, products]);
+  const hitbox = useMemo(() => new THREE.BoxGeometry(1, 1, 1), []);
+  useEffect(() => () => hitbox.dispose(), [hitbox]);
+  const washes = useMemo(() => {
+    const spots: Array<[number, number, number]> = [
+      [-18.5, HQ.z + 13.06, 0],
+      [18.5, HQ.z + 13.06, 0],
+      ...[-88, -80, -72].flatMap((z): Array<[number, number, number]> => [
+        [-20.06, z, -Math.PI / 2],
+        [20.06, z, Math.PI / 2],
+      ]),
+    ];
+    const list = spots.map(([x, z, ry]) => new THREE.PlaneGeometry(3.4, 7.2).rotateY(ry).translate(x, HQ.base + 3.6, z));
+    const g = mergeGeometries(list)!;
+    list.forEach((x) => x.dispose());
+    return g;
+  }, []);
+  useEffect(() => () => [...hq.values(), ...products.values(), washes].forEach((g) => g.dispose()), [hq, products, washes]);
   const hqMaterial = (slot: HqSlot): THREE.Material =>
     slot === 'hqGlass' ? m.towerChampagne : slot === 'stone' ? m.podiumLight : slot === 'lobby' ? m.lobby : towerSlotMaterial(slot, assets);
   const solid = (slot: string) => slot !== 'glow' && slot !== 'lobby';
@@ -169,23 +186,12 @@ export function Landmarks({ assets, quality, effects, near, markers, texts, onSe
   return (
     <group ref={root}>
       {/* ---------------- Sede Bezalel ---------------- */}
-      <group {...pointer(onSelect, 'bezalel-hq')}>
+      <group>
         {[...hq].map(([slot, geo]) => (
           <mesh key={slot} geometry={geo} material={hqMaterial(slot)} castShadow={hi && solid(slot)} receiveShadow={solid(slot)} />
         ))}
-        {/* Refletores no chão lavando os pilares e as laterais do pódio. */}
-        {[
-          [-18.5, HQ.z + 13.06, 0],
-          [18.5, HQ.z + 13.06, 0],
-          ...[-88, -80, -72].flatMap((z) => [
-            [-20.06, z, -Math.PI / 2],
-            [20.06, z, Math.PI / 2],
-          ]),
-        ].map(([x, z, ry]) => (
-          <mesh key={`${x},${z}`} material={m.wash} position={[x!, HQ.base + 3.6, z!]} rotation={[0, ry!, 0]} renderOrder={6}>
-            <planeGeometry args={[3.4, 7.2]} />
-          </mesh>
-        ))}
+        {/* Refletores no chão lavando os pilares e as laterais do pódio (uma malha só). */}
+        <mesh geometry={washes} material={m.wash} renderOrder={6} />
         {/* Letreiro em letras soltas sobre o pódio, de frente para a avenida. */}
         <mesh material={m.steel} position={[0, HQ.podiumTop + 0.15, HQ.lobby.z + 0.6]}>
           <boxGeometry args={[18.6, 0.3, 0.35]} />
@@ -207,7 +213,7 @@ export function Landmarks({ assets, quality, effects, near, markers, texts, onSe
       </group>
 
       {/* ---------------- Laboratório de IA ---------------- */}
-      <group {...pointer(onSelect, 'ai-lab')}>
+      <group>
         <mesh material={m.stone} position={[80, 0.9, 0]} receiveShadow>
           <cylinderGeometry args={[17, 17.4, 1.2, 8]} />
         </mesh>
@@ -292,7 +298,7 @@ export function Landmarks({ assets, quality, effects, near, markers, texts, onSe
       </group>
 
       {/* ---------------- Centro de Produtos ---------------- */}
-      <group {...pointer(onSelect, 'products-center')}>
+      <group>
         {[...products].map(([slot, geo]) => (
           <mesh key={slot} geometry={geo} material={towerSlotMaterial(slot, assets)} castShadow={hi && solid(slot)} receiveShadow={solid(slot)} />
         ))}
@@ -309,7 +315,7 @@ export function Landmarks({ assets, quality, effects, near, markers, texts, onSe
       </group>
 
       {/* ---------------- Monumento da praça ---------------- */}
-      <group {...pointer(onSelect, 'plaza')}>
+      <group>
         <mesh material={m.stone} position={[0, MONUMENT.pedestal / 2 + 0.36, 0]} castShadow={hi}>
           <cylinderGeometry args={[3.4, 3.9, MONUMENT.pedestal, 8]} />
         </mesh>
@@ -321,6 +327,24 @@ export function Landmarks({ assets, quality, effects, near, markers, texts, onSe
         </group>
         <pointLight position={[0, MONUMENT.pedestal + 1.2, 0]} color={PALETTE.gold} intensity={hi ? 60 : 30} distance={34} decay={1.6} />
       </group>
+
+      {/* ---------------- Alvos do clique ----------------
+          Caixas invisíveis do tamanho de cada edifício (os mesmos volumes da colisão) e do monumento. O
+          clique e o "passar por cima" são testados contra elas a cada movimento do ponteiro: contra a
+          geometria detalhada (centenas de milhares de triângulos), cada movimento do mouse custava
+          dezenas de milissegundos — girar a câmera arrastando perdia quadros (medido). */}
+      {[...BUILDINGS.flatMap((b) => b.solids.map((s) => [b.id, s] as const)), ['plaza', MONUMENT_SOLID] as const].map(([id, s], i) => (
+        <mesh
+          key={i}
+          visible={false}
+          geometry={hitbox}
+          material={m.glowGold}
+          position={[(s.minX + s.maxX) / 2, ((s.base ?? 0) + s.height) / 2, (s.minZ + s.maxZ) / 2]}
+          scale={[s.maxX - s.minX, s.height - (s.base ?? 0), s.maxZ - s.minZ]}
+          userData={{ dynamic: true }}
+          {...pointer(onSelect, id)}
+        />
+      ))}
 
       {/* ---------------- Helipontos e marcadores dos locais ---------------- */}
       {PLACES.map((p, i) => (
@@ -337,6 +361,7 @@ export function Landmarks({ assets, quality, effects, near, markers, texts, onSe
           index={i}
           effects={effects}
           onSelect={onSelect}
+          hitbox={hitbox}
         />
       ))}
     </group>
@@ -355,6 +380,7 @@ function PlaceMarker(props: {
   index: number;
   effects: boolean;
   onSelect: (id: PlaceId) => void;
+  hitbox: THREE.BufferGeometry;
 }) {
   const m = props.assets.materials;
   // Losango girando e flutuando: indica que o local é interativo (além do nome e do feixe).
@@ -376,7 +402,9 @@ function PlaceMarker(props: {
   }, [props.name, props.scale]);
   useEffect(() => () => label.dispose(), [label]);
   return (
-    <group position={[props.x, 0, props.z]} {...pointer(props.onSelect, props.place)} userData={{ dynamic: true }}>
+    <group position={[props.x, 0, props.z]} userData={{ dynamic: true }}>
+      {/* Alvo do clique: uma coluna invisível no lugar do heliponto, do feixe e do nome. */}
+      <mesh visible={false} position={[0, 7, 0]} scale={[10, 14, 10]} geometry={props.hitbox} material={m.glowGold} userData={{ dynamic: true }} {...pointer(props.onSelect, props.place)} />
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, props.ground, 0]} material={m.pad}>
         <circleGeometry args={[5, 48]} />
       </mesh>
