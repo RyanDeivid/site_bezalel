@@ -255,7 +255,9 @@ export default memo(function UniverseScene(props: UniverseSceneProps) {
   const firm = settled === null ? null : Math.max(cfg.dprMin, Math.min(cfg.dprMax, settled));
   const startDpr = cfg.bloom ? naturalDpr : (firm ?? naturalDpr);
   const startScale = cfg.bloom && firm !== null ? Math.min(1, firm / naturalDpr) : 1;
-  const maxDpr = props.quality === 'ultra' ? cfg.dprMax : naturalDpr;
+  // A Baixa pode subir dos 85% do início até o teto do nível se o aparelho tiver folga (antes o teto era o
+  // próprio valor inicial: a resolução adaptativa nunca subia, e a Baixa ficava sempre borrada).
+  const maxDpr = props.quality === 'ultra' ? cfg.dprMax : props.quality === 'low' ? Math.max(naturalDpr, Math.min(cfg.dprMax, device)) : naturalDpr;
   // O Canvas reaplica o `dpr` a cada renderização: passar sempre o valor inicial desfazia o ajuste da
   // resolução adaptativa toda vez que a cena renderizava de novo (entrar na apresentação, chegar perto de
   // um local...). Aqui vai sempre a resolução atual, espelhada de dentro do Canvas.

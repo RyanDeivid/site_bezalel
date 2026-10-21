@@ -6,6 +6,7 @@ import { onFoot, vehiclePose, type UniverseRuntime } from '../world/runtime';
 import { createTraffic, stepTraffic, TRAFFIC_STEP, type TrafficObstacle } from '../world/traffic';
 import { CAR_SPECS, type Body, type CarClass } from '../world/vehicles';
 import type { CarMaterials, CarSlot, FarCarModel, TrafficCarModel } from './carModels';
+import { contactShadowGeometry, contactShadowMaterial } from './contactShadow';
 
 /** Cores das carrocerias do trânsito (paleta da marca: marfim, aço, marinho e um dourado discreto). */
 const PAINT = ['#e6dfd0', '#4d6a8c', '#1a2a44', '#b8995c'];
@@ -60,6 +61,16 @@ export function Traffic({ quality, running, runtime, models, farModels, material
   const tmp = useMemo(() => ({ m: new THREE.Matrix4(), w: new THREE.Matrix4(), q: new THREE.Quaternion(), p: new THREE.Vector3(), s: new THREE.Vector3(1, 1, 1), up: new THREE.Vector3(0, 1, 0) }), []);
   const sets = useRef<Record<(typeof LODS)[number], Record<CarClass, InstSet>>>({ near: emptySets(), far: emptySets() });
   const beams = useRef<THREE.InstancedMesh>(null);
+  // Sombras de contato (uma mancha macia sob cada carro por perto; na Baixa, a única sombra que há).
+  const contact = useRef<THREE.InstancedMesh>(null);
+  const contactParts = useMemo(() => ({ geometry: contactShadowGeometry(2.6, 5.4), material: contactShadowMaterial(shadows ? 0.5 : 0.72) }), [shadows]);
+  useEffect(
+    () => () => {
+      contactParts.geometry.dispose();
+      contactParts.material.dispose();
+    },
+    [contactParts],
+  );
 
   useLayoutEffect(() => {
     // A cor por instância precisa existir antes do preparo (Warmup): ela muda o shader da pintura,
@@ -108,6 +119,7 @@ export function Traffic({ quality, running, runtime, models, farModels, material
     const enter = lodDistance * lodDistance;
     const leave = (lodDistance * 1.12) ** 2;
     let nBeams = 0;
+    let nContact = 0;
     for (const cls of CLASSES) {
       const spec = CAR_SPECS[cls];
       const counts = { near: 0, far: 0 };
@@ -130,6 +142,7 @@ export function Traffic({ quality, running, runtime, models, farModels, material
         set.slots[0]?.setColorAt(k, paints[vi]!);
         // Facho no asfalto só para os carros a até ~2× a distância do modelo de perto (os de longe nem se notam).
         if (beams.current && d2 < enter * 4) beams.current.setMatrixAt(nBeams++, tmp.m);
+        if (contact.current && d2 < enter * 6) contact.current.setMatrixAt(nContact++, tmp.m);
         // Rodas (só no modelo de perto; de longe elas fazem parte da malha): giram com a velocidade.
         if (running) spin[vi] = spin[vi]! + (v.speed / spec.wheelRadius) * Math.min(rawDt, 0.1);
         if (lod === 'near')
@@ -175,6 +188,11 @@ export function Traffic({ quality, running, runtime, models, farModels, material
       beams.current.count = nBeams;
       if (nBeams) beams.current.instanceMatrix.needsUpdate = true;
     }
+    if (contact.current) {
+      contact.current.count = nContact;
+      contact.current.visible = nContact > 0;
+      if (nContact) contact.current.instanceMatrix.needsUpdate = true;
+    }
   });
 
   useFrame(() => {
@@ -185,6 +203,7 @@ export function Traffic({ quality, running, runtime, models, farModels, material
 
   return (
     <group>
+      <instancedMesh ref={contact} args={[contactParts.geometry, contactParts.material, state.vehicles.length]} frustumCulled={false} renderOrder={6} />
       {beam && <instancedMesh ref={beams} args={[beam.geometry, beam.material, state.vehicles.length]} frustumCulled={false} renderOrder={7} />}
       {LODS.map((lod) =>
         CLASSES.map((cls) => {

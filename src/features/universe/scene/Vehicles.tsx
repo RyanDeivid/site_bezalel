@@ -7,7 +7,8 @@ import type { PlayerVehicle, UniverseRuntime } from '../world/runtime';
 import { CAR_SPECS, type CarClass } from '../world/vehicles';
 import type { UniverseAssets } from './assets';
 import { buildAirModel, type AirSlot } from './airModels';
-import { carInterior, dashboardScreen, HOVER_SCALE, hoverInterior, paintCenter, paintCluster, type Interior } from './interior';
+import { contactShadowGeometry, contactShadowMaterial } from './contactShadow';
+import { carInterior, dashboardScreen, HOVER_SCALE, hoverInterior, paintCenter, paintCluster, type Interior, type Screen } from './interior';
 import type { CarMaterials, CarModel, CarSlot, FarCarModel } from './carModels';
 
 interface Props {
@@ -48,10 +49,12 @@ function useInteriorMaterials() {
   const mats = useMemo(
     () => ({
       // As paredes por dentro: a carroceria pelo avesso, num acabamento escuro e fosco.
-      shell: new THREE.MeshStandardMaterial({ color: '#17191e', roughness: 0.9, metalness: 0, side: THREE.BackSide }),
-      leather: new THREE.MeshStandardMaterial({ color: '#2d2622', roughness: 0.62, metalness: 0 }),
-      trim: new THREE.MeshStandardMaterial({ color: '#23262c', roughness: 0.45, metalness: 0.35, envMapIntensity: 0.8 }),
-      wheel: new THREE.MeshStandardMaterial({ color: '#15161a', roughness: 0.55, metalness: 0.2 }),
+      shell: new THREE.MeshStandardMaterial({ color: '#1a1b20', roughness: 0.9, metalness: 0, side: THREE.BackSide }),
+      // Um leve brilho próprio nas peças de dentro: a luz das telas e dos filetes (sem custo de uma luz de verdade).
+      leather: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.55, metalness: 0, emissive: '#1a120c', envMapIntensity: 0.6 }),
+      trim: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.42, metalness: 0.2, emissive: '#0b0d12', envMapIntensity: 0.9 }),
+      metal: new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.28, metalness: 1, emissive: '#2a2012', envMapIntensity: 1.4, vertexColors: true }),
+      wheel: new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.5, metalness: 0.15, emissive: '#0d0b09' }),
       glow: new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false }),
     }),
     [],
@@ -78,13 +81,13 @@ function Cockpit({
   shell: THREE.BufferGeometry[];
   /** Mostra a cabine agora? (lido a cada quadro) */
   visible: () => boolean;
-  /** O que o quadro mostra: km/h, máximo, marcha, extra, esterço. */
-  read: () => { kmh: number; max: number; gear: string; extra: { label: string; value: string; share: number }; steer: number };
+  /** O que o quadro mostra: km/h, máximo, marcha, modo, extra (carga ou altitude), esterço e a posição (para o mapa). */
+  read: () => { kmh: number; max: number; gear: string; mode: string; extra: { label: string; value: string; share: number; sub?: string }; steer: number; nav: { x: number; z: number; heading: number } };
 }) {
   const mats = useInteriorMaterials();
   const group = useRef<THREE.Group>(null);
   const wheel = useRef<THREE.Group>(null);
-  const screens = useMemo(() => ({ cluster: dashboardScreen(512, 192), center: dashboardScreen(256, 160) }), []);
+  const screens = useMemo(() => ({ cluster: dashboardScreen(768, 272), center: dashboardScreen(384, 240) }), []);
   const screenMats = useMemo(
     () => ({ cluster: new THREE.MeshBasicMaterial({ map: screens.cluster.texture, toneMapped: false }), center: new THREE.MeshBasicMaterial({ map: screens.center.texture, toneMapped: false }) }),
     [screens],
@@ -110,10 +113,12 @@ function Cockpit({
     since.current += dt;
     if (since.current < 0.1) return;
     since.current = 0;
-    screens.cluster.draw(`${Math.round(r.kmh)}|${r.gear}|${r.extra.value}`, (ctx, w, h) => paintCluster(ctx, w, h, r.kmh, r.max, r.gear, r.extra));
+    screens.cluster.draw(`${Math.round(r.kmh)}|${r.gear}|${r.extra.value}`, (ctx, w, h) => paintCluster(ctx, w, h, r.kmh, r.max, r.gear, r.extra, r.mode));
     const now = new Date();
     const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    screens.center.draw(time, (ctx, w, h) => paintCenter(ctx, w, h, time, 'BEZALEL · UNIVERSE'));
+    // O mapa só é redesenhado quando o carro anda meio metro ou vira ~2°.
+    const { x, z, heading } = r.nav;
+    screens.center.draw(`${time}|${Math.round(x * 2)}|${Math.round(z * 2)}|${Math.round(heading * 30)}`, (ctx, w, h) => paintCenter(ctx, w, h, time, r.nav));
   });
   const { wheelAt, cluster, screen } = interior;
   return (
@@ -123,6 +128,7 @@ function Cockpit({
       ))}
       <mesh geometry={interior.leather} material={mats.leather} />
       <mesh geometry={interior.trim} material={mats.trim} />
+      <mesh geometry={interior.metal} material={mats.metal} />
       <mesh geometry={interior.glow} material={mats.glow} />
       <group position={wheelAt.position} rotation={[wheelAt.tilt, 0, 0]}>
         <group ref={wheel}>
@@ -133,9 +139,9 @@ function Cockpit({
         [cluster, screenMats.cluster],
         [screen, screenMats.center],
       ].map(([at, mat], i) => {
-        const a = at as Interior['cluster'];
+        const a = at as Screen;
         return (
-          <group key={i} position={a.position} rotation={[a.tilt, 0, 0]}>
+          <group key={i} position={a.position} rotation={[a.tilt, a.yaw, 0, 'YXZ']}>
             <mesh rotation={[0, Math.PI, 0]} material={mat as THREE.Material}>
               <planeGeometry args={a.size} />
             </mesh>
@@ -236,11 +242,21 @@ function PlayerCar({
     own.tail.color.copy(c.braking ? BRAKE_ON : BRAKE_OFF);
   });
   const interior = useMemo(() => carInterior(vehicle.cls), [vehicle.cls]);
+  // Sombra de contato (fica com o carro, fora da suspensão: não inclina com a carroceria).
+  const contact = useMemo(() => ({ geometry: contactShadowGeometry(spec.width + 0.55, spec.length + 0.6), material: contactShadowMaterial(0.68) }), [spec]);
+  useEffect(
+    () => () => {
+      contact.geometry.dispose();
+      contact.material.dispose();
+    },
+    [contact],
+  );
   const shell = useMemo(() => (['paint', 'trim'] as const).flatMap((k) => (model.slots.get(k) ? [model.slots.get(k)!] : [])), [model]);
 
   const material = (slot: CarSlot) => (slot === 'paint' ? own.paint : slot === 'tail' ? own.tail : materials[slot]);
   return (
     <group ref={root}>
+      <mesh geometry={contact.geometry} material={contact.material} renderOrder={6} />
       <group ref={detailed}>
         <group ref={body}>
           <group ref={(g) => void (fullParts.current[0] = g)}>
@@ -258,7 +274,16 @@ function PlayerCar({
               // Elétricos (sedã e táxi) mostram D/R; o esportivo, a "marcha" do ronco.
               const gear = c.speed < -0.3 ? 'R' : Math.abs(c.speed) < 0.3 ? 'P' : vehicle.cls === 'sport' ? String(Math.min(7, 1 + Math.floor(Math.abs(c.speed) / 11))) : 'D';
               const battery = vehicle.id.length * 7 + 40;
-              return { kmh, max: spec.maxSpeed * 3.6, gear, extra: { label: 'BAT', value: `${battery}%`, share: battery / 100 }, steer: c.steer };
+              // Carga fixa por carro (é um jogo: não há bateria a simular) e a autonomia proporcional a ela.
+              return {
+                kmh,
+                max: Math.ceil((spec.maxSpeed * 3.6) / 20) * 20,
+                gear,
+                mode: vehicle.cls === 'sport' ? 'SPORT' : vehicle.cls === 'taxi' ? 'TAXI' : 'ECO',
+                extra: { label: 'BAT', value: `${battery}%`, share: battery / 100, sub: `${Math.round(battery * 4.6)} km` },
+                steer: c.steer,
+                nav: c,
+              };
             }}
           />
           <group ref={(g) => void (midParts.current[0] = g)} visible={false}>
@@ -399,7 +424,15 @@ function HoverCar({ runtime, vehicle, assets, effects }: { runtime: UniverseRunt
             read={() => {
               const c = vehicle.craft;
               const alt = Math.max(0, Math.round(c.y - 1.8));
-              return { kmh: Math.abs(c.speed) * 3.6, max: 180, gear: c.climb > 0.5 ? '↑' : c.climb < -0.5 ? '↓' : 'H', extra: { label: 'ALT', value: `${alt} m`, share: alt / 110 }, steer: c.turnRate * 0.25 };
+              return {
+                kmh: Math.abs(c.speed) * 3.6,
+                max: 180,
+                gear: c.climb > 0.5 ? '↑' : c.climb < -0.5 ? '↓' : 'H',
+                mode: 'VTOL',
+                extra: { label: 'ALT', value: `${alt} m`, share: alt / 110 },
+                steer: c.turnRate * 0.25,
+                nav: { x: c.x, z: c.z, heading: c.yaw },
+              };
             }}
           />
           {pods.map(([x, z], i) => (

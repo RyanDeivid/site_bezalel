@@ -370,7 +370,8 @@ export function cityTowers(quality: Quality): TowerSpec[] {
       if (CENTRAL.has(`${bx},${bz}`)) continue;
       const midtown = bx >= 1 && bx <= 3 && bz >= 1 && bz <= 3;
       const b = blockBounds(bx, bz);
-      const cells = quality === 'low' ? 2 : 3;
+      // Na Baixa, o miolo da cidade (onde o visitante anda) tem a mesma densidade da Média; o horizonte, menos.
+      const cells = quality === 'low' && !midtown ? 2 : 3;
       // Passo próprio em cada eixo: a coluna central da grade é mais larga (80 m) que as outras (70 m).
       const stepX = (b.maxX - b.minX) / cells;
       const stepZ = (b.maxZ - b.minZ) / cells;
@@ -387,7 +388,7 @@ export function cityTowers(quality: Quality): TowerSpec[] {
             continue;
           }
           // No médio, a célula central de cada quadra vira praça interna (menos geometria).
-          if (quality === 'medium' && i === 1 && j === 1) {
+          if ((quality === 'medium' || quality === 'low') && cells === 3 && i === 1 && j === 1) {
             rand();
             continue;
           }

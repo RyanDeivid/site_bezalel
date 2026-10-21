@@ -282,7 +282,7 @@ export function PlayerController({ runtime, solids, inputEnabled, calmCamera, on
       // Olhar levemente para baixo (o painel e a rua à frente); arrastar para cima/baixo inclina a partir daí.
       const base = active.kind === 'car' ? 0.17 : 0.32;
       // Quanto cada cabine olha para baixo de saída: o táxi é alto, o esportivo é baixo.
-      const down = active.kind === 'hover' ? 0.22 : active.cls === 'taxi' ? 0.36 : active.cls === 'sport' ? 0.12 : 0.16;
+      const down = active.kind === 'hover' ? 0.22 : active.cls === 'taxi' ? 0.22 : active.cls === 'sport' ? 0.05 : 0.08;
       const tilt = THREE.MathUtils.clamp((base - rt.camera.pitch) * 0.9 - down, -0.75, 0.45);
       camera.position.set(x, y, z);
       camera.lookAt(x + Math.sin(yaw) * Math.cos(tilt), y + Math.sin(tilt), z + Math.cos(yaw) * Math.cos(tilt));

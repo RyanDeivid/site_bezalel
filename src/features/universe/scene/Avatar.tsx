@@ -1,10 +1,12 @@
 import { useFrame } from '@react-three/fiber';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
+import type * as THREE from 'three';
 import { Humanoid, HumanoidFleet, restPose } from '@/features/lab/scene/robots/humanoid';
 import { PALETTE } from './textures';
 import { vehicleById, vehiclePose, type UniverseRuntime } from '../world/runtime';
 import { CAR_SPECS, rightOf } from '../world/vehicles';
 import { walkerSpeed, WALK_SPEED } from '../world/walker';
+import { contactShadowGeometry, contactShadowMaterial } from './contactShadow';
 
 /**
  * O visitante a pé: o mesmo robô humanoide articulado do laboratório (pernas,
@@ -18,6 +20,16 @@ export function Avatar({ runtime, effects }: { runtime: UniverseRuntime; effects
     return { robot, fleet: new HumanoidFleet([robot]), pose: restPose() };
   }, []);
   useEffect(() => () => fleet.dispose(), [fleet]);
+  // Sombra de contato do visitante (na Baixa, sem mapa de sombras, é ela que o põe no chão).
+  const contact = useRef<THREE.Mesh>(null);
+  const contactParts = useMemo(() => ({ geometry: contactShadowGeometry(0.95, 0.8), material: contactShadowMaterial(0.6) }), []);
+  useEffect(
+    () => () => {
+      contactParts.geometry.dispose();
+      contactParts.material.dispose();
+    },
+    [contactParts],
+  );
 
   useFrame((_, rawDt) => {
     const dt = Math.min(rawDt, 0.05);
@@ -46,6 +58,11 @@ export function Avatar({ runtime, effects }: { runtime: UniverseRuntime; effects
     robot.root.position.set(x, y, z);
     robot.root.rotation.y = heading;
     robot.root.scale.setScalar(scale);
+    if (contact.current) {
+      contact.current.position.set(x, y, z);
+      contact.current.rotation.y = heading;
+      contact.current.visible = scale > 0.2;
+    }
     const speed = mode === 'foot' ? walkerSpeed(w) : mode === 'driving' ? 0 : 1.2;
     pose.walk = Math.min(1, speed / WALK_SPEED);
     pose.phase = mode === 'foot' ? w.stride : pose.phase + dt * 6;
@@ -55,5 +72,10 @@ export function Avatar({ runtime, effects }: { runtime: UniverseRuntime; effects
     fleet.sync();
   });
 
-  return <primitive object={fleet.group} />;
+  return (
+    <>
+      <primitive object={fleet.group} />
+      <mesh ref={contact} geometry={contactParts.geometry} material={contactParts.material} renderOrder={6} />
+    </>
+  );
 }

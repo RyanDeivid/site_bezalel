@@ -563,7 +563,7 @@ export default function UniversePage() {
                     </button>
                   ))}
                 </div>
-                {hud.mode !== 'foot' && (
+                {hud.mode !== 'foot' && !device.coarse && (
                   <IconButton label={`${inside ? t.hud.viewOutside : t.hud.viewInside} (V)`} onClick={toggleInside} active={inside} size="sm">
                     <Eye className="size-4" />
                   </IconButton>
@@ -631,9 +631,23 @@ export default function UniversePage() {
 
           {/* Painel do veículo: velocidade (e altitude, no voador) */}
           {hud.mode !== 'foot' && (
-            <div className={cn('glass absolute rounded-xl px-4 py-2 text-right', device.coarse ? 'right-4 top-24' : 'bottom-6 right-4')} aria-hidden>
-              <p className="font-mono text-2xl font-semibold tabular-nums">{hud.kmh}</p>
-              <p className="font-mono text-[0.65rem] uppercase tracking-wider text-fg-subtle">km/h{hud.mode === 'hover' ? ` · ${t.hud.altitude(hud.alt)}` : ''}</p>
+            <div className={cn('absolute flex items-start gap-2', device.coarse ? 'right-4 top-24' : 'bottom-6 right-4')}>
+              {/* No toque, a câmera de dentro tem botão próprio, grande, ao lado do velocímetro. */}
+              {device.coarse && !hud.busy && (
+                <button
+                  type="button"
+                  onClick={toggleInside}
+                  aria-pressed={inside}
+                  className={cn('glass flex h-14 touch-manipulation items-center gap-2 rounded-xl border px-3 text-sm font-medium', inside ? 'border-accent bg-accent-soft' : 'border-line-strong')}
+                >
+                  <Eye aria-hidden className="size-5" />
+                  {inside ? t.hud.viewOutside : t.hud.viewInside}
+                </button>
+              )}
+              <div className="glass rounded-xl px-4 py-2 text-right" aria-hidden>
+                <p className="font-mono text-2xl font-semibold tabular-nums">{hud.kmh}</p>
+                <p className="font-mono text-[0.65rem] uppercase tracking-wider text-fg-subtle">km/h{hud.mode === 'hover' ? ` · ${t.hud.altitude(hud.alt)}` : ''}</p>
+              </div>
             </div>
           )}
 

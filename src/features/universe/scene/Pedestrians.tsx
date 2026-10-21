@@ -5,6 +5,7 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import type { Quality } from '../world/city';
 import { createPedestrians, pedestrianPose } from '../world/pedestrians';
 import type { UniverseRuntime } from '../world/runtime';
+import { contactShadowGeometry, contactShadowMaterial } from './contactShadow';
 
 /** Roupas: tons urbanos variados (casacos escuros, bege, marinho, vinho, branco, verde-oliva). */
 const CLOTHES = ['#2c3340', '#c9b48f', '#1f2d4a', '#6e2c35', '#e6e2da', '#4c5a3c', '#3a3a3f', '#8a5a3a'].map((c) => new THREE.Color(c));
@@ -125,6 +126,16 @@ ${shader.vertexShader}`
     [geometry, material],
   );
   const mesh = useRef<THREE.InstancedMesh>(null);
+  // Sombra de contato de cada pedestre (a mesma matriz: a escala pela altura vale para ela também).
+  const contact = useRef<THREE.InstancedMesh>(null);
+  const contactParts = useMemo(() => ({ geometry: contactShadowGeometry(0.42, 0.36, 0.006), material: contactShadowMaterial(quality === 'low' ? 0.6 : 0.42) }), [quality]);
+  useEffect(
+    () => () => {
+      contactParts.geometry.dispose();
+      contactParts.material.dispose();
+    },
+    [contactParts],
+  );
   const clock = useRef(0);
   const tmp = useMemo(() => ({ m: new THREE.Matrix4(), q: new THREE.Quaternion(), p: new THREE.Vector3(), s: new THREE.Vector3(), up: new THREE.Vector3(0, 1, 0) }), []);
   const bodies = useMemo(() => specs.map(() => ({ x: 0, z: 0, r: 0.32 })), [specs]);
@@ -140,12 +151,19 @@ ${shader.vertexShader}`
       tmp.q.setFromAxisAngle(tmp.up, pose.heading);
       tmp.m.compose(tmp.p.set(pose.x, pose.y, pose.z), tmp.q, tmp.s.setScalar(p.height));
       m.setMatrixAt(i, tmp.m);
+      contact.current?.setMatrixAt(i, tmp.m);
       const b = bodies[i]!;
       b.x = pose.x;
       b.z = pose.z;
       runtime.traffic.push(b);
     });
     m.instanceMatrix.needsUpdate = true;
+    if (contact.current) contact.current.instanceMatrix.needsUpdate = true;
   });
-  return <instancedMesh ref={mesh} args={[geometry, material, specs.length]} frustumCulled={false} castShadow={quality === 'high' || quality === 'ultra'} />;
+  return (
+    <>
+      <instancedMesh ref={mesh} args={[geometry, material, specs.length]} frustumCulled={false} castShadow={quality === 'high' || quality === 'ultra'} />
+      <instancedMesh ref={contact} args={[contactParts.geometry, contactParts.material, specs.length]} frustumCulled={false} renderOrder={6} />
+    </>
+  );
 }
