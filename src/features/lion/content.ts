@@ -1,5 +1,6 @@
 import type { Widen } from '@/i18n/types';
 import type { Locale } from '@/types/domain';
+import type { ActId } from './journey';
 
 /*
  * Textos da experiência "O Leão da tribo de Judá". Ficam no chunk da página
@@ -7,38 +8,31 @@ import type { Locale } from '@/types/domain';
  * a ter as mesmas chaves do português.
  *
  * Três vozes, sempre separadas e rotuladas: o texto bíblico (citação literal,
- * com a tradução indicada), o contexto (explicação, com as referências) e a
- * interpretação artística (o que a escultura é e o que ela não é).
+ * com a tradução indicada — ACF em português, KJV em inglês), o contexto
+ * (explicação, com as referências) e a interpretação artística (o que a cena é
+ * e o que ela não é). Nos atos da rolagem, só citação literal e a referência;
+ * trechos omitidos aparecem como […].
  */
 const ptBR = {
-  eyebrow: 'Experiência · Apocalipse 5:5',
+  eyebrow: 'Experiência · Apocalipse 5',
   title: 'O Leão da tribo de Judá',
-  lead: 'Uma escultura que se forma diante de você — do traço ao bronze —, inspirada num versículo do Apocalipse. Gire, aproxime, percorra os estágios da construção e leia o texto que a inspirou.',
-  stageLabel: 'Escultura do Leão da tribo de Judá',
-  stages: [
-    { name: 'Silhueta', text: 'Antes da matéria, o desenho: o contorno do leão traçado na prancheta.' },
-    { name: 'Estrutura', text: 'A armação de hastes que sustenta a obra — coluna, patas, cauda e as linhas da juba.' },
-    { name: 'Volumes', text: 'O bloco de estudo em gesso: só as massas principais, ainda facetadas.' },
-    { name: 'Cabeça e juba', text: 'A forma em argila: o rosto, os músculos e a juba em mechas.' },
-    { name: 'Materiais', text: 'A fundição em bronze, com a pátina escurecendo as reentrâncias e o polido no que é exposto.' },
-    { name: 'A obra', text: 'A escultura acabada sobre o pedestal, sob a luz de museu.' },
-  ],
-  stageStatus: (n: number, total: number, name: string) => `Estágio ${n} de ${total}: ${name}`,
-  sculpting: 'Esculpindo…',
-  prev: 'Estágio anterior',
-  next: 'Próximo estágio',
-  restart: 'Reiniciar a sequência',
-  pause: 'Pausar a sequência',
-  play: 'Continuar a sequência',
-  stagesNav: 'Estágios da construção',
-  views: 'Explorar detalhes',
-  viewNames: { full: 'Vista completa', head: 'Cabeça', mane: 'Juba', paws: 'Patas', tail: 'Cauda' },
-  hint: 'Arraste para girar · role ou pince para aproximar · setas e + / − no teclado',
-  touchStart: 'Tocar para girar a escultura',
-  touchDone: 'Concluir',
-  noWebgl: 'Este aparelho não mostra a escultura em 3D. O desenho do contorno e todo o texto continuam aqui.',
-  software: 'Sem aceleração de vídeo, a escultura em 3D ficaria lenta demais. O desenho do contorno e todo o texto continuam aqui.',
-  plaque: ['O Leão da tribo de Judá', 'APOCALIPSE 5:5'] as [string, string],
+  lead: 'Role para atravessar a cena: um livro selado com sete selos, a poeira de luz que vira leão, os selos que se rompem. Mova o cursor — a luz responde.',
+  stageLabel: 'Apocalipse 5 em luz: o livro dos sete selos e o Leão da tribo de Judá',
+  scrollHint: 'Role para começar',
+  pointerHint: 'Mova o cursor sobre a luz',
+  skip: 'Pular para o texto',
+  progress: 'Progresso da cena',
+  acts: {
+    book: { ref: 'Apocalipse 5:1', quote: 'E vi na destra do que estava assentado sobre o trono um livro escrito por dentro e por fora, selado com sete selos.' },
+    worthy: { ref: 'Apocalipse 5:2–3', quote: 'Quem é digno de abrir o livro e de desatar os seus selos? E ninguém no céu, nem na terra, nem debaixo da terra, podia abrir o livro, nem olhar para ele.' },
+    weep: { ref: 'Apocalipse 5:4–5', quote: 'E eu chorava muito […]. E disse-me um dos anciãos: Não chores;' },
+    lion: { ref: 'Apocalipse 5:5', quote: 'eis aqui o Leão da tribo de Judá, a raiz de Davi,' },
+    seals: { ref: 'Apocalipse 5:5', quote: 'que venceu, para abrir o livro e desatar os seus sete selos.' },
+    lamb: { ref: 'Apocalipse 5:6', quote: 'E olhei, e eis que estava no meio do trono […] um Cordeiro, como havendo sido morto.' },
+  } satisfies Record<ActId, { ref: string; quote: string }>,
+  noWebgl: 'Este aparelho não mostra a cena em 3D. O texto de cada momento e as explicações continuam aqui.',
+  software: 'Sem aceleração de vídeo, a cena em 3D ficaria lenta demais. O texto de cada momento e as explicações continuam aqui.',
+  still: 'Com “reduzir movimento” ativo, a cena aparece no seu último momento, parada. O texto de cada momento segue abaixo.',
 
   textTitle: 'O texto',
   textBadge: 'Texto bíblico',
@@ -62,47 +56,38 @@ const ptBR = {
   artTitle: 'A interpretação artística',
   artBadge: 'Interpretação artística',
   art: [
-    'A escultura é uma interpretação artística do símbolo do leão de Judá, feita para esta página. Não é um retrato de Jesus, não pretende representá-lo literalmente e não é uma imagem de culto.',
-    'O leão está de pé, com uma pata dianteira avançada — a postura do “leão passante” dos brasões — e a cabeça erguida, voltada para quem olha. A sequência mostra as etapas de uma obra de escultura: desenho, armação, estudo de volumes, modelagem, fundição e acabamento.',
-    'A escultura é gerada em código no seu aparelho (um campo de distância convertido em malha), sem modelo baixado da internet. As proporções são estilizadas, não anatômicas.',
+    'A cena é uma interpretação artística do capítulo, feita para esta página. O leão é luz, não um retrato: não é um retrato de Jesus, não pretende representá-lo literalmente e não é uma imagem de culto. Quem está sentado no trono não é mostrado — o texto diz apenas que o livro está na sua mão.',
+    'A poeira de luz que gira em volta do livro é a mesma que forma o leão: ele não aparece pronto, é composto diante de você. Os selos se rompem um a um, como no texto, e o livro se abre aceso por dentro. As linhas escritas na folha são abstratas — não reproduzem nenhum texto.',
+    'Tudo é gerado em código no seu aparelho: a forma do leão é um campo de distância convertido em pontos, e cada partícula faz o seu caminho na placa de vídeo. Nenhum modelo ou imagem é baixado da internet.',
   ],
 
   whyTitle: 'Por que no Bezalel',
-  why: 'Bezalel, o artesão que construiu o Tabernáculo, era “da tribo de Judá” (Êxodo 31:2). O leão é o símbolo dessa tribo. A origem do nome conta a história do artesão; esta experiência mostra, em escultura, o símbolo da tribo de onde ele veio.',
+  why: 'Bezalel, o artesão que construiu o Tabernáculo, era “da tribo de Judá” (Êxodo 31:2). O leão é o símbolo dessa tribo. A origem do nome conta a história do artesão; esta experiência mostra, em luz, a imagem da tribo de onde ele veio.',
   whyLink: 'Ler a origem do nome',
 };
 
 export type LionContent = Widen<typeof ptBR>;
 
 const en: LionContent = {
-  eyebrow: 'Experience · Revelation 5:5',
+  eyebrow: 'Experience · Revelation 5',
   title: 'The Lion of the tribe of Judah',
-  lead: 'A sculpture that takes shape before you — from line drawing to bronze — inspired by a verse from Revelation. Turn it, zoom in, step through the stages of its making and read the text that inspired it.',
-  stageLabel: 'Sculpture of the Lion of the tribe of Judah',
-  stages: [
-    { name: 'Silhouette', text: 'Before matter, the drawing: the outline of the lion traced on the drafting board.' },
-    { name: 'Structure', text: 'The armature of rods that holds the work up — spine, legs, tail and the lines of the mane.' },
-    { name: 'Volumes', text: 'The plaster study block: only the main masses, still faceted.' },
-    { name: 'Head and mane', text: 'The clay form: the face, the muscles and the mane in locks.' },
-    { name: 'Materials', text: 'The bronze cast, with patina darkening the hollows and polish on what is exposed.' },
-    { name: 'The work', text: 'The finished sculpture on its pedestal, under museum light.' },
-  ],
-  stageStatus: (n: number, total: number, name: string) => `Stage ${n} of ${total}: ${name}`,
-  sculpting: 'Sculpting…',
-  prev: 'Previous stage',
-  next: 'Next stage',
-  restart: 'Restart the sequence',
-  pause: 'Pause the sequence',
-  play: 'Resume the sequence',
-  stagesNav: 'Stages of the making',
-  views: 'Explore details',
-  viewNames: { full: 'Full view', head: 'Head', mane: 'Mane', paws: 'Paws', tail: 'Tail' },
-  hint: 'Drag to turn · scroll or pinch to zoom · arrow keys and + / − on the keyboard',
-  touchStart: 'Tap to turn the sculpture',
-  touchDone: 'Done',
-  noWebgl: 'This device cannot show the sculpture in 3D. The outline drawing and the full text are still here.',
-  software: 'Without graphics acceleration, the 3D sculpture would be too slow. The outline drawing and the full text are still here.',
-  plaque: ['The Lion of the tribe of Judah', 'REVELATION 5:5'] as [string, string],
+  lead: 'Scroll through the scene: a book sealed with seven seals, the dust of light that becomes a lion, the seals that break. Move the cursor — the light answers.',
+  stageLabel: 'Revelation 5 in light: the book of seven seals and the Lion of the tribe of Judah',
+  scrollHint: 'Scroll to begin',
+  pointerHint: 'Move the cursor over the light',
+  skip: 'Skip to the text',
+  progress: 'Scene progress',
+  acts: {
+    book: { ref: 'Revelation 5:1', quote: 'And I saw in the right hand of him that sat on the throne a book written within and on the backside, sealed with seven seals.' },
+    worthy: { ref: 'Revelation 5:2–3', quote: 'Who is worthy to open the book, and to loose the seals thereof? And no man in heaven, nor in earth, neither under the earth, was able to open the book, neither to look thereon.' },
+    weep: { ref: 'Revelation 5:4–5', quote: 'And I wept much […]. And one of the elders saith unto me, Weep not:' },
+    lion: { ref: 'Revelation 5:5', quote: 'behold, the Lion of the tribe of Judah, the Root of David,' },
+    seals: { ref: 'Revelation 5:5', quote: 'hath prevailed to open the book, and to loose the seven seals thereof.' },
+    lamb: { ref: 'Revelation 5:6', quote: 'And I beheld, and, lo, in the midst of the throne […] stood a Lamb as it had been slain.' },
+  },
+  noWebgl: 'This device cannot show the scene in 3D. The text of each moment and the explanations are still here.',
+  software: 'Without graphics acceleration, the 3D scene would be too slow. The text of each moment and the explanations are still here.',
+  still: 'With “reduce motion” on, the scene shows its last moment, still. The text of each moment follows below.',
 
   textTitle: 'The text',
   textBadge: 'Biblical text',
@@ -126,13 +111,13 @@ const en: LionContent = {
   artTitle: 'The artistic interpretation',
   artBadge: 'Artistic interpretation',
   art: [
-    'The sculpture is an artistic interpretation of the symbol of the lion of Judah, made for this page. It is not a portrait of Jesus, it does not claim to represent him literally and it is not an object of worship.',
-    'The lion stands with one front paw forward — the posture of the heraldic “lion passant” — and its head raised, turned toward the viewer. The sequence follows the steps of a sculptural work: drawing, armature, volume study, modelling, casting and finishing.',
-    'The sculpture is generated in code on your device (a distance field turned into a mesh), with no model downloaded from the internet. Its proportions are stylized, not anatomical.',
+    'The scene is an artistic interpretation of the chapter, made for this page. The lion is light, not a portrait: it is not a portrait of Jesus, it does not claim to represent him literally and it is not an object of worship. The one seated on the throne is not shown — the text only says the book is in his hand.',
+    'The dust of light swirling around the book is the same that forms the lion: it does not appear ready-made, it is composed before you. The seals break one by one, as in the text, and the book opens lit from within. The lines written on the page are abstract — they reproduce no text.',
+    'Everything is generated in code on your device: the lion’s form is a distance field turned into points, and each particle travels its own path on the graphics card. No model or image is downloaded from the internet.',
   ],
 
   whyTitle: 'Why at Bezalel',
-  why: 'Bezalel, the craftsman who built the Tabernacle, was “of the tribe of Judah” (Exodus 31:2). The lion is that tribe’s symbol. The origin of the name tells the craftsman’s story; this experience shows, in sculpture, the symbol of the tribe he came from.',
+  why: 'Bezalel, the craftsman who built the Tabernacle, was “of the tribe of Judah” (Exodus 31:2). The lion is that tribe’s symbol. The origin of the name tells the craftsman’s story; this experience shows, in light, the image of the tribe he came from.',
   whyLink: 'Read the origin of the name',
 };
 

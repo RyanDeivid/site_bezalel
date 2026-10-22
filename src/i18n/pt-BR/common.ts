@@ -282,7 +282,7 @@ export const common = {
     },
     lion: {
       title: 'O Leão da tribo de Judá',
-      description: 'Uma escultura em 3D que se forma do traço ao bronze, inspirada em Apocalipse 5:5 — com o texto, o contexto e a interpretação artística lado a lado.',
+      description: 'Apocalipse 5 em luz, ao rolar: o livro dos sete selos e o Leão da tribo de Judá formado de poeira de luz — com o texto, o contexto e a interpretação artística.',
     },
     universe: {
       title: 'Bezalel Universe',

@@ -1,42 +1,33 @@
 /// <reference lib="webworker" />
-import { meshLion, silhouette, type MeshData } from './mesher';
-import { buildLion } from './sdf';
+import { meshLion, sampleSurface, silhouette } from './mesher';
 
 /**
- * Esculpe o leão fora da thread principal, na ordem em que os estágios
- * aparecem: o contorno e a armação (instantâneos), o bloco de estudo, a
- * forma em argila e, por último, a escultura final com a oclusão por vértice.
- * Cada parte é enviada assim que fica pronta (os buffers são transferidos,
- * não copiados). Com `linesOnly`, só o contorno (o desenho que fica quando não
- * há 3D).
+ * Trabalho pesado fora da thread principal:
+ * - `samples`: a forma do leão em pontos — a superfície do campo de distância
+ *   vira malha e a malha é amostrada por área (posição, normal e oclusão de
+ *   cada ponto). São os alvos das partículas que formam o leão de luz.
+ * - `outline`: só o contorno de lado (o desenho que fica quando não há 3D).
+ * Os buffers são transferidos, não copiados.
  */
-export type SculptRequest = { finalCell: number; formCell: number; linesOnly?: boolean };
+export type SculptRequest = { kind: 'samples'; count: number; cell: number; seed: number } | { kind: 'outline' };
 
 export type SculptMessage =
-  | { kind: 'lines'; silhouette: Float32Array; bones: Float32Array }
-  | ({ kind: 'mesh'; level: 'block' | 'form' | 'final' } & MeshData)
+  | { kind: 'samples'; positions: Float32Array; normals: Float32Array; shade: Float32Array }
+  | { kind: 'outline'; silhouette: Float32Array }
   | { kind: 'error'; message: string };
 
 const scope = self as unknown as DedicatedWorkerGlobalScope;
 
 scope.onmessage = (e: MessageEvent<SculptRequest>) => {
   try {
-    const { finalCell, formCell, linesOnly } = e.data;
-    const sil = silhouette();
-    // Armação: a, b (pontos) e r (espessura) — 7 números por haste.
-    const model = buildLion('form');
-    const bones = new Float32Array(model.bones.length * 7);
-    model.bones.forEach((b, i) => bones.set([...b.a, ...b.b, b.r], i * 7));
-    scope.postMessage({ kind: 'lines', silhouette: sil, bones } satisfies SculptMessage, [sil.buffer, bones.buffer]);
-    if (linesOnly) return;
-    for (const [level, cell, ao] of [
-      ['block', 0.045, false],
-      ['form', formCell, true],
-      ['final', finalCell, true],
-    ] as const) {
-      const m = meshLion(level, cell, ao);
-      scope.postMessage({ kind: 'mesh', level, ...m } satisfies SculptMessage, [m.positions.buffer, m.normals.buffer, m.ao.buffer, m.indices.buffer]);
+    const req = e.data;
+    if (req.kind === 'outline') {
+      const sil = silhouette();
+      scope.postMessage({ kind: 'outline', silhouette: sil } satisfies SculptMessage, [sil.buffer]);
+      return;
     }
+    const s = sampleSurface(meshLion('final', req.cell, true), req.count, req.seed);
+    scope.postMessage({ kind: 'samples', ...s } satisfies SculptMessage, [s.positions.buffer, s.normals.buffer, s.shade.buffer]);
   } catch (err) {
     scope.postMessage({ kind: 'error', message: String(err) } satisfies SculptMessage);
   }

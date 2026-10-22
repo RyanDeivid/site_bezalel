@@ -6,7 +6,7 @@ import { StudioExperiences } from '@/components/layout/StudioExperiences';
 import { ButtonLink } from '@/components/ui/Button';
 import { useDocumentMeta } from '@/hooks/useDocumentMeta';
 import { lionContent } from './content';
-import { LionStage } from './LionStage';
+import { LionJourney } from './LionJourney';
 
 /** Um bloco de texto com o rótulo de quem fala: o texto bíblico, a explicação ou a interpretação artística. */
 function Voice({ badge, icon, title, children }: { badge: string; icon: ReactNode; title: string; children: ReactNode }) {
@@ -23,9 +23,10 @@ function Voice({ badge, icon, title, children }: { badge: string; icon: ReactNod
 }
 
 /**
- * "O Leão da tribo de Judá": a escultura em 3D (sob demanda) e o texto que a
- * inspirou. Tudo o que importa está no HTML — o versículo, o contexto e o que
- * a escultura é —; o 3D é a experiência por cima, nunca a única porta.
+ * "O Leão da tribo de Judá": Apocalipse 5 em luz, conduzido pela rolagem (o 3D
+ * é baixado sob demanda), e o texto que o inspirou. Tudo o que importa está no
+ * HTML — as citações, o contexto e o que a cena é —; o 3D é a experiência por
+ * cima, nunca a única porta.
  */
 export default function LionPage() {
   const m = useT();
@@ -35,10 +36,8 @@ export default function LionPage() {
   return (
     <>
       <PageHero eyebrow={t.eyebrow} title={t.title} lead={t.lead} particles={false} />
-      <div className="container-page pt-10 md:pt-14">
-        <LionStage />
-      </div>
-      <div className="container-page grid grid-cols-1 gap-6 py-16 lg:grid-cols-12 lg:gap-8">
+      <LionJourney />
+      <div id="lion-text" className="container-page grid scroll-mt-20 grid-cols-1 gap-6 py-16 lg:grid-cols-12 lg:gap-8">
         <div className="lg:col-span-7">
           <Voice badge={t.textBadge} icon={<BookOpen aria-hidden className="size-3.5" />} title={t.textTitle}>
             <figure>

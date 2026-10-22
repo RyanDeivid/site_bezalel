@@ -281,7 +281,7 @@ export const common: Widen<typeof base> = {
     },
     lion: {
       title: 'The Lion of the tribe of Judah',
-      description: 'A 3D sculpture that takes shape from line drawing to bronze, inspired by Revelation 5:5 — with the text, its context and the artistic interpretation side by side.',
+      description: 'Revelation 5 in light, as you scroll: the book of seven seals and the Lion of the tribe of Judah formed from dust of light — with the text, its context and the artistic interpretation.',
     },
     universe: {
       title: 'Bezalel Universe',

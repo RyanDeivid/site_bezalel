@@ -19,7 +19,7 @@ Executado fase a fase; cada fase é publicada ao terminar.
 
 | Item | Estado |
 |---|---|
-| O Leão da tribo de Judá (`/lion`) — escultura em seis estágios, Apocalipse 5:5 com contexto e interpretação artística | **Concluído** (escultura procedural; ver limitações em `ARCHITECTURE.md`) |
+| O Leão da tribo de Judá (`/lion`) — Apocalipse 5 em luz, conduzido pela rolagem e pelo cursor, com citações, contexto e interpretação artística | **Concluído** (a primeira versão, uma escultura em pedestal, foi descartada a pedido) |
 | Ponte da origem para o Leão; mapa "um estúdio, várias obras" (Sobre e Leão); coluna Experiências no rodapé; Leão no Ctrl+K | **Concluído** |
 | Forja e origem | Preservadas sem mudança de comportamento (a auditoria não achou defeito concreto que justificasse mexer) |
 

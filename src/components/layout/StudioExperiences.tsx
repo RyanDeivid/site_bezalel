@@ -17,7 +17,7 @@ const ITEMS: Array<{ key: Key; to: string; icon: LucideIcon }> = [
 /**
  * Mapa das experiências da Bezalel: deixa claro que são obras de um mesmo
  * estúdio (e que o produto educacional é o centro delas), cada uma com a sua
- * personalidade — construção, história, escultura, processos, exploração.
+ * personalidade — construção, história, luz, processos, exploração.
  */
 export function StudioExperiences({ current, className }: { current?: Key; className?: string }) {
   const { locale } = usePreferences();
@@ -55,7 +55,7 @@ export function StudioExperiences({ current, className }: { current?: Key; class
   );
 }
 
-/** Ponte da origem (página Sobre) para a escultura: Bezalel era da tribo de Judá. */
+/** Ponte da origem (página Sobre) para o Leão de Judá: Bezalel era da tribo de Judá. */
 export function LionBridge() {
   const { locale } = usePreferences();
   const b = studioContent[locale].bridge;

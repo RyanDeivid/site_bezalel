@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { lionContent } from '@/features/lion/content';
+import { ACT_ORDER, ACTS, actAt, choreography, textOpacity } from '@/features/lion/journey';
 import { meshLion, silhouette } from '@/features/lion/sculpture/mesher';
 import { buildLion, evaluate } from '@/features/lion/sculpture/sdf';
 
@@ -75,13 +76,49 @@ describe('Leão de Judá: a escultura em campo de distância', () => {
 });
 
 describe('Leão de Judá: textos', () => {
-  it('os seis estágios, nos dois idiomas, e a citação com a tradução indicada', () => {
+  it('os seis momentos da cena, nos dois idiomas, cada um com citação e referência; a tradução indicada', () => {
     for (const t of Object.values(lionContent)) {
-      expect(t.stages).toHaveLength(6);
+      expect(Object.keys(t.acts)).toEqual(ACT_ORDER);
+      for (const id of ACT_ORDER) expect(t.acts[id].ref).toMatch(/^(Apocalipse|Revelation) 5:\d/);
       expect(t.verse.length).toBeGreaterThan(80);
       expect(t.translation).toMatch(/Almeida Corrigida Fiel|King James/);
       // A interpretação artística diz o que a escultura não é.
       expect(t.art.join(' ')).toMatch(/não é um retrato de Jesus|not a portrait of Jesus/i);
     }
+  });
+});
+
+describe('Leão de Judá: a linha do tempo da rolagem', () => {
+  it('os atos cobrem 0..1 sem buracos, na ordem do texto', () => {
+    let at = 0;
+    for (const id of ACT_ORDER) {
+      expect(ACTS[id].from).toBeCloseTo(at, 6);
+      expect(ACTS[id].to).toBeGreaterThan(ACTS[id].from);
+      at = ACTS[id].to;
+    }
+    expect(at).toBe(1);
+    expect(actAt(0)).toBe('book');
+    expect(actAt(0.5)).toBe('lion');
+    expect(actAt(1)).toBe('lamb');
+  });
+
+  it('em cada ponto da rolagem há sempre uma citação visível (e no máximo duas, na troca)', () => {
+    for (let p = 0; p <= 1; p += 0.0025) {
+      const visible = ACT_ORDER.filter((id) => textOpacity(id, p) > 0.02).length;
+      expect(visible, `p = ${p.toFixed(4)}`).toBeGreaterThanOrEqual(1);
+      expect(visible).toBeLessThanOrEqual(2);
+    }
+  });
+
+  it('a coreografia segue o texto: o leão se forma antes de os selos quebrarem, e o livro só se abre depois do sétimo', () => {
+    const at = (p: number) => choreography(p);
+    expect(at(ACTS.lion.from).form).toBe(0);
+    expect(at(ACTS.seals.from).form).toBeCloseTo(1, 1);
+    expect(at(ACTS.seals.from).seals).toBe(0);
+    expect(at(ACTS.seals.to - 0.05).seals).toBe(7);
+    expect(at(ACTS.seals.to - 0.06).unroll).toBe(0);
+    expect(at(1).unroll).toBe(1);
+    // "Não chores": o tempo para.
+    expect(at((ACTS.weep.from + ACTS.weep.to) / 2).still).toBeGreaterThan(0.9);
   });
 });

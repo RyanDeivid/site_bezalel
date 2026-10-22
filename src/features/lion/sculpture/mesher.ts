@@ -269,3 +269,63 @@ export function silhouette(cell = 0.012): Float32Array {
     }
   return new Float32Array(out);
 }
+
+/**
+ * Pontos espalhados pela superfície da malha, na proporção da área de cada
+ * triângulo (a mesma densidade em toda parte), com a normal e a oclusão
+ * interpoladas. Semente fixa: os mesmos pontos em todo aparelho.
+ */
+export function sampleSurface(mesh: MeshData, count: number, seed = 1) {
+  const { positions: P, normals: N, ao: A, indices: I } = mesh;
+  const tris = I.length / 3;
+  const cdf = new Float64Array(tris);
+  let total = 0;
+  for (let t = 0; t < tris; t++) {
+    const a = I[t * 3]! * 3;
+    const b = I[t * 3 + 1]! * 3;
+    const c = I[t * 3 + 2]! * 3;
+    const ux = P[b]! - P[a]!;
+    const uy = P[b + 1]! - P[a + 1]!;
+    const uz = P[b + 2]! - P[a + 2]!;
+    const vx = P[c]! - P[a]!;
+    const vy = P[c + 1]! - P[a + 1]!;
+    const vz = P[c + 2]! - P[a + 2]!;
+    total += Math.hypot(uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx) / 2;
+    cdf[t] = total;
+  }
+  let s = seed >>> 0 || 1;
+  const rand = () => {
+    s = (s * 1664525 + 1013904223) >>> 0;
+    return s / 2 ** 32;
+  };
+  const positions = new Float32Array(count * 3);
+  const normals = new Float32Array(count * 3);
+  const shade = new Float32Array(count);
+  for (let i = 0; i < count; i++) {
+    // Busca binária do triângulo pela área acumulada.
+    const r = rand() * total;
+    let lo = 0;
+    let hi = tris - 1;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (cdf[mid]! < r) lo = mid + 1;
+      else hi = mid;
+    }
+    let u = rand();
+    let v = rand();
+    if (u + v > 1) {
+      u = 1 - u;
+      v = 1 - v;
+    }
+    const w = 1 - u - v;
+    const ia = I[lo * 3]!;
+    const ib = I[lo * 3 + 1]!;
+    const ic = I[lo * 3 + 2]!;
+    for (let k = 0; k < 3; k++) {
+      positions[i * 3 + k] = P[ia * 3 + k]! * w + P[ib * 3 + k]! * u + P[ic * 3 + k]! * v;
+      normals[i * 3 + k] = N[ia * 3 + k]! * w + N[ib * 3 + k]! * u + N[ic * 3 + k]! * v;
+    }
+    shade[i] = A[ia]! * w + A[ib]! * u + A[ic]! * v;
+  }
+  return { positions, normals, shade };
+}
