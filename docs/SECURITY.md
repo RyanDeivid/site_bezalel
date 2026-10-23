@@ -28,12 +28,12 @@ Site estático, sem contas, sem formulários que enviam dados, sem backend obrig
 O pós-build injeta, em todas as páginas:
 
 ```
-default-src 'self'; script-src 'self' 'sha256-<hash do script de tema>'; style-src 'self' 'unsafe-inline';
+default-src 'self'; script-src 'self' 'wasm-unsafe-eval' 'sha256-<hash do script de tema>'; style-src 'self' 'unsafe-inline';
 img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self' [origem da API]; worker-src 'self' blob:;
 object-src 'none'; base-uri 'self'; form-action 'self'
 ```
 
-`'unsafe-inline'` em estilos é necessário para atributos `style` gerados pelo React (posições, cores dinâmicas). Fontes são auto-hospedadas — nenhuma origem de terceiros. Limitação: `frame-ancestors` não funciona via `<meta>`; exigiria cabeçalho HTTP (domínio próprio/CDN).
+`'wasm-unsafe-eval'` permite **só** compilar WebAssembly (não libera `eval` de JavaScript): os decodificadores dos modelos de artistas do Universe (meshopt e o transcodificador KTX2/Basis, do próprio three.js, servidos pela mesma origem) são WebAssembly. `'unsafe-inline'` em estilos é necessário para atributos `style` gerados pelo React (posições, cores dinâmicas). Fontes são auto-hospedadas — nenhuma origem de terceiros. Limitação: `frame-ancestors` não funciona via `<meta>`; exigiria cabeçalho HTTP (domínio próprio/CDN).
 
 ## Dependências
 

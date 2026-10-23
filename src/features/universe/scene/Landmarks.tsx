@@ -11,6 +11,7 @@ import { towerSlotMaterial } from './towerMaterial';
 import { buildHq, buildLab, buildProductsCenter, HQ, LAB, type HqSlot } from './landmarkGeometry';
 import { searchlightBeam } from './lightDecals';
 import { panelTexture, PALETTE, signTexture } from './textures';
+import { ArtistSlot } from './ArtistModel';
 import { mergeStatic } from './staticMerge';
 
 export interface LandmarkTexts {
@@ -212,9 +213,12 @@ export function Landmarks({ assets, quality, effects, near, markers, texts, onSe
     <group ref={root}>
       {/* ---------------- Sede Bezalel ---------------- */}
       <group>
-        {[...hq].map(([slot, geo]) => (
-          <mesh key={slot} geometry={geo} material={hqMaterial(slot)} castShadow={solid(slot)} receiveShadow={solid(slot)} />
-        ))}
+        {/* Encaixe para um modelo de artista (assets/manifest.ts); sem modelo, a geometria procedural. */}
+        <ArtistSlot slot="landmark:bezalel-hq">
+          {[...hq].map(([slot, geo]) => (
+            <mesh key={slot} geometry={geo} material={hqMaterial(slot)} castShadow={solid(slot)} receiveShadow={solid(slot)} />
+          ))}
+        </ArtistSlot>
         {/* Refletores no chão lavando os pilares e as laterais do pódio (uma malha só). */}
         <mesh geometry={washes} material={m.wash} renderOrder={6} />
         {/* Letreiro em letras soltas sobre o pódio, de frente para a avenida. */}
@@ -248,9 +252,11 @@ export function Landmarks({ assets, quality, effects, near, markers, texts, onSe
           Pavilhão de vidro em que se entra a pé: as portas correm quando alguém chega perto. Dentro, o
           núcleo (a rede neural girando) e as seis estações dos agentes, cada uma com a sua luz e o nome. */}
       <group>
-        {[...lab].map(([slot, geo]) => (
-          <mesh key={slot} geometry={geo} material={slot === 'labGlass' ? m.glass : towerSlotMaterial(slot, assets)} castShadow={slot === 'metal'} receiveShadow={slot === 'matte'} />
-        ))}
+        <ArtistSlot slot="landmark:ai-lab">
+          {[...lab].map(([slot, geo]) => (
+            <mesh key={slot} geometry={geo} material={slot === 'labGlass' ? m.glass : towerSlotMaterial(slot, assets)} castShadow={slot === 'metal'} receiveShadow={slot === 'matte'} />
+          ))}
+        </ArtistSlot>
         {[-1, 1].map((s, i) => (
           <mesh key={s} ref={(el) => void (doors.current[i] = el)} material={m.glass} position={[LAB.x - LAB.half, LAB.base + LAB.door.height / 2, LAB.z + s * LAB.door.half * 0.5]} userData={{ dynamic: true }}>
             <boxGeometry args={[0.08, LAB.door.height, LAB.door.half]} />
@@ -316,9 +322,11 @@ export function Landmarks({ assets, quality, effects, near, markers, texts, onSe
 
       {/* ---------------- Centro de Produtos ---------------- */}
       <group>
-        {[...products].map(([slot, geo]) => (
-          <mesh key={slot} geometry={geo} material={towerSlotMaterial(slot, assets)} castShadow={solid(slot)} receiveShadow={solid(slot)} />
-        ))}
+        <ArtistSlot slot="landmark:products-center">
+          {[...products].map(([slot, geo]) => (
+            <mesh key={slot} geometry={geo} material={towerSlotMaterial(slot, assets)} castShadow={solid(slot)} receiveShadow={solid(slot)} />
+          ))}
+        </ArtistSlot>
         {/* Letreiro */}
         <mesh position={[-61.6, 8.6, 0]} rotation={[0, Math.PI / 2, 0]}>
           <planeGeometry args={[16, 2.5]} />

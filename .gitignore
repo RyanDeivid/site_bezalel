@@ -38,3 +38,4 @@ npm-debug.log*
 .lighthouseci/
 dist-prof/
 bench-results/
+art/city-layout.json

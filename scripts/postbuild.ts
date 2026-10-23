@@ -183,7 +183,9 @@ function withCsp(html: string): string {
   const hashes = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => `'sha256-${createHash('sha256').update(m[1] ?? '').digest('base64')}'`);
   const csp = [
     "default-src 'self'",
-    `script-src 'self' ${hashes.join(' ')}`.trim(),
+    // 'wasm-unsafe-eval': só permite compilar WebAssembly (não libera eval de JavaScript) — os decodificadores dos
+    // modelos de artistas do Universe (meshopt e o transcodificador KTX2/Basis) são WebAssembly.
+    `script-src 'self' 'wasm-unsafe-eval' ${hashes.join(' ')}`.trim(),
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob:",
     "font-src 'self' data:",

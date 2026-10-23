@@ -23,7 +23,9 @@
     "lighthouse": "npx --yes @lhci/cli@0.15.1 autorun",
     "assets": "node scripts/generate-assets.ts",
     "export:data": "node scripts/export-data.ts",
-    "check": "npm run typecheck && npm run lint && npm run test && npm run build"
+    "check:models": "node scripts/check-models.ts",
+    "export:city": "node scripts/export-city-layout.ts",
+    "check": "npm run typecheck && npm run lint && npm run test && npm run check:models && npm run build"
   },
   "dependencies": {
     "@fontsource-variable/geist": "5.3.0",

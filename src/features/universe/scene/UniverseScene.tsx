@@ -26,6 +26,8 @@ import { headlightBeam } from './lightDecals';
 import { Soundscape } from './Soundscape';
 import { Sun } from './Sun';
 import { Traffic } from './Traffic';
+import { placementSolids } from '../assets/manifest';
+import { ArtistPlacements } from './ArtistModel';
 import { mergeStatic } from './staticMerge';
 import { PlayerVehicles } from './Vehicles';
 
@@ -159,7 +161,8 @@ const World = memo(function World(props: UniverseSceneProps) {
   const dynamicShadows = !cfg.shadowCache;
   const towers = useMemo(() => cityTowers(quality), [quality]);
   const bridges = useMemo(() => skybridges(towers), [towers]);
-  const solids = useMemo(() => citySolids(quality), [quality]);
+  // Os sólidos da cidade e os dos objetos posicionados pelo Blender (assets/manifest.ts).
+  const solids = useMemo(() => [...citySolids(quality), ...placementSolids()], [quality]);
   // Modelos e materiais dos carros: construídos uma vez, compartilhados por trânsito, voadores e carros do jogador.
   // Três níveis de detalhe dos carros: completo (o do jogador e os estacionados de perto), intermediário
   // (o trânsito de perto, instanciado) e o de longe (3 malhas).
@@ -205,6 +208,7 @@ const World = memo(function World(props: UniverseSceneProps) {
         <Towers assets={assets} quality={quality} towers={towers} />
         <Skybridges assets={assets} bridges={bridges} />
       </group>
+      <ArtistPlacements />
       <group name="billboards">
         <Billboards assets={assets} messages={props.billboards} animate={effects} />
       </group>
