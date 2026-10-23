@@ -1027,3 +1027,44 @@ test('Universe no celular: sugere deitar o aparelho, joystick a pé, pedais e vo
   await page.getByRole('button', { name: 'Sair do veículo' }).click();
   await expect(stage).toHaveAttribute('data-player-mode', 'foot', { timeout: 15_000 });
 });
+
+test('Universe no celular pequeno: a orientação cabe na tela (com o Fechar à vista) e some com um toque', async ({ page, isMobile }) => {
+  test.skip(!isMobile, 'Só no celular.');
+  test.setTimeout(120_000);
+  await page.addInitScript(() => {
+    localStorage.setItem('bz-demo-banner-v1', 'dismissed');
+    sessionStorage.setItem('bz-universe-quality', 'low');
+  });
+  for (const [width, height] of [
+    [320, 568],
+    [568, 320],
+  ] as const) {
+    await page.setViewportSize({ width, height });
+    // Como na primeira visita: sem a orientação já vista e sem a sessão (que reabriria direto no 3D).
+    await page
+      .evaluate(() => {
+        localStorage.removeItem('bz-universe-help-v2');
+        sessionStorage.clear();
+        sessionStorage.setItem('bz-universe-quality', 'low');
+      })
+      .catch(() => {});
+    await gotoReady(page, 'universe/');
+    const enter = page.getByRole('button', { name: 'Explorar em 3D' });
+    test.skip(await enter.isDisabled(), 'WebGL indisponível neste navegador de teste.');
+    await enter.click();
+    const rotate = page.getByRole('dialog', { name: 'Gire o celular' });
+    if (await rotate.isVisible().catch(() => false)) await rotate.getByRole('button', { name: 'Continuar assim' }).click();
+    const help = page.getByRole('dialog', { name: 'Como jogar' });
+    await expect(help).toBeVisible();
+    // A caixa inteira dentro da tela, com o botão de fechar visível.
+    const box = (await help.locator('> div').boundingBox())!;
+    expect(box.y).toBeGreaterThanOrEqual(0);
+    expect(box.y + box.height).toBeLessThanOrEqual(height + 1);
+    const close = (await help.getByRole('button', { name: 'Fechar' }).boundingBox())!;
+    expect(close.y).toBeGreaterThanOrEqual(0);
+    // No toque, as instruções de toque (não as de teclado) e um toque em qualquer lugar fecha.
+    await expect(help.getByText('Toque em qualquer lugar para fechar.')).toBeVisible();
+    await help.getByText(/^Toque: o controle circular/).click();
+    await expect(help).toBeHidden();
+  }
+});

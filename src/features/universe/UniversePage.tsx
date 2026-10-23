@@ -754,19 +754,26 @@ export default function UniversePage() {
       </Dialog>
 
       {/* Orientação (primeira entrada e botão "Controles") */}
+      {/* Depois do aviso de girar o celular (um de cada vez: os dois juntos, a orientação cobria o botão do aviso). */}
       <Dialog
-        open={helpOpen}
+        open={helpOpen && !showRotate}
         onClose={closeHelp}
+        dismissOnClick
         title={t.help.title}
         description={t.help.lead}
         footer={
-          <Button onClick={closeHelp} className="w-full sm:w-auto">
-            {t.help.start}
-          </Button>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs text-fg-subtle">{device.coarse ? t.help.tapToClose : t.help.clickToClose}</p>
+            <Button onClick={closeHelp} className="w-full sm:w-auto landscape:w-auto">
+              {t.help.start}
+            </Button>
+          </div>
         }
       >
         <div className="space-y-4 text-sm">
-          {[...t.help.sections, { title: '', keys: t.help.general }].map((sec, i) => (
+          {/* No toque, primeiro o que vale para ele; as teclas ficam para quem tem teclado. */}
+          {device.coarse && <p>{t.help.touch}</p>}
+          {(device.coarse ? [] : [...t.help.sections, { title: '', keys: t.help.general }]).map((sec, i) => (
             <div key={i}>
               {sec.title && <h3 className="font-mono text-xs uppercase tracking-[0.16em] text-fg-subtle">{sec.title}</h3>}
               <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5">
@@ -781,8 +788,8 @@ export default function UniversePage() {
               </dl>
             </div>
           ))}
-          <p className="text-fg-muted">{t.help.gamepad}</p>
-          <p className="text-fg-muted">{t.help.touch}</p>
+          {!device.coarse && <p className="text-fg-muted">{t.help.gamepad}</p>}
+          {!device.coarse && <p className="text-fg-muted">{t.help.touch}</p>}
           <p>{t.help.places}</p>
         </div>
       </Dialog>

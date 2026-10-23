@@ -16,6 +16,8 @@ interface DialogProps {
   className?: string;
   /** Cor de destaque (ex.: cor do agente) aplicada à borda superior. */
   accent?: string;
+  /** Um toque em qualquer ponto da caixa fecha (avisos só de leitura, como a orientação de controles). */
+  dismissOnClick?: boolean;
 }
 
 /**
@@ -23,7 +25,7 @@ interface DialogProps {
  * fecha, fundo inerte e retorno do foco ao elemento que abriu — tudo pelo
  * navegador, sem bibliotecas.
  */
-export function Dialog({ open, onClose, title, description, children, variant = 'modal', footer, className, accent }: DialogProps) {
+export function Dialog({ open, onClose, title, description, children, variant = 'modal', footer, className, accent, dismissOnClick }: DialogProps) {
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const descId = useId();
@@ -51,8 +53,8 @@ export function Dialog({ open, onClose, title, description, children, variant = 
         onClose();
       }}
       onClick={(e) => {
-        // Clique no backdrop (fora da caixa) fecha.
-        if (e.target === e.currentTarget) onClose();
+        // Clique no backdrop (fora da caixa) fecha; com `dismissOnClick`, dentro dela também.
+        if (e.target === e.currentTarget || dismissOnClick) onClose();
       }}
       className={cn(
         'm-0 max-h-none max-w-none overflow-visible bg-transparent p-0 backdrop:bg-[rgb(4_8_14/0.62)] backdrop:backdrop-blur-sm',
@@ -64,15 +66,18 @@ export function Dialog({ open, onClose, title, description, children, variant = 
       {open && (
         <div
           className={cn(
-            'page-enter relative flex max-h-full flex-col overflow-hidden border border-line-strong bg-surface text-fg shadow-3',
-            variant === 'modal' ? 'max-h-[calc(100dvh-2rem)] rounded-xl' : 'h-full rounded-t-xl md:rounded-none md:rounded-l-xl',
+            'page-enter relative flex flex-col overflow-hidden border border-line-strong bg-surface text-fg shadow-3',
+            // Só uma regra de altura máxima por variante: o `cn` não resolve conflitos, e um `max-h-full` junto
+            // (100% de uma caixa de altura automática = sem limite) deixava o modal maior que a tela no celular,
+            // com o "Fechar" para fora, acima dela.
+            variant === 'modal' ? 'max-h-[calc(100dvh-2rem)] rounded-xl' : 'h-full max-h-full rounded-t-xl md:rounded-none md:rounded-l-xl',
             className,
           )}
           style={accent ? { boxShadow: `inset 0 2px 0 ${accent}, var(--shadow-3)` } : undefined}
         >
-          <header className="flex items-start gap-4 border-b border-line px-5 py-4 md:px-6">
+          <header className="flex items-start gap-4 border-b border-line px-4 py-3 sm:px-5 sm:py-4 md:px-6">
             <div className="min-w-0 flex-1">
-              <h2 id={titleId} className="text-lg font-semibold">
+              <h2 id={titleId} className="text-base font-semibold sm:text-lg">
                 {title}
               </h2>
               {description && (
@@ -85,8 +90,8 @@ export function Dialog({ open, onClose, title, description, children, variant = 
               <X className="size-4" />
             </IconButton>
           </header>
-          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 md:px-6">{children}</div>
-          {footer && <footer className="border-t border-line px-5 py-4 md:px-6">{footer}</footer>}
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5 sm:py-5 md:px-6">{children}</div>
+          {footer && <footer className="border-t border-line px-4 py-3 sm:px-5 sm:py-4 md:px-6">{footer}</footer>}
         </div>
       )}
     </dialog>

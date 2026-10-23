@@ -5,6 +5,7 @@ import { airDebug, airPose, createAirTraffic, type AirClass } from '../world/air
 import type { Quality } from '../world/city';
 import { AIR_CLASSES, AIR_PAINT, buildFarAirModels, buildNearAirModels, disposeFarAirModels, type NearAirSlot } from './airModels';
 import type { CarMaterials } from './carModels';
+import { shareMatrices } from './sharedInstances';
 
 /**
  * Trânsito aéreo: cada veículo está, a cada instante, onde a rota diz
@@ -90,6 +91,9 @@ export function AirTraffic({ quality, running, materials, lodDistance, shadows =
     AIR_CLASSES.forEach((cls) => {
       let nNear = 0;
       let nFar = 0;
+      // As peças de cada modelo compartilham um buffer de matrizes (ver `shareMatrices`).
+      const leadNear = shareMatrices(meshes.current[cls]);
+      const leadFar = shareMatrices(farMeshes.current[cls]);
       byClass[cls].forEach((vi) => {
         const pose = airPose(traffic, traffic.vehicles[vi]!, t);
         const d2 = (pose.x - c.x) ** 2 + (pose.y - c.y) ** 2 + (pose.z - c.z) ** 2;
@@ -99,10 +103,10 @@ export function AirTraffic({ quality, running, materials, lodDistance, shadows =
         tmp.m.compose(tmp.p.set(pose.x, pose.y, pose.z), tmp.q, tmp.s);
         if (near[vi]) {
           const k = nNear++;
-          meshes.current[cls].forEach((mesh) => mesh?.setMatrixAt(k, tmp.m));
+          leadNear?.setMatrixAt(k, tmp.m);
         } else {
           const k = nFar++;
-          farMeshes.current[cls].forEach((mesh) => mesh?.setMatrixAt(k, tmp.m));
+          leadFar?.setMatrixAt(k, tmp.m);
         }
       });
       for (const [list, n] of [

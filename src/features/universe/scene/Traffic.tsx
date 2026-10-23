@@ -7,6 +7,7 @@ import { createTraffic, stepTraffic, TRAFFIC_STEP, type TrafficObstacle } from '
 import { CAR_SPECS, type Body, type CarClass } from '../world/vehicles';
 import type { CarMaterials, CarSlot, FarCarModel, TrafficCarModel } from './carModels';
 import { contactShadowGeometry, contactShadowMaterial } from './contactShadow';
+import { shareMatrices } from './sharedInstances';
 
 /** Cores das carrocerias do trânsito (paleta da marca: marfim, aço, marinho e um dourado discreto). */
 const PAINT = ['#e6dfd0', '#4d6a8c', '#1a2a44', '#b8995c'];
@@ -131,6 +132,9 @@ export function Traffic({ quality, running, runtime, models, farModels, material
     for (const cls of CLASSES) {
       const spec = CAR_SPECS[cls];
       const counts = { near: 0, far: 0 };
+      // Um buffer de matrizes por conjunto (as peças do modelo o compartilham) e um para pneus e aros.
+      const lead = { near: shareMatrices(sets.current.near[cls].slots), far: shareMatrices(sets.current.far[cls].slots) };
+      shareMatrices([sets.current.near[cls].tire, sets.current.near[cls].rim]);
       for (const vi of byClass[cls]) {
         const v = state.vehicles[vi]!;
         const p = prev[vi]!;
@@ -146,7 +150,7 @@ export function Traffic({ quality, running, runtime, models, farModels, material
         tmp.p.set(x, 0.03, z);
         tmp.q.setFromAxisAngle(tmp.up, h);
         tmp.m.compose(tmp.p, tmp.q, tmp.s);
-        for (const mesh of set.slots) mesh?.setMatrixAt(k, tmp.m);
+        lead[lod]?.setMatrixAt(k, tmp.m);
         set.slots[0]?.setColorAt(k, paints[vi]!);
         // Facho no asfalto só para os carros a até ~2× a distância do modelo de perto (os de longe nem se notam).
         if (beams.current && d2 < enter * 4) beams.current.setMatrixAt(nBeams++, tmp.m);
@@ -157,8 +161,7 @@ export function Traffic({ quality, running, runtime, models, farModels, material
           models[cls].wheels.forEach((wp, wi) => {
             tmp.w.makeRotationX(spin[vi]!).setPosition(wp[0], wp[1], wp[2]);
             tmp.w.premultiply(tmp.m);
-            set.tire?.setMatrixAt(k * 4 + wi, tmp.w);
-            set.rim?.setMatrixAt(k * 4 + wi, tmp.w);
+            (set.tire ?? set.rim)?.setMatrixAt(k * 4 + wi, tmp.w);
           });
         // Três círculos ao longo do carro (traseira, meio e frente), para as colisões do jogador.
         const fx = Math.sin(h);
@@ -186,14 +189,13 @@ export function Traffic({ quality, running, runtime, models, farModels, material
         tmp.p.set(c.x, c.y, c.z);
         tmp.q.setFromAxisAngle(tmp.up, c.heading);
         tmp.m.compose(tmp.p, tmp.q, tmp.s);
-        for (const mesh of set.slots) mesh?.setMatrixAt(k, tmp.m);
+        lead[lod]?.setMatrixAt(k, tmp.m);
         set.slots[0]?.setColorAt(k, pk.paint);
         if (contact.current && d2 < enter * 6) contact.current.setMatrixAt(nContact++, tmp.m);
         if (lod === 'near')
           models[cls].wheels.forEach((wp, wi) => {
             tmp.w.makeTranslation(wp[0], wp[1], wp[2]).premultiply(tmp.m);
-            set.tire?.setMatrixAt(k * 4 + wi, tmp.w);
-            set.rim?.setMatrixAt(k * 4 + wi, tmp.w);
+            (set.tire ?? set.rim)?.setMatrixAt(k * 4 + wi, tmp.w);
           });
       }
       for (const lod of LODS) {

@@ -449,6 +449,40 @@ seção 5).
   o mesmo jeito de andar e correr (`world/visitor.ts`, `stepMotion`), a mesma câmera (`VISITOR_CAMERA`) e os
   mesmos controles (Shift ou o botão de toque para correr). Só continuam próprios do laboratório o anel de
   pilares, os pavilhões, o guia e o clique no piso.
+- **Menos trabalho por quadro na Média e na Baixa (branch `universe-7`).** O gargalo medido continua sendo o
+  processador, e cerca de 80% do tempo de CPU do quadro é enviar o desenho. Por isso cortei chamadas ao
+  WebGL, contadas com `scripts/gl-counts-universe.mjs`, que dá o mesmo número em toda rodada (a tela do
+  Redmi na Média, comparado ao `main` publicado):
+
+  | Cena | Chamadas WebGL por quadro | Desenhos |
+  |---|---|---|
+  | Chegada | 1256 → 1018 (−19%) | 211 → 171 |
+  | Praça | 1114 → 935 (−16%) | 177 → 149 |
+
+  - **Ordem por programa** (`renderSort.ts`): os opacos são agrupados pelo shader já compilado. As trocas de
+    programa caíram de 72 para 49 por quadro, e o three reenvia menos uniforms.
+  - **Um buffer de matrizes por conjunto** (`sharedInstances.ts`): as peças de um carro ou de um voador
+    compartilham as matrizes. Os envios por quadro caíram de 75 para 39.
+  - **Rodas dos carros parados:** não são reenviadas.
+  - **Marcadores dos locais** (`PlaceMarkers.tsx`): 4 desenhos no total, antes 4 por local. Os nomes ficam
+    numa textura única, num plano instanciado que encara a câmera.
+  - **Torres:** com sombras em cache, uma malha por material para a cidade inteira (eram quatro, uma por
+    quadrante). Do chão, os quatro quadrantes quase sempre estão à vista.
+
+  **Tempo por quadro** com `bench-redmi.mjs` (Média, processador 4× mais lento). As versões foram alternadas
+  duas vezes, publicada e nova, servidas lado a lado:
+
+  | Cena | Publicada (rodadas 1 e 2) | Nova (rodadas 1 e 2) |
+  |---|---|---|
+  | Chegada | 53,0 · 41,2 ms | 65,2 · 37,1 ms |
+  | Praça | 44,5 · 39,0 ms | 35,9 · 32,5 ms |
+  | Dirigindo | 53,3 · 50,8 ms | 39,2 · 37,0 ms |
+
+  A nova ganhou em 5 dos 6 pares, cerca de 18% na praça e 27% dirigindo. Na chegada, a 1ª rodada saiu
+  invertida, e é o ruído de ±25% deste computador. Por isso a contagem de chamadas acima é a prova principal.
+
+  O custo foi um pouco mais de triângulos ao dirigir (cerca de 450 mil → 485 mil), porque as torres fora da
+  visão não saem mais do desenho. O efeito na placa de vídeo do celular não foi medido.
 
 ---
 

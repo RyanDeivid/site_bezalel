@@ -22,13 +22,16 @@ function shiftUVs(geo: THREE.BufferGeometry, slot: Slot, seed: number) {
 }
 
 /**
- * Torres da cidade, estáticas: as torres de cada quadrante da cidade (4) são
- * juntadas numa malha por material, com as posições já aplicadas — até ~10
- * malhas por quadrante, e os quadrantes fora da visão (ou da área das
- * sombras) não são desenhados. Sete famílias arquitetônicas (`TOWER_VARIANTS`),
- * cada uma com seu sistema de fachada, detalhes e coroamento.
+ * Torres da cidade, estáticas, juntadas numa malha por material com as posições já aplicadas. Sete
+ * famílias arquitetônicas (`TOWER_VARIANTS`), cada uma com seu sistema de fachada, detalhes e coroamento.
+ *
+ * Com sombras redesenhadas a cada quadro (Alta e Ultra), a junção é por quadrante: o que fica fora da área
+ * das sombras sai da passada de sombras. Com sombras em cache (`whole`, Baixa e Média), a cidade inteira
+ * vira uma malha por material: do chão, os quatro quadrantes quase sempre estão à vista (medido na chegada:
+ * 43 de 44 malhas desenhadas), e cada chamada a menos é processador poupado no celular. Os vértices fora
+ * da tela custam pouco à placa de vídeo.
  */
-export function Towers({ assets, quality, towers }: { assets: UniverseAssets; quality: Quality; towers: TowerSpec[] }) {
+export function Towers({ assets, quality, towers, whole = false }: { assets: UniverseAssets; quality: Quality; towers: TowerSpec[]; whole?: boolean }) {
   // Detalhe por importância: o anel em volta da praça (a região de demonstração) tem aletas, varandas,
   // diagrid e marquises a partir da Média; o horizonte (fundo, visto de longe) só na Alta e na Ultra.
   const chunks = useMemo(() => {
@@ -37,9 +40,9 @@ export function Towers({ assets, quality, towers }: { assets: UniverseAssets; qu
     const detailed = quality === 'low' ? simple : TOWER_VARIANTS.map((v) => buildTowerGeometry(v, true));
     const out: Array<{ slot: Slot; geo: THREE.BufferGeometry }> = [];
     const m = new THREE.Matrix4();
-    for (const qx of [-1, 1])
-      for (const qz of [-1, 1]) {
-        const inQuadrant = towers.filter((t) => Math.sign(t.x || 1) === qx && Math.sign(t.z || 1) === qz);
+    for (const qx of whole ? [0] : [-1, 1])
+      for (const qz of whole ? [0] : [-1, 1]) {
+        const inQuadrant = whole ? towers : towers.filter((t) => Math.sign(t.x || 1) === qx && Math.sign(t.z || 1) === qz);
         const parts = new Map<Slot, THREE.BufferGeometry[]>();
         for (const t of inQuadrant) {
           m.makeRotationY(t.rotation).setPosition(t.x, 0.3, t.z);
@@ -58,7 +61,7 @@ export function Towers({ assets, quality, towers }: { assets: UniverseAssets; qu
       }
     for (const set of new Set([simple, detailed])) set.forEach((map) => map.forEach((g) => g.dispose()));
     return out;
-  }, [towers, quality]);
+  }, [towers, quality, whole]);
   useEffect(() => () => chunks.forEach((c) => c.geo.dispose()), [chunks]);
   // Estáticas: projetam e recebem sombra em todo nível (na Baixa e na Média, com o mapa em cache).
   const shadow = true;

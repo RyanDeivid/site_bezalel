@@ -156,6 +156,8 @@ const pt = {
     touch: 'Toque: o controle circular move (a pé) ou vira (no carro); os botões à direita correm, aceleram, freiam ou sobem e descem; o botão central entra, sai e abre.',
     places: 'Prefere ir direto? Em “Locais”, escolha um destino.',
     start: 'Começar a explorar',
+    tapToClose: 'Toque em qualquer lugar para fechar.',
+    clickToClose: 'Clique em qualquer lugar ou tecle Esc para fechar.',
   },
   map: {
     title: 'Mapa da cidade',
@@ -351,6 +353,8 @@ const en: Content = {
     touch: 'Touch: the round control moves (on foot) or steers (in the car); the buttons on the right run, accelerate, brake or go up and down; the center button gets in, out and opens.',
     places: 'Rather go straight there? In “Places”, pick a destination.',
     start: 'Start exploring',
+    tapToClose: 'Tap anywhere to close.',
+    clickToClose: 'Click anywhere or press Esc to close.',
   },
   map: {
     title: 'City map',

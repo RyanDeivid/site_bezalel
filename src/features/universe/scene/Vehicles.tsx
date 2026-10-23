@@ -11,6 +11,7 @@ import { contactShadowGeometry, contactShadowMaterial } from './contactShadow';
 import { renderVehicle, type Pose } from '../world/simulation';
 import { carInterior, dashboardScreen, HOVER_SCALE, hoverInterior, paintCenter, paintCluster, type Interior, type Screen } from './interior';
 import type { CarMaterials, CarModel, CarSlot, FarCarModel } from './carModels';
+import { shareMatrices } from './sharedInstances';
 
 interface Props {
   runtime: UniverseRuntime;
@@ -208,6 +209,7 @@ function PlayerCar({
   }, [materials, vehicle.paint]);
   useEffect(() => () => [own.paint, own.tail].forEach((m) => m.dispose()), [own]);
   const prevSpeed = useRef(0);
+  const wheelPose = useRef({ steer: NaN, spin: NaN });
   const drawn = useMemo<Pose>(() => ({ x: 0, y: 0, z: 0, heading: 0 }), []);
   const pitch = useRef(0);
   const roll = useRef(0);
@@ -245,13 +247,19 @@ function PlayerCar({
     const lateral = (c.speed * Math.tan(c.steer)) / spec.wheelbase;
     roll.current += (THREE.MathUtils.clamp(lateral * c.speed * 0.0016, -0.06, 0.06) - roll.current) * Math.min(1, dt * 6);
     if (body.current) body.current.rotation.set(pitch.current, 0, roll.current);
-    // Rodas: posição, esterço (só as da frente) e giro, nos dois níveis (só um está visível).
-    model.wheels.forEach((wp, i) => {
-      wheelTmp.m.makeRotationY(i < 2 ? -c.steer : 0).setPosition(wp[0], wp[1], wp[2]);
-      wheelTmp.m.multiply(wheelTmp.r.makeRotationX(c.wheelSpin));
-      for (const set of [tires.current, rims.current]) for (const mesh of set) mesh?.setMatrixAt(i, wheelTmp.m);
-    });
-    for (const set of [tires.current, rims.current]) for (const mesh of set) if (mesh) mesh.instanceMatrix.needsUpdate = true;
+    // Rodas: posição, esterço (só as da frente) e giro, nos dois níveis (só um está visível). Pneus e aros
+    // dos dois níveis compartilham um buffer; parado (sem giro nem esterço novos), nada é reenviado.
+    const wheels = shareMatrices([...tires.current, ...rims.current]);
+    if (wheels && (c.steer !== wheelPose.current.steer || c.wheelSpin !== wheelPose.current.spin)) {
+      wheelPose.current.steer = c.steer;
+      wheelPose.current.spin = c.wheelSpin;
+      model.wheels.forEach((wp, i) => {
+        wheelTmp.m.makeRotationY(i < 2 ? -c.steer : 0).setPosition(wp[0], wp[1], wp[2]);
+        wheelTmp.m.multiply(wheelTmp.r.makeRotationX(c.wheelSpin));
+        wheels.setMatrixAt(i, wheelTmp.m);
+      });
+      wheels.instanceMatrix.needsUpdate = true;
+    }
     // Freio: a lanterna acende mais forte (HDR: com o brilho ligado, ela "estoura").
     own.tail.color.copy(c.braking ? BRAKE_ON : BRAKE_OFF);
   });

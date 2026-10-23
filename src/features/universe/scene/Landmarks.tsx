@@ -3,7 +3,6 @@ import { useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from 'rea
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { AGENT_HEX } from '@/components/agents/AgentGlyph';
-import { drawLabel, makeCanvasTexture } from '@/features/lab/scene/textures';
 import { STATION_ORDER } from '@/features/lab/layout';
 import { atLeast, BUILDINGS, cubeOnVertex, MONUMENT, MONUMENT_SOLID, PLACES, type PlaceId } from '../world/city';
 import type { Quality, UniverseAssets } from './assets';
@@ -13,6 +12,7 @@ import { searchlightBeam } from './lightDecals';
 import { panelTexture, PALETTE, signTexture } from './textures';
 import { ArtistSlot } from './ArtistModel';
 import { mergeStatic } from './staticMerge';
+import { PlaceMarkers } from './PlaceMarkers';
 
 export interface LandmarkTexts {
   names: Record<PlaceId, string>;
@@ -372,82 +372,14 @@ export function Landmarks({ assets, quality, effects, near, markers, texts, onSe
       ))}
 
       {/* ---------------- Helipontos e marcadores dos locais ---------------- */}
-      {PLACES.map((p, i) => (
-        <PlaceMarker
-          key={p.id}
-          place={p.id}
-          x={p.pad.x}
-          z={p.pad.z}
-          ground={p.id === 'plaza' ? 0.42 : 0.4}
-          name={texts.names[p.id]}
-          active={near === p.id || !markers}
-          assets={assets}
-          scale={tex}
-          index={i}
-          effects={effects}
-          onSelect={onSelect}
-          hitbox={hitbox}
-        />
-      ))}
-    </group>
-  );
-}
-
-function PlaceMarker(props: {
-  place: PlaceId;
-  x: number;
-  z: number;
-  ground: number;
-  name: string;
-  active: boolean;
-  assets: UniverseAssets;
-  scale: number;
-  index: number;
-  effects: boolean;
-  onSelect: (id: PlaceId) => void;
-  hitbox: THREE.BufferGeometry;
-}) {
-  const m = props.assets.materials;
-  // Losango girando e flutuando: indica que o local é interativo (além do nome e do feixe).
-  const marker = useRef<THREE.Group>(null);
-  const t = useRef(props.index);
-  useFrame((_, dt) => {
-    if (!props.effects || !marker.current) return;
-    t.current += Math.min(dt, 0.05);
-    marker.current.rotation.y = t.current * 0.8;
-    marker.current.position.y = 10.5 + Math.sin(t.current * 1.6) * 0.3;
-  });
-  const label = useMemo(() => {
-    const w = 640 * props.scale;
-    const h = 112 * props.scale;
-    const { ctx, texture } = makeCanvasTexture(w, h);
-    drawLabel(ctx, w, h, props.name, PALETTE.gold);
-    texture.needsUpdate = true;
-    return texture;
-  }, [props.name, props.scale]);
-  useEffect(() => () => label.dispose(), [label]);
-  return (
-    <group position={[props.x, 0, props.z]} userData={{ dynamic: true }}>
-      {/* Alvo do clique: uma coluna invisível no lugar do heliponto, do feixe e do nome. */}
-      <mesh visible={false} position={[0, 7, 0]} scale={[10, 14, 10]} geometry={props.hitbox} material={m.glowGold} userData={{ dynamic: true }} {...pointer(props.onSelect, props.place)} />
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, props.ground, 0]} material={m.pad}>
-        <circleGeometry args={[5, 48]} />
-      </mesh>
-      {/* Feixe, losango e nome: o local é visível e identificável de longe. Quando você
-          já está nele, somem (estariam colados na câmera) e o HUD oferece "Entrar". */}
-      <group visible={!props.active}>
-        <mesh position={[0, 13, 0]} material={m.beam}>
-          <cylinderGeometry args={[0.6, 0.6, 26, 16, 1, true]} />
-        </mesh>
-        <group ref={marker} position={[0, 10.5, 0]}>
-          <mesh material={m.gold}>
-            <octahedronGeometry args={[0.95, 0]} />
-          </mesh>
-        </group>
-        <sprite position={[0, 13.4, 0]} scale={[7.2, 1.26, 1]}>
-          <spriteMaterial map={label} toneMapped={false} depthWrite={false} />
-        </sprite>
-      </group>
+      <PlaceMarkers
+        places={PLACES.map((p) => ({ id: p.id, x: p.pad.x, z: p.pad.z, ground: p.id === 'plaza' ? 0.42 : 0.4, name: texts.names[p.id], active: near === p.id || !markers }))}
+        assets={assets}
+        scale={tex}
+        effects={effects}
+        pointerFor={(id) => pointer(onSelect, id)}
+        hitbox={hitbox}
+      />
     </group>
   );
 }

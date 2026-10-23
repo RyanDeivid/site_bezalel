@@ -30,6 +30,7 @@ import { placementSolids } from '../assets/manifest';
 import { ArtistPlacements } from './ArtistModel';
 import { mergeStatic } from './staticMerge';
 import { PlayerVehicles } from './Vehicles';
+import { installProgramSort } from './renderSort';
 
 export interface UniverseSceneProps {
   runtime: UniverseRuntime;
@@ -205,7 +206,7 @@ const World = memo(function World(props: UniverseSceneProps) {
         <ArrivalPark assets={assets} quality={quality} />
       </StaticBatch>
       <group name="towers">
-        <Towers assets={assets} quality={quality} towers={towers} />
+        <Towers assets={assets} quality={quality} towers={towers} whole={cfg.shadowCache} />
         <Skybridges assets={assets} bridges={bridges} />
       </group>
       <ArtistPlacements />
@@ -302,6 +303,7 @@ export default memo(function UniverseScene(props: UniverseSceneProps) {
         // Ler o log de cada shader no primeiro uso força o navegador a esperar a compilação (e só serve
         // para depurar): ligado no desenvolvimento, desligado no site publicado.
         gl.debug.checkShaderErrors = import.meta.env.DEV;
+        installProgramSort(gl);
       }}
       className="!absolute inset-0"
     >
