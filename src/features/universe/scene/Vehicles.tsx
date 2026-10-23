@@ -215,6 +215,10 @@ function PlayerCar({
   useFrame(({ camera }, rawDt) => {
     const dt = Math.min(rawDt, 0.05);
     const c = vehicle.car;
+    // Longe e fora de uso: quem desenha é o trânsito instanciado (ver `updateDelegated`).
+    const delegated = runtime.delegated.has(vehicle.id);
+    if (root.current) root.current.visible = !delegated;
+    if (delegated) return;
     if (root.current) {
       // Pose entre os dois últimos passos da simulação (passo fixo): suave em qualquer taxa de quadros.
       const p = renderVehicle(vehicle, runtime.clock, drawn);

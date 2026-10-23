@@ -14,6 +14,7 @@ import {
   manualInput,
   nearestVehicle,
   axes,
+  updateDelegated,
   updatePlayer,
   vehicleBodies,
   vehicleById,
@@ -187,6 +188,8 @@ export function PlayerController({ runtime, solids, inputEnabled, calmCamera, on
     // Tempo do quadro: suaviza a câmera (a física usa o passo fixo, abaixo).
     const dt = Math.min(0.05, rawDt);
     const rt = runtime;
+    // Quais carros estacionados o trânsito desenha neste quadro (antes de todos: prioridade −1).
+    updateDelegated(rt, camera.position.x, camera.position.z);
     const gp = inputEnabled ? readGamepad() : null;
     if (gp) {
       // Botão A: borda de subida = uma interação.

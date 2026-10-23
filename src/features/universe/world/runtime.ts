@@ -63,6 +63,11 @@ export interface UniverseRuntime {
   traffic: Body[];
   /** Relógio da simulação (passo fixo) e a fração usada para interpolar o desenho. */
   clock: SimClock;
+  /**
+   * Carros estacionados desenhados pelos conjuntos instanciados do trânsito (fora de uso e longe do
+   * visitante): zero chamadas de desenho próprias. Perto ou em uso, voltam ao modelo detalhado deles.
+   */
+  delegated: Set<string>;
 }
 
 export const CAMERA_PITCH = { min: -0.15, max: 1.2, start: 0.28 };
@@ -105,6 +110,7 @@ export function createUniverseRuntime(): UniverseRuntime {
     nearVehicle: null,
     traffic: [],
     clock: createClock(),
+    delegated: new Set(),
   };
 }
 
@@ -412,3 +418,18 @@ export function cancelAutopilot(rt: UniverseRuntime) {
 }
 
 export { PERSON_RADIUS };
+
+/** Até esta distância da câmera (m) o carro estacionado usa o modelo próprio; além, o do trânsito (com margem). */
+export const DELEGATE_AT = 12;
+
+/** Decide, uma vez por quadro, quais carros estacionados o trânsito desenha (a câmera em `cx`, `cz`). */
+export function updateDelegated(rt: UniverseRuntime, cx: number, cz: number) {
+  for (const v of rt.vehicles) {
+    if (v.kind !== 'car') continue;
+    const d = Math.hypot(v.car.x - cx, v.car.z - cz);
+    const was = rt.delegated.has(v.id);
+    const far = rt.active !== v.id && (was ? d > DELEGATE_AT : d > DELEGATE_AT + 2);
+    if (far) rt.delegated.add(v.id);
+    else rt.delegated.delete(v.id);
+  }
+}

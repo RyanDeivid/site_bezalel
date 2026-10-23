@@ -291,7 +291,15 @@ Nada disso foi adicionado nesta fase.
    - Resolução, mapa de sombras, brilho e nitidez mudam ao vivo; a cidade não, porque já é a mesma.
    - O tamanho do mapa de sombras exige recriar só o alvo da luz.
    - O MSAA do Ultra exige recriar só o alvo do brilho.
-2. **`BatchedMesh` com `WEBGL_multi_draw` (ataca G1).**
+2. **`BatchedMesh` com `WEBGL_multi_draw` — testado e descartado (24/10/2026).** Torres em lotes por material
+   (42 → ~10 chamadas, descarte por torre): o quadro ficou mais lento, porque cada vértice passa a ler a matriz
+   de uma textura e a GPU vira o gargalo (`uniformMatrix4fv` bloqueando 3,5 ms por quadro no perfil). Voadores
+   em lotes (até 40 → 7 chamadas): igual ao instanciado num A/B alternado. Para geometria estática, a malha
+   juntada com a posição já aplicada é o mais barato para a GPU. **O que funcionou:** os carros estacionados
+   longe e fora de uso entram nos conjuntos instanciados do trânsito (−8% de chamadas na chegada, sem custo na
+   GPU). **Próximo passo para menos chamadas:** menos materiais — um atlas de texturas para os letreiros e painéis
+   dos marcos e cores por vértice nos hologramas e colunas, para juntá-los.
+   Texto original da recomendação, mantido como registro: **`BatchedMesh` com `WEBGL_multi_draw` (ataca G1).**
    - Marcos, mobiliário, carros estacionados e placas: muitos objetos diferentes numa chamada, com
      frustum culling por objeto.
    - **[medido]** A extensão existe aqui. **[estimativa]** Está no Chrome para Android recente.

@@ -54,6 +54,14 @@ export function Traffic({ quality, running, runtime, models, farModels, material
     return out;
   }, [state]);
   const paints = useMemo(() => state.vehicles.map((v) => new THREE.Color(v.cls === 'taxi' ? TAXI_PAINT : PAINT[v.paint]!)), [state]);
+  // Carros estacionados do jogador que este trânsito desenha quando estão longe e fora de uso (cada um com a sua
+  // pintura): reservam lugar nos conjuntos da classe deles.
+  const parked = useMemo(() => {
+    const out: Record<CarClass, Array<{ id: string; car: { x: number; y: number; z: number; heading: number }; paint: THREE.Color }>> = { sedan: [], sport: [], taxi: [] };
+    for (const v of runtime.vehicles) if (v.kind === 'car') out[v.cls].push({ id: v.id, car: v.car, paint: new THREE.Color(v.paint) });
+    return out;
+  }, [runtime]);
+  const capacity = (cls: CarClass) => byClass[cls].length + parked[cls].length;
 
   const obstacles = useMemo<TrafficObstacle[]>(() => [], []);
   // Corpos de colisão do trânsito (3 círculos por carro), reaproveitados a cada quadro: sem lixo para o coletor.
@@ -165,6 +173,29 @@ export function Traffic({ quality, running, runtime, models, farModels, material
           bodies.push(b);
         }
       }
+      // Estacionados longe e fora de uso: nos mesmos conjuntos (rodas paradas, sem facho; sombra de contato sim).
+      for (const pk of parked[cls]) {
+        if (!runtime.delegated.has(pk.id)) continue;
+        const c = pk.car;
+        const d2 = (c.x - cx) ** 2 + (c.z - cz) ** 2;
+        // Até 20 m, o modelo de perto (os conjuntos de perto da classe quase sempre já estão em uso pelo trânsito);
+        // além, o de longe — sempre em uso: o estacionado não acende um conjunto (8 chamadas) só para ele.
+        const lod = d2 < Math.min(enter, 400) ? 'near' : 'far';
+        const set = sets.current[lod][cls];
+        const k = counts[lod]++;
+        tmp.p.set(c.x, c.y, c.z);
+        tmp.q.setFromAxisAngle(tmp.up, c.heading);
+        tmp.m.compose(tmp.p, tmp.q, tmp.s);
+        for (const mesh of set.slots) mesh?.setMatrixAt(k, tmp.m);
+        set.slots[0]?.setColorAt(k, pk.paint);
+        if (contact.current && d2 < enter * 6) contact.current.setMatrixAt(nContact++, tmp.m);
+        if (lod === 'near')
+          models[cls].wheels.forEach((wp, wi) => {
+            tmp.w.makeTranslation(wp[0], wp[1], wp[2]).premultiply(tmp.m);
+            set.tire?.setMatrixAt(k * 4 + wi, tmp.w);
+            set.rim?.setMatrixAt(k * 4 + wi, tmp.w);
+          });
+      }
       for (const lod of LODS) {
         const set = sets.current[lod][cls];
         const n = counts[lod];
@@ -203,11 +234,11 @@ export function Traffic({ quality, running, runtime, models, farModels, material
 
   return (
     <group>
-      <instancedMesh ref={contact} args={[contactParts.geometry, contactParts.material, state.vehicles.length]} frustumCulled={false} renderOrder={6} />
+      <instancedMesh ref={contact} args={[contactParts.geometry, contactParts.material, state.vehicles.length + runtime.vehicles.length]} frustumCulled={false} renderOrder={6} />
       {beam && <instancedMesh ref={beams} args={[beam.geometry, beam.material, state.vehicles.length]} frustumCulled={false} renderOrder={7} />}
       {LODS.map((lod) =>
         CLASSES.map((cls) => {
-          const n = byClass[cls].length;
+          const n = capacity(cls);
           if (!n) return null;
           if (lod === 'far') {
             const far = farModels[cls];
