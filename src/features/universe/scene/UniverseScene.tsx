@@ -1,5 +1,5 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { lazy, memo, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import * as THREE from 'three';
 import { readStorage } from '@/lib/storage';
 import { ContextLossWatcher } from '@/components/three/watchers';
@@ -31,6 +31,8 @@ import { ArtistPlacements } from './ArtistModel';
 import { mergeStatic } from './staticMerge';
 import { PlayerVehicles } from './Vehicles';
 import { installProgramSort } from './renderSort';
+import type { TowerTexts } from './TowerInterior';
+import { INTERIOR_REVEAL, TOWER } from '../world/tower';
 
 export interface UniverseSceneProps {
   runtime: UniverseRuntime;
@@ -215,6 +217,7 @@ const World = memo(function World(props: UniverseSceneProps) {
       </group>
       <group name="landmarks">
         <Landmarks assets={assets} quality={quality} effects={effects} near={props.near} markers={!props.presenting} texts={props.texts} onSelect={props.onSelect} />
+        <TowerGate runtime={runtime} texts={props.texts.tower} />
       </group>
       <group name="traffic">
         <Traffic quality={quality} running={effects} runtime={runtime} models={trafficCarModels} farModels={farCarModels} materials={carMaterials} lodDistance={cfg.carLod} shadows={dynamicShadows} beam={beam} />
@@ -313,7 +316,7 @@ export default memo(function UniverseScene(props: UniverseSceneProps) {
       {cfg.bloom && <PostFX {...cfg.bloom} multisample={cfg.antialias} scale={startScale} />}
       <Warmup envIntensity={cfg.envIntensity} envSize={software ? 64 : 256} onReady={() => setWarm(true)} />
       <LiveSettings far={cfg.far} envIntensity={cfg.envIntensity} />
-      <PerformanceGovernor key={props.quality} level={props.quality} min={cfg.dprMin} max={maxDpr} canUpgrade={props.canUpgrade} probation={props.probation} onLow={props.onLowPerformance} onHeadroom={props.onHeadroom} off={props.debug && readStorage('bz-universe-governor') === 'off'} debug={props.debug} />
+      <PerformanceGovernor key={props.quality} level={props.quality} min={cfg.dprMin} max={maxDpr} canUpgrade={props.canUpgrade} probation={props.probation} onLow={props.onLowPerformance} onHeadroom={props.onHeadroom} off={props.debug && readStorage('bz-universe-governor') === 'off'} debug={props.debug} pace={!software && coarsePointer()} />
       <ContextLossWatcher onLost={props.onContextLost} />
       {props.debug && <PerfProbe />}
     </Canvas>
@@ -354,4 +357,34 @@ function LiveSettings({ far, envIntensity }: { far: number; envIntensity: number
     if (scene.environment) scene.environmentIntensity = envIntensity;
   }, [camera, scene, far, envIntensity]);
   return null;
+}
+
+/** Tela de toque como ponteiro principal (celular, tablet): onde o ritmo de 30 quadros por segundo vale a pena. */
+function coarsePointer(): boolean {
+  return typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches;
+}
+
+/** O interior da Torre Bezalel, num pedaço de código à parte: só é baixado para quem se aproxima dela. */
+const TowerInterior = lazy(() => import('./TowerInterior').then((m) => ({ default: m.TowerInterior })));
+
+/**
+ * Monta o interior da Torre quando o visitante (a câmera) chega a até ~120 m dela, e não desmonta mais.
+ * Alguns segundos depois de a cidade ficar pronta, o código já é pedido em segundo plano, então a
+ * aproximação não espera a rede.
+ */
+function TowerGate({ runtime, texts }: { runtime: UniverseRuntime; texts: TowerTexts }) {
+  const [near, setNear] = useState(false);
+  useEffect(() => {
+    const id = setTimeout(() => void import('./TowerInterior'), 6000);
+    return () => clearTimeout(id);
+  }, []);
+  useFrame(({ camera }) => {
+    if (near) return;
+    if (Math.hypot(camera.position.x - TOWER.x, camera.position.z - TOWER.z) < INTERIOR_REVEAL + 50 || runtime.tower.level > 0) setNear(true);
+  });
+  return near ? (
+    <Suspense fallback={null}>
+      <TowerInterior runtime={runtime} texts={texts} />
+    </Suspense>
+  ) : null;
 }

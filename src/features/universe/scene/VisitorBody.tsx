@@ -1,7 +1,7 @@
 import { useFrame } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
 import type * as THREE from 'three';
-import { Humanoid, HumanoidFleet, restPose } from '@/features/lab/scene/robots/humanoid';
+import { Humanoid, HumanoidSolo, restPose } from '@/features/lab/scene/robots/humanoid';
 import { PALETTE } from './textures';
 import { contactShadowGeometry, contactShadowMaterial } from './contactShadow';
 
@@ -26,7 +26,8 @@ export interface VisitorFrame {
 export function VisitorBody({ effects, frame }: { effects: boolean; frame: (dt: number, out: VisitorFrame) => void }) {
   const { robot, fleet, pose } = useMemo(() => {
     const robot = new Humanoid(PALETTE.gold);
-    return { robot, fleet: new HumanoidFleet([robot]), pose: restPose() };
+    // Sozinho, o robô vai em 5 chamadas de desenho (uma malha com esqueleto por material), não nas 16 da frota.
+    return { robot, fleet: new HumanoidSolo(robot), pose: restPose() };
   }, []);
   useEffect(() => () => fleet.dispose(), [fleet]);
   const out = useMemo<VisitorFrame>(() => ({ x: 0, y: 0, z: 0, heading: 0, scale: 1, walk: 0, phase: 0 }), []);

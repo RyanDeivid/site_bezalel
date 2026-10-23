@@ -24,6 +24,8 @@ import {
 import { CAR_SPECS, forwardOf, rightOf, stepCar, stopInput, type Body } from '../world/vehicles';
 import { advance, capturePoses, renderVehicle, renderWalker, type Pose } from '../world/simulation';
 import { stepWalker } from '../world/walker';
+import { coreBlock, insideCabin, TOWER } from '../world/tower';
+import { stepTower, towerContext } from '../world/towerRuntime';
 
 interface Props {
   runtime: UniverseRuntime;
@@ -233,7 +235,12 @@ export function PlayerController({ runtime, solids, inputEnabled, calmCamera, on
         const side = Math.max(-1, Math.min(1, a.side + (gp ? gp.lx : 0)));
         const f = forwardOf(rt.camera.yaw);
         const r = rightOf(rt.camera.yaw);
-        stepWalker(rt.walker, { x: f.x * fwd + r.x * side, z: f.z * fwd + r.z * side, run: a.run || !!gp?.rb }, dt, solids, bodies);
+        // Na Torre, o andar (ou a cabina) diz onde se pisa e com o que se colide; acima do térreo, o
+        // trânsito lá embaixo não conta.
+        const tower = towerContext(rt.tower, rt.walker, solids);
+        const up = rt.tower.level > 0 || rt.tower.riding;
+        stepWalker(rt.walker, { x: f.x * fwd + r.x * side, z: f.z * fwd + r.z * side, run: a.run || !!gp?.rb }, dt, tower.solids, up ? [] : bodies, tower.floor ?? undefined);
+        stepTower(rt.tower, rt.walker, dt, true);
       } else if (rt.mode === 'driving' && active?.kind === 'car') {
         let input = inputEnabled ? driveInput(rt) : { throttle: 0, brake: 0, steer: 0, handbrake: false };
         if (gp) {
@@ -270,6 +277,8 @@ export function PlayerController({ runtime, solids, inputEnabled, calmCamera, on
         }
         stepCraft(c, input, dt, solids);
       }
+      // O elevador anda mesmo com o visitante fora dele (a pé, a chamada; no carro, nada a fazer).
+      if (rt.mode !== 'foot') stepTower(rt.tower, rt.walker, dt, false);
     };
     advance(rt.clock, rawDt, (step) => {
       capturePoses(rt);
@@ -333,20 +342,34 @@ export function PlayerController({ runtime, solids, inputEnabled, calmCamera, on
         const f = forwardOf(rt.camera.yaw);
         look.lerp(aim.set(w.x + f.x * 1.2, w.y + 1.45, w.z + f.z * 1.2), 1 - Math.exp(-dt * 10));
       }
+      // Na Torre: as paredes do andar seguram a câmera, e ela não passa do teto nem do piso. Na cabina,
+      // ela fica no fundo, à altura dos olhos, olhando a porta (o visitante e o mostrador à frente).
+      const tower = rt.mode === 'foot' ? towerContext(rt.tower, rt.walker, solids) : { solids, floor: null, ceiling: null };
+      const inCabin = rt.mode === 'foot' && insideCabin(rt.walker.x, rt.walker.z) && Math.abs(rt.walker.y - rt.tower.elevator.y) < 1.5;
+      if (inCabin) {
+        const y0 = rt.tower.elevator.y;
+        goal.set(TOWER.x + 0.35, y0 + 2.05, TOWER.cabin.minZ + 0.3);
+        look.lerp(aim.set(TOWER.x, y0 + 1.25, TOWER.core.maxZ + 2.5), 1 - Math.exp(-dt * 10));
+      }
+      // De fora da cabina, o núcleo todo é parede para a câmera (pela porta aberta ela entraria no poço).
+      const camSolids = rt.mode === 'foot' && !inCabin && (rt.tower.level > 0 || Math.abs(rt.walker.z - TOWER.z) < 14) ? [...tower.solids, coreBlock(tower.floor ?? 0, (tower.floor ?? 0) + 8)] : tower.solids;
       // Não atravessa prédios: percorre do jogador até o ponto desejado e para antes do primeiro volume.
       const steps = 12;
-      for (let i = 1; i <= steps; i++) {
+      for (let i = 1; i <= steps && !inCabin; i++) {
         const k = i / steps;
         const x = target.x + (goal.x - target.x) * k;
         const y = target.y + (goal.y - target.y) * k;
         const z = target.z + (goal.z - target.z) * k;
-        if (insideSolid(x, z, y, 0.35, solids)) {
+        if (insideSolid(x, z, y, 0.35, camSolids)) {
           const back = Math.max(0, (i - 1) / steps - 0.02);
           goal.set(target.x + (goal.x - target.x) * back, target.y + (goal.y - target.y) * back, target.z + (goal.z - target.z) * back);
           break;
         }
       }
-      goal.y = Math.max(goal.y, 0.8);
+      if (tower.ceiling !== null) goal.y = Math.min(goal.y, tower.ceiling - 0.3);
+      goal.y = Math.max(goal.y, (tower.floor ?? 0) + 0.8);
+      // Viajando, a câmera vai com a cabina (sem o atraso que a deixaria para trás no poço).
+      if (inCabin && rt.tower.elevator.phase === 'moving') camPos.copy(goal);
       if (!init.current) {
         camPos.copy(goal);
         look.copy(target);
@@ -392,7 +415,8 @@ export function PlayerController({ runtime, solids, inputEnabled, calmCamera, on
     // ---- Proximidade: locais e veículos -----------------------------------------------
     let px = rt.walker.x;
     let pz = rt.walker.z;
-    let py = 0;
+    // A pé, a altura conta (num andar alto da Torre, os locais do chão não estão "perto").
+    let py = rt.walker.y - TOWER.ground;
     if (rt.mode !== 'foot' && active) {
       const p = vehiclePose(active);
       px = p.x;

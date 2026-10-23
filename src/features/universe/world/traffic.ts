@@ -256,18 +256,29 @@ function gapAhead(v: Vehicle, all: Vehicle[], routes: Route[], ignore: (o: Vehic
 
 const NODES: Point2[] = STREET_LINES.flatMap((x) => STREET_LINES.map((z) => ({ x, z })));
 
-/** Cruzamento mais próximo, a distância até ele e se o veículo está indo na direção dele. */
-function nearestNode(v: Vehicle): { node: number; distance: number; approaching: boolean } {
+/** Índice da rua mais próxima de uma coordenada (a primeira, no empate). */
+function nearestLine(c: number): number {
   let best = 0;
   let bestD = Infinity;
-  NODES.forEach((n, i) => {
-    const d = Math.hypot(n.x - v.x, n.z - v.z);
+  for (let i = 0; i < STREET_LINES.length; i++) {
+    const d = Math.abs(STREET_LINES[i]! - c);
     if (d < bestD) {
       bestD = d;
       best = i;
     }
-  });
+  }
+  return best;
+}
+
+/**
+ * Cruzamento mais próximo, a distância até ele e se o veículo está indo na direção dele. Os cruzamentos
+ * formam uma grade (toda rua x com toda rua z): o mais próximo é o da rua mais próxima em cada eixo. São
+ * duas buscas curtas em vez de medir a distância até todos os cruzamentos, para cada carro, a cada passo.
+ */
+function nearestNode(v: Vehicle): { node: number; distance: number; approaching: boolean } {
+  const best = nearestLine(v.x) * STREET_LINES.length + nearestLine(v.z);
   const n = NODES[best]!;
+  const bestD = Math.hypot(n.x - v.x, n.z - v.z);
   return { node: best, distance: bestD, approaching: (n.x - v.x) * Math.sin(v.heading) + (n.z - v.z) * Math.cos(v.heading) > 0 };
 }
 

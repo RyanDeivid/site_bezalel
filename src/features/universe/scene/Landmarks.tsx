@@ -13,6 +13,8 @@ import { panelTexture, PALETTE, signTexture } from './textures';
 import { ArtistSlot } from './ArtistModel';
 import { mergeStatic } from './staticMerge';
 import { PlaceMarkers } from './PlaceMarkers';
+import { INTERIOR_REVEAL, TOWER } from '../world/tower';
+import type { TowerTexts } from './TowerInterior';
 
 export interface LandmarkTexts {
   names: Record<PlaceId, string>;
@@ -22,6 +24,8 @@ export interface LandmarkTexts {
   productsPanel: { title: string; lines: string[]; footer: string };
   hqSign: string;
   productsSign: string;
+  /** Placas, diretório e telas da Torre Bezalel. */
+  tower: TowerTexts;
 }
 
 interface Props {
@@ -215,9 +219,16 @@ export function Landmarks({ assets, quality, effects, near, markers, texts, onSe
       <group>
         {/* Encaixe para um modelo de artista (assets/manifest.ts); sem modelo, a geometria procedural. */}
         <ArtistSlot slot="landmark:bezalel-hq">
-          {[...hq].map(([slot, geo]) => (
-            <mesh key={slot} geometry={geo} material={hqMaterial(slot)} castShadow={solid(slot)} receiveShadow={solid(slot)} />
-          ))}
+          {[...hq].map(([slot, geo]) =>
+            // A imagem do saguão é a fachada de longe; de perto, a Torre mostra o vidro e a recepção de verdade.
+            slot === 'lobby' ? (
+              <Far key={slot} x={TOWER.x} z={TOWER.z + 6} radius={INTERIOR_REVEAL}>
+                <mesh geometry={geo} material={hqMaterial(slot)} />
+              </Far>
+            ) : (
+              <mesh key={slot} geometry={geo} material={hqMaterial(slot)} castShadow={solid(slot)} receiveShadow={solid(slot)} />
+            ),
+          )}
         </ArtistSlot>
         {/* Refletores no chão lavando os pilares e as laterais do pódio (uma malha só). */}
         <mesh geometry={washes} material={m.wash} renderOrder={6} />
@@ -380,6 +391,20 @@ export function Landmarks({ assets, quality, effects, near, markers, texts, onSe
         pointerFor={(id) => pointer(onSelect, id)}
         hitbox={hitbox}
       />
+    </group>
+  );
+}
+
+/** O contrário de `Near`: some com a câmera a até `radius` metros (no chão) do ponto. */
+function Far({ x, z, radius, children }: { x: number; z: number; radius: number; children: ReactNode }) {
+  const ref = useRef<THREE.Group>(null);
+  useFrame(({ camera }) => {
+    const g = ref.current;
+    if (g) g.visible = (camera.position.x - x) ** 2 + (camera.position.z - z) ** 2 >= radius * radius;
+  });
+  return (
+    <group ref={ref} userData={{ dynamic: true }}>
+      {children}
     </group>
   );
 }

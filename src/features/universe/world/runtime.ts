@@ -5,6 +5,7 @@ import { CAR_SPECS, carCircles, createCar, exitSpot, type Body, type CarClass, t
 import { createClock, type SimClock } from './simulation';
 import { createWalker, PERSON_RADIUS, type WalkerState } from './walker';
 import { VISITOR_CAMERA } from './visitor';
+import { callElevator, chooseFloor, createTowerRuntime, type TowerRuntime } from './towerRuntime';
 
 /**
  * Estado do jogador e dos veículos que ele pode usar — mutável, compartilhado
@@ -69,6 +70,8 @@ export interface UniverseRuntime {
    * visitante): zero chamadas de desenho próprias. Perto ou em uso, voltam ao modelo detalhado deles.
    */
   delegated: Set<string>;
+  /** O visitante dentro da Torre Bezalel: andar, elevador e a ação ao alcance. */
+  tower: TowerRuntime;
 }
 
 export const CAMERA_PITCH = VISITOR_CAMERA.pitch;
@@ -112,6 +115,7 @@ export function createUniverseRuntime(): UniverseRuntime {
     traffic: [],
     clock: createClock(),
     delegated: new Set(),
+    tower: createTowerRuntime(),
   };
 }
 
@@ -354,7 +358,11 @@ export function attachDebug(rt: UniverseRuntime): () => void {
       nearVehicle: rt.nearVehicle,
       notice: rt.notice,
       cinema: rt.cinema ? { t: rt.cinema.t, shot: rt.cinema.shot } : null,
+      tower: { level: rt.tower.level, riding: rt.tower.riding, prompt: rt.tower.prompt, phase: rt.tower.elevator.phase, floor: rt.tower.elevator.floor, y: rt.tower.elevator.y, door: rt.tower.elevator.door },
     }),
+    /** Torre: chamar o elevador ao andar do visitante e escolher um andar no painel. */
+    towerCall: () => callElevator(rt.tower),
+    towerChoose: (i: number) => chooseFloor(rt.tower, i),
     placeWalker: (x: number, z: number, yaw = rt.camera.yaw) => {
       Object.assign(rt.walker, { x, z, vx: 0, vz: 0 });
       rt.camera.yaw = yaw;

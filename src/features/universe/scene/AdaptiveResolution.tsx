@@ -2,14 +2,12 @@ import { useFrame, useThree } from '@react-three/fiber';
 import { useEffect, useRef } from 'react';
 import { writeSession } from '@/lib/storage';
 import { postFor } from './bloom';
-import { SETTLED_KEY, type PerfState } from './perfState';
+import { budgetMs, SETTLED_KEY, type PerfState } from './perfState';
 
-/** Quadro "atrasado": abaixo de ~45 fps. */
-const LATE_MS = 22;
-/** Quadro "justo": acima de um quadro de 60 Hz com folga para a variação normal (na tela de 60 Hz, um quadro perdido). */
-const TIGHT_MS = 18.5;
-/** Orçamento de um quadro a 60 fps. */
-const BUDGET_MS = 1000 / 60;
+/** Quadro "atrasado": a 60 fps, abaixo de ~45 fps (22 ms); no ritmo de 30, abaixo de ~23 fps. */
+const LATE = 1.32;
+/** Quadro "justo": um quadro do alvo perdido, com folga para a variação normal (18,5 ms a 60 fps). */
+const TIGHT = 1.11;
 /** Degraus de resolução: desce 12%, sobe 8%. */
 const DOWN = 0.88;
 const UP = 1.08;
@@ -50,6 +48,7 @@ export function AdaptiveResolution({ min, max, perf, level }: { min: number; max
     // Os primeiros segundos depois do preparo não contam (a cena ainda assenta).
     cooldown: 3,
     lastShare: 0,
+    target: 60,
     lastStep: '' as '' | 'down' | 'up',
     floor: min,
     skip: false,
@@ -74,6 +73,19 @@ export function AdaptiveResolution({ min, max, perf, level }: { min: number; max
       s.skip = false;
       return;
     }
+    // O alvo mudou (60 ↔ 30): os quadros mudam de duração; a janela recomeça e espera assentar.
+    const target = perf?.target ?? 60;
+    if (target !== s.target) {
+      s.target = target;
+      s.frames = s.late = s.tight = s.time = 0;
+      s.cooldown = Math.max(s.cooldown, 2);
+      s.calm = 0;
+      s.tightRun = 0;
+      return;
+    }
+    const BUDGET_MS = budgetMs(perf);
+    const LATE_MS = BUDGET_MS * LATE;
+    const TIGHT_MS = BUDGET_MS * TIGHT;
     s.frames++;
     s.time += dt;
     if (ms > LATE_MS) s.late++;
@@ -90,13 +102,16 @@ export function AdaptiveResolution({ min, max, perf, level }: { min: number; max
       s.cooldown--;
     } else {
       let next = s.dpr;
-      const struggling = lateShare > 0.15 || s.tightRun >= 2;
+      // Num celular a 60, quem age primeiro é o ritmo de 30 (mais nítido que baixar a resolução).
+      const deferToPacer = !!perf?.paceable && target === 60;
+      const struggling = (lateShare > 0.15 || s.tightRun >= 2) && !deferToPacer;
       const share = Math.max(lateShare, tightShare);
       if (struggling && s.dpr > s.floor + 1e-3) {
         if (s.lastStep === 'down' && share >= s.lastShare * 0.9) {
           // Desceu e não melhorou: o gargalo não é a resolução — volta um degrau e trava aqui.
           s.floor = Math.min(max, s.dpr / DOWN);
           next = s.floor;
+          if (perf) perf.cpuBound = true;
         } else {
           next = Math.max(s.floor, s.dpr * DOWN);
           // Subiu há pouco e passou a perder quadros: a próxima tentativa espera o dobro.

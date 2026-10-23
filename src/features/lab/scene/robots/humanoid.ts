@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 /**
  * Robôs humanoides articulados feitos em código (sem modelos externos):
@@ -10,6 +11,8 @@ import * as THREE from 'three';
  * Desempenho: como os braços da Forja (`robot-arm.ts`), cada robô é só um
  * esqueleto (Object3D sem malha); a frota inteira é desenhada com uma malha
  * instanciada por tipo de peça — ~16 chamadas de desenho para todos os robôs.
+ * Um robô sozinho (o visitante) vai melhor como `HumanoidSolo`: uma malha com
+ * esqueleto por material, 5 chamadas em vez de 16.
  */
 
 export const HIP_Y = 0.95;
@@ -226,34 +229,8 @@ export class HumanoidFleet {
 
   constructor(robots: Humanoid[], opts: { envIntensity?: number } = {}) {
     this.robots = robots;
-    const env = opts.envIntensity ?? 1;
-    // PBR: casco branco com verniz (reflete o ambiente), juntas de metal escovado.
-    const shell = new THREE.MeshPhysicalMaterial({ color: 0xc3ccd8, metalness: 0.3, roughness: 0.34, clearcoat: 0.55, clearcoatRoughness: 0.25, envMapIntensity: 0.8 * env });
-    const metal = new THREE.MeshStandardMaterial({ color: 0x2c3648, metalness: 0.9, roughness: 0.3, envMapIntensity: 1.2 * env });
-    const dark = new THREE.MeshStandardMaterial({ color: 0x141d2c, metalness: 0.5, roughness: 0.55, envMapIntensity: 0.6 * env });
-    const glow = new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false });
-    const crate = new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false, transparent: true, opacity: 0.92 });
-    this.materials = [shell, metal, dark, glow, crate];
-
-    const capsuleDown = (r: number, len: number) => new THREE.CapsuleGeometry(r, len - 2 * r, 6, 14).translate(0, -len / 2, 0);
-    const geo: Record<PartKey, [THREE.BufferGeometry, THREE.Material]> = {
-      pelvis: [new THREE.CylinderGeometry(0.17, 0.15, 0.16, 20), dark],
-      torso: [new THREE.CapsuleGeometry(0.2, 0.26, 6, 18).scale(1, 1, 0.74).translate(0, 0.3, 0), shell],
-      chest: [new THREE.CircleGeometry(0.05, 20), glow],
-      neck: [new THREE.CylinderGeometry(0.05, 0.06, 0.12, 12).translate(0, 0.04, 0), metal],
-      head: [new THREE.SphereGeometry(0.16, 22, 16).scale(1, 0.94, 1.06), shell],
-      visor: [new THREE.BoxGeometry(0.24, 0.06, 0.05), glow],
-      antenna: [new THREE.SphereGeometry(0.028, 10, 8), glow],
-      thigh: [capsuleDown(0.075, THIGH), shell],
-      shin: [capsuleDown(0.064, SHIN), shell],
-      foot: [new THREE.BoxGeometry(0.12, 0.06, 0.26).translate(0, -0.02, 0.05), dark],
-      upperArm: [capsuleDown(0.056, UPPER_ARM), shell],
-      forearm: [capsuleDown(0.05, FOREARM), shell],
-      joint: [new THREE.SphereGeometry(0.07, 14, 10), metal],
-      palm: [new THREE.BoxGeometry(0.085, 0.1, 0.035).translate(0, -0.05, 0), metal],
-      finger: [new THREE.BoxGeometry(0.018, 0.07, 0.02).translate(0, -0.035, 0), metal],
-      crate: [new THREE.BoxGeometry(0.46, 0.28, 0.32), crate],
-    };
+    const { geo, materials } = robotParts(opts.envIntensity ?? 1);
+    this.materials = materials;
     this.geometries = Object.values(geo).map(([g]) => g);
     const counts = new Map<PartKey, number>();
     for (const p of robots[0]?.parts ?? []) counts.set(p.key, (counts.get(p.key) ?? 0) + robots.length);
@@ -305,5 +282,96 @@ export class HumanoidFleet {
     this.geometries.forEach((g) => g.dispose());
     this.materials.forEach((m) => m.dispose());
     this.meshes.forEach((m) => m.dispose());
+  }
+}
+
+/** Peças e materiais dos robôs (compartilhados pela frota e pelo robô sozinho). */
+function robotParts(env: number): { geo: Record<PartKey, [THREE.BufferGeometry, THREE.Material]>; materials: THREE.Material[] } {
+    // PBR: casco branco com verniz (reflete o ambiente), juntas de metal escovado.
+    const shell = new THREE.MeshPhysicalMaterial({ color: 0xc3ccd8, metalness: 0.3, roughness: 0.34, clearcoat: 0.55, clearcoatRoughness: 0.25, envMapIntensity: 0.8 * env });
+    const metal = new THREE.MeshStandardMaterial({ color: 0x2c3648, metalness: 0.9, roughness: 0.3, envMapIntensity: 1.2 * env });
+    const dark = new THREE.MeshStandardMaterial({ color: 0x141d2c, metalness: 0.5, roughness: 0.55, envMapIntensity: 0.6 * env });
+    const glow = new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false });
+    const crate = new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false, transparent: true, opacity: 0.92 });
+
+    const capsuleDown = (r: number, len: number) => new THREE.CapsuleGeometry(r, len - 2 * r, 6, 14).translate(0, -len / 2, 0);
+    const geo: Record<PartKey, [THREE.BufferGeometry, THREE.Material]> = {
+      pelvis: [new THREE.CylinderGeometry(0.17, 0.15, 0.16, 20), dark],
+      torso: [new THREE.CapsuleGeometry(0.2, 0.26, 6, 18).scale(1, 1, 0.74).translate(0, 0.3, 0), shell],
+      chest: [new THREE.CircleGeometry(0.05, 20), glow],
+      neck: [new THREE.CylinderGeometry(0.05, 0.06, 0.12, 12).translate(0, 0.04, 0), metal],
+      head: [new THREE.SphereGeometry(0.16, 22, 16).scale(1, 0.94, 1.06), shell],
+      visor: [new THREE.BoxGeometry(0.24, 0.06, 0.05), glow],
+      antenna: [new THREE.SphereGeometry(0.028, 10, 8), glow],
+      thigh: [capsuleDown(0.075, THIGH), shell],
+      shin: [capsuleDown(0.064, SHIN), shell],
+      foot: [new THREE.BoxGeometry(0.12, 0.06, 0.26).translate(0, -0.02, 0.05), dark],
+      upperArm: [capsuleDown(0.056, UPPER_ARM), shell],
+      forearm: [capsuleDown(0.05, FOREARM), shell],
+      joint: [new THREE.SphereGeometry(0.07, 14, 10), metal],
+      palm: [new THREE.BoxGeometry(0.085, 0.1, 0.035).translate(0, -0.05, 0), metal],
+      finger: [new THREE.BoxGeometry(0.018, 0.07, 0.02).translate(0, -0.035, 0), metal],
+      crate: [new THREE.BoxGeometry(0.46, 0.28, 0.32), crate],
+    };
+    return { geo, materials: [shell, metal, dark, glow, crate] };
+}
+
+/**
+ * Um robô sozinho (o visitante do Universe e do laboratório) em 5 chamadas de desenho, em vez das 16 da
+ * frota (uma por tipo de peça): as peças de cada material viram uma malha com esqueleto, e cada peça é
+ * um "osso" preso ao ponto de articulação dela no robô (o mesmo que a frota copia para as instâncias). O
+ * quadro envia uma textura de ossos, em vez de 16 listas de matrizes. As peças de brilho levam a cor do
+ * robô no próprio material.
+ */
+export class HumanoidSolo {
+  readonly group = new THREE.Group();
+  private readonly materials: THREE.Material[] = [];
+  private readonly geometries: THREE.BufferGeometry[] = [];
+  private readonly robot: Humanoid;
+
+  constructor(robot: Humanoid, opts: { envIntensity?: number } = {}) {
+    this.robot = robot;
+    const { geo, materials } = robotParts(opts.envIntensity ?? 1);
+    const bones = robot.parts.map((p) => p.anchor as THREE.Bone);
+    // Ossos com a pose de ligação identidade: o vértice da peça (no espaço dela) vai direto pela matriz do
+    // ponto de articulação, como na frota.
+    const skeleton = new THREE.Skeleton(bones, bones.map(() => new THREE.Matrix4()));
+    const buckets = new Map<string, { material: THREE.Material; parts: THREE.BufferGeometry[] }>();
+    robot.parts.forEach((p, bone) => {
+      const [g, m] = geo[p.key];
+      const piece = g.clone();
+      const n = piece.attributes.position!.count;
+      piece.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(new Uint16Array(n * 4).map((_, i) => (i % 4 === 0 ? bone : 0)), 4));
+      piece.setAttribute('skinWeight', new THREE.Float32BufferAttribute(new Float32Array(n * 4).map((_, i) => (i % 4 === 0 ? 1 : 0)), 4));
+      const key = `${m.uuid}|${p.glow}`;
+      const b = buckets.get(key) ?? { material: m, parts: [] };
+      b.parts.push(piece);
+      buckets.set(key, b);
+    });
+    for (const [key, b] of buckets) {
+      const merged = mergeGeometries(b.parts)!;
+      b.parts.forEach((g) => g.dispose());
+      const material = b.material.clone();
+      if (key.endsWith('|true')) (material as THREE.MeshBasicMaterial).color.copy(robot.color);
+      const mesh = new THREE.SkinnedMesh(merged, material);
+      mesh.bind(skeleton, new THREE.Matrix4());
+      mesh.frustumCulled = false;
+      this.group.add(mesh);
+      this.geometries.push(merged);
+      this.materials.push(material);
+    }
+    Object.values(geo).forEach(([g]) => g.dispose());
+    materials.forEach((m) => m.dispose());
+  }
+
+  /** Atualiza as matrizes do esqueleto (a malha as lê ao desenhar). */
+  sync(): void {
+    this.robot.root.updateMatrixWorld(true);
+  }
+
+  dispose(): void {
+    this.geometries.forEach((g) => g.dispose());
+    this.materials.forEach((m) => m.dispose());
+    this.group.children.forEach((c) => (c as THREE.SkinnedMesh).skeleton?.dispose());
   }
 }

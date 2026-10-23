@@ -25,6 +25,8 @@ import { UniverseMap } from './UniverseMap';
 import { CINEMA_SHOTS } from './world/cinema';
 import { cityTowers, citySolids, PLACES, type PlaceId, type Quality } from './world/city';
 import { PRODUCTS, productText } from './world/products';
+import { FLOORS, insideLobby, type SectorId } from './world/tower';
+import { callElevator, chooseFloor } from './world/towerRuntime';
 import { arriveFromLab, attachDebug, cancelAutopilot, clearNotice, createUniverseRuntime, goToPlace, queueSound, requestExit, setCinema, toggleView, tryEnter, vehicleById } from './world/runtime';
 
 // three.js + R3F + a cidade só são baixados quando o visitante escolhe explorar em 3D.
@@ -75,6 +77,8 @@ interface Hud {
   kmh: number;
   alt: number;
   notice: 'blocked' | 'braking' | 'landing' | null;
+  /** Na Torre Bezalel: andar, ação ao alcance e se está viajando (null fora dela). */
+  tower: { level: number; prompt: 'call' | 'panel' | null; riding: boolean; moving: boolean; floor: number } | null;
 }
 
 export default function UniversePage() {
@@ -93,10 +97,14 @@ export default function UniversePage() {
     const saved = readSession(QUALITY_KEY);
     return isQuality(saved) ? saved : 'auto';
   });
-  const [autoLevel, setAutoLevelState] = useState<Quality>(() => {
+  // Nível do Auto: o que o governador escolheu nesta sessão ou, até lá, o do perfil do aparelho, lido ao
+  // vivo. Fixá-lo no primeiro render pegava o perfil antes de ele conhecer a tela de toque (as consultas de
+  // mídia só respondem depois da hidratação): o celular começava na Alta e descia duas vezes até a Baixa.
+  const [pickedLevel, setAutoLevelState] = useState<Quality | null>(() => {
     const saved = readSession(AUTO_LEVEL_KEY);
-    return isQuality(saved) ? saved : autoQuality(device.tier);
+    return isQuality(saved) ? saved : null;
   });
+  const autoLevel: Quality = pickedLevel ?? autoQuality(device.tier);
   const [ceiling, setCeiling] = useState<Quality | null>(() => {
     const saved = readSession(AUTO_CEILING_KEY);
     return isQuality(saved) ? saved : null;
@@ -181,6 +189,18 @@ export default function UniversePage() {
       productsPanel: { title: t.places['products-center'].name, lines: liveProducts.map((p) => p.title), footer: t.panel.productsFooter },
       hqSign: 'Bezalel',
       productsSign: t.places['products-center'].kicker,
+      tower: {
+        name: t.tower.name,
+        floor: t.tower.floor,
+        sectors: t.tower.sectors,
+        free: t.tower.free,
+        planned: t.tower.planned,
+        directory: t.tower.directory,
+        welcome: t.tower.welcome,
+        status: t.tower.status,
+        camera: t.tower.camera,
+        projects: { title: t.tower.projectsTitle, items: liveProducts.map((p) => ({ title: p.title, line: p.description.split(/[.:—]/)[0]! })) },
+      },
     }),
     [t, locale, published.length, liveProducts],
   );
@@ -214,13 +234,21 @@ export default function UniversePage() {
   };
 
   /** Ação contextual (E, botão A do controle ou o botão central do HUD): entrar, sair ou abrir o local. */
+  const [towerPanel, setTowerPanel] = useState(false);
   const interact = useCallback(() => {
-    if (open || helpOpen) return;
+    if (open || helpOpen || towerPanel) return;
     if (runtime.mode === 'driving') return requestExit(runtime);
     if (runtime.mode !== 'foot') return;
+    // Na Torre, o elevador vem antes dos veículos e do painel do local.
+    if (runtime.tower.prompt === 'panel') return setTowerPanel(true);
+    if (runtime.tower.prompt === 'call') {
+      const r = callElevator(runtime.tower);
+      notify({ tone: 'info', message: t.tower.requests[r] });
+      return;
+    }
     if (tryEnter(runtime)) return;
     if (runtime.near) setOpen(runtime.near);
-  }, [runtime, open, helpOpen]);
+  }, [runtime, open, helpOpen, towerPanel, notify, t]);
 
   // Gancho de inspeção só para os testes de navegador (ativado por localStorage).
   useEffect(() => {
@@ -319,7 +347,7 @@ export default function UniversePage() {
   }, [mode]);
 
   // Estado do HUD (modo, veículo, velocidade, avisos) — lido do jogo 5× por segundo, não a cada quadro.
-  const [hud, setHud] = useState<Hud>({ mode: 'foot', busy: false, vehicle: null, kmh: 0, alt: 0, notice: null });
+  const [hud, setHud] = useState<Hud>({ mode: 'foot', busy: false, vehicle: null, kmh: 0, alt: 0, notice: null, tower: null });
   useEffect(() => {
     if (mode !== '3d') return;
     const id = setInterval(() => {
@@ -334,6 +362,12 @@ export default function UniversePage() {
           kmh: Math.round(Math.abs(speed) * 3.6),
           alt: inVehicle && v.kind === 'hover' ? Math.round(v.craft.y) : 0,
           notice: runtime.notice,
+          tower: (() => {
+            const tw = runtime.tower;
+            const w = runtime.walker;
+            const inTower = tw.level > 0 || tw.riding || tw.prompt !== null || (runtime.mode === 'foot' && insideLobby(w.x, w.z));
+            return inTower ? { level: tw.level, prompt: tw.prompt, riding: tw.riding, moving: tw.elevator.phase === 'moving', floor: tw.elevator.floor } : null;
+          })(),
         };
         return JSON.stringify(next) === JSON.stringify(prev) ? prev : next;
       });
@@ -351,7 +385,17 @@ export default function UniversePage() {
   const modeLabel = hud.mode === 'car' ? t.hud.modes.car(vehicleName(hud.vehicle)) : hud.mode === 'hover' ? t.hud.modes.hover : t.hud.modes.foot;
   const ModeIcon = hud.mode === 'car' ? Car : hud.mode === 'hover' ? Plane : Footprints;
   // Ação principal do momento (o mesmo que a tecla E).
-  const action = hud.busy ? null : hud.mode !== 'foot' ? t.hud.exitVehicle : nearVehicle ? t.hud.enter(vehicleName(nearVehicle)) : near && !open ? t.hud.near(t.places[near].name) : null;
+  const towerAction = hud.tower?.prompt === 'panel' ? t.tower.panel : hud.tower?.prompt === 'call' ? t.tower.call : null;
+  const action = hud.busy ? null : hud.mode !== 'foot' ? t.hud.exitVehicle : towerAction ? towerAction : nearVehicle ? t.hud.enter(vehicleName(nearVehicle)) : near && !open ? t.hud.near(t.places[near].name) : null;
+  const floorName = (i: number) => {
+    const sector = FLOORS.find((f) => f.index === i)?.sector as SectorId | null | undefined;
+    return `${t.tower.floor(i)} · ${sector ? t.tower.sectors[sector] : t.tower.free}`;
+  };
+  const choose = (i: number) => {
+    const r = chooseFloor(runtime.tower, i);
+    if (r === 'ok' || r === 'here') setTowerPanel(false);
+    else notify({ tone: 'info', message: t.tower.requests[r] });
+  };
 
   const header = (
     <div className="container-page flex flex-wrap items-end justify-between gap-4 py-8">
@@ -466,7 +510,7 @@ export default function UniversePage() {
                 calmCamera={reducedMotion}
                 presenting={presenting}
                 sound={sound}
-                inputEnabled={!open && !helpOpen && !presenting}
+                inputEnabled={!open && !helpOpen && !presenting && !towerPanel}
                 near={near}
                 texts={texts}
                 billboards={billboards}
@@ -509,6 +553,11 @@ export default function UniversePage() {
                     <ModeIcon aria-hidden className="size-3.5 text-accent-text" />
                     {modeLabel}
                   </p>
+                  {hud.tower && (
+                    <p className="mt-0.5 font-mono text-[0.68rem] uppercase tracking-wider text-accent-text" data-tower-floor={hud.tower.riding ? hud.tower.floor : hud.tower.level}>
+                      {t.tower.name} · {hud.tower.moving ? `${t.tower.floor(hud.tower.floor)} …` : floorName(hud.tower.riding ? hud.tower.floor : hud.tower.level)}
+                    </p>
+                  )}
                 </div>
               </div>
               <div className="pointer-events-auto">
@@ -747,6 +796,35 @@ export default function UniversePage() {
           </section>
         </>
       )}
+
+      {/* Painel do elevador da Torre: os andares do registro, os disponíveis e os em planejamento. */}
+      <Dialog open={towerPanel} onClose={() => setTowerPanel(false)} title={t.tower.panelTitle} description={t.tower.panelLead}>
+        <ul className="grid gap-1.5">
+          {[...FLOORS].reverse().map((f) => {
+            const here = f.index === runtime.tower.elevator.floor;
+            const open = f.status === 'open';
+            return (
+              <li key={f.index}>
+                <button
+                  type="button"
+                  disabled={!open}
+                  aria-current={here ? 'location' : undefined}
+                  onClick={() => choose(f.index)}
+                  className={cn(
+                    'flex w-full items-center gap-3 rounded-lg border px-3 py-2 text-left text-sm transition-colors',
+                    open ? 'border-line-strong hover:border-accent/60 hover:bg-surface-2' : 'cursor-not-allowed border-line text-fg-subtle',
+                    here && 'border-accent bg-accent-soft',
+                  )}
+                >
+                  <span className="w-8 font-mono text-base font-semibold tabular-nums">{f.index === 0 ? 'T' : f.index}</span>
+                  <span className="flex-1">{f.sector ? t.tower.sectors[f.sector] : t.tower.free}</span>
+                  <span className="font-mono text-[0.68rem] uppercase tracking-wider">{here ? (open ? t.tower.openDoor : '') : open ? '' : t.tower.planned}</span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </Dialog>
 
       {/* Painel do local */}
       <Dialog open={open !== null} onClose={() => setOpen(null)} variant="drawer" title={open ? t.places[open].name : ''} description={open ? t.places[open].kicker : undefined}>

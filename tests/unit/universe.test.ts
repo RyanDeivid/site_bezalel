@@ -334,10 +334,11 @@ describe('Universe — a pé', () => {
   });
 
   it('não entra em prédios nem atravessa carros', () => {
+    // Longe da porta da Torre (no centro, em x = 0), o vidro do saguão para o visitante.
     const hq = BUILDINGS[0]!.solids[0]!;
-    const w = createWalker({ x: 0, z: hq.maxZ + 5, yaw: Math.PI });
+    const w = createWalker({ x: 10, z: hq.maxZ + 5, yaw: Math.PI });
     for (let t = 0; t < 6; t += 1 / 60) stepWalker(w, { x: 0, z: -1, run: true }, 1 / 60, solids);
-    expect(w.z).toBeGreaterThanOrEqual(hq.maxZ + PERSON_RADIUS - 0.01);
+    expect(w.z).toBeGreaterThanOrEqual(-68.4 + 0.15 + PERSON_RADIUS - 0.01);
     const w2 = createWalker({ x: 0, z: -10, yaw: 0 });
     for (let t = 0; t < 6; t += 1 / 60) stepWalker(w2, { x: 0, z: 1, run: false }, 1 / 60, [], [{ x: 0, z: 0, r: 1 }]);
     expect(Math.hypot(w2.x, w2.z)).toBeGreaterThanOrEqual(1 + PERSON_RADIUS - 0.01);

@@ -29,6 +29,13 @@ export interface Mover {
   stride: number;
 }
 
+/** Velocidade depois de um empurrão `push` (m/s) de uma parede: o que ia contra ela some, até zero, e só. */
+function absorb(v: number, push: number): number {
+  if (push > 0) return Math.min(v + push, Math.max(v, 0));
+  if (push < 0) return Math.max(v + push, Math.min(v, 0));
+  return v;
+}
+
 export function stepMotion(w: Mover, input: WalkInput, dt: number, constrain: (p: { x: number; z: number }) => void): void {
   const len = Math.min(1, Math.hypot(input.x, input.z));
   const top = input.run ? RUN_SPEED : WALK_SPEED;
@@ -47,10 +54,12 @@ export function stepMotion(w: Mover, input: WalkInput, dt: number, constrain: (p
   const before = { x: w.x + w.vx * dt, z: w.z + w.vz * dt };
   const p = { ...before };
   constrain(p);
-  // Encostou numa parede: perde a velocidade contra ela (desliza ao longo dela).
+  // Encostou numa parede: perde a velocidade contra ela (desliza ao longo dela). A parede só tira
+  // velocidade, nunca dá: um empurrão grande (cair dentro de um móvel ao ser posicionado) virava dezenas de
+  // m/s no quadro seguinte e arremessava o visitante através da parede ao lado.
   if (dt > 0) {
-    w.vx += (p.x - before.x) / dt;
-    w.vz += (p.z - before.z) / dt;
+    w.vx = absorb(w.vx, (p.x - before.x) / dt);
+    w.vz = absorb(w.vz, (p.z - before.z) / dt);
   }
   w.x = p.x;
   w.z = p.z;

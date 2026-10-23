@@ -75,7 +75,9 @@ export function buildHq(detail: boolean): Map<HqSlot, THREE.BufferGeometry> {
     glassN,
   );
   const bronze = ctx.get('metal', C.bronze);
-  for (let x = -lobby.x; x <= lobby.x + 0.01; x += 2.5) segment(bronze, V(x, base, lobby.z + 0.1), V(x, lobby.top, lobby.z + 0.1), 0.16);
+  // Montantes a cada 2,5 m, menos no vão da porta da Torre (lá ficam os batentes).
+  for (let x = -lobby.x; x <= lobby.x + 0.01; x += 2.5) if (Math.abs(x) > 2.3) segment(bronze, V(x, base, lobby.z + 0.1), V(x, lobby.top, lobby.z + 0.1), 0.16);
+  for (const x of [-2.25, 2.25]) segment(bronze, V(x, base, lobby.z + 0.1), V(x, lobby.top, lobby.z + 0.1), 0.16);
   segment(bronze, V(-lobby.x, base + 3.8, lobby.z + 0.1), V(lobby.x, base + 3.8, lobby.z + 0.1), 0.14);
   // Cornija de metal champanhe no alto do pódio; cobertura com um filete dourado na borda da frente.
   walls(ctx.get('metal', CHAMPAGNE), outline('box', 40, 26, 0.15, 0, HQ.z), pt - 0.45, 0.45, false);

@@ -1068,3 +1068,79 @@ test('Universe no celular pequeno: a orientação cabe na tela (com o Fechar à 
     await expect(help).toBeHidden();
   }
 });
+
+test('Universe: o som para quando a página sai da tela (outro app ou aba) e volta quando ela volta', async ({ page, isMobile }) => {
+  test.skip(isMobile, 'No computador (o mesmo código atende o celular).');
+  test.setTimeout(120_000);
+  await page.addInitScript(() => {
+    localStorage.setItem('bz-universe-help-v2', 'seen');
+    localStorage.setItem('bz-universe-debug', '1');
+    localStorage.setItem('bz-demo-banner-v1', 'dismissed');
+    sessionStorage.setItem('bz-universe-quality', 'low');
+    // A visibilidade da página, controlável pelo teste (o navegador de teste está sempre "visível").
+    let hidden = false;
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => (hidden ? 'hidden' : 'visible') });
+    (window as unknown as { __setHidden: (h: boolean) => void }).__setHidden = (h) => {
+      hidden = h;
+      document.dispatchEvent(new Event('visibilitychange'));
+    };
+  });
+  await gotoReady(page, 'universe/');
+  const enter = page.getByRole('button', { name: 'Explorar em 3D' });
+  test.skip(await enter.isDisabled(), 'WebGL indisponível neste navegador de teste.');
+  await enter.click();
+  type AudioWindow = { __bzUniverseAudio?: { state: () => string; rms: () => number }; __setHidden: (h: boolean) => void };
+  await page.waitForFunction(() => Boolean((window as unknown as AudioWindow).__bzUniverseAudio), undefined, { timeout: 60_000 });
+  await page.mouse.click(400, 400);
+  const state = () => page.evaluate(() => (window as unknown as AudioWindow).__bzUniverseAudio!.state());
+  await expect.poll(state, { timeout: 15_000 }).toBe('running');
+  // (O nível do som não é conferido aqui: no navegador de teste, sob carga, a saída de áudio pode parar de
+  // ser lida mesmo com o contexto rodando. O nível se mede com scripts/audio-level-universe.mjs.)
+  await page.evaluate(() => (window as unknown as AudioWindow).__setHidden(true));
+  await expect.poll(state, { timeout: 5_000 }).toBe('suspended');
+  await page.evaluate(() => (window as unknown as AudioWindow).__setHidden(false));
+  await expect.poll(state, { timeout: 5_000 }).toBe('running');
+});
+
+test('Universe: Torre Bezalel — entra pela recepção, chama o elevador, sobe à presidência e volta ao térreo', async ({ page, isMobile }) => {
+  test.skip(isMobile, 'No computador (o celular usa o mesmo jogo, com o botão da ação).');
+  test.setTimeout(180_000);
+  await page.addInitScript(() => {
+    localStorage.setItem('bz-universe-help-v2', 'seen');
+    localStorage.setItem('bz-universe-debug', '1');
+    localStorage.setItem('bz-demo-banner-v1', 'dismissed');
+    sessionStorage.setItem('bz-universe-quality', 'low');
+  });
+  await gotoReady(page, 'universe/');
+  const enter = page.getByRole('button', { name: 'Explorar em 3D' });
+  test.skip(await enter.isDisabled(), 'WebGL indisponível neste navegador de teste.');
+  await enter.click();
+  await page.waitForFunction(() => Boolean((window as UniverseWindow).__bzUniverse), undefined, { timeout: 60_000 });
+  type TowerState = { level: number; riding: boolean; prompt: string | null; phase: string; floor: number; door: number };
+  const tower = () => page.evaluate(() => (window as unknown as { __bzUniverse: { state: () => { tower: TowerState; walker: { y: number } } } }).__bzUniverse.state());
+  // Diante da porta do elevador, na recepção: o HUD mostra a Torre e oferece chamar.
+  await page.evaluate(() => (window as UniverseWindow).__bzUniverse!.placeWalker(0, -79.6, Math.PI));
+  const action = page.getByRole('button', { name: /Chamar o elevador/ });
+  await expect(action).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(/Torre Bezalel · Térreo · Recepção/)).toBeVisible();
+  await action.click();
+  await expect.poll(async () => (await tower()).tower.door, { timeout: 15_000 }).toBeGreaterThan(0.9);
+  // Entra na cabina e abre o painel: os andares do registro, com os em planejamento desabilitados.
+  await page.evaluate(() => (window as UniverseWindow).__bzUniverse!.placeWalker(0, -83.7, Math.PI));
+  await page.getByRole('button', { name: /Painel do elevador/ }).click();
+  const panel = page.getByRole('dialog', { name: 'Elevador da Torre Bezalel' });
+  await expect(panel).toBeVisible();
+  await expect(panel.getByRole('button', { name: /Comercial e Produtos/ })).toBeDisabled();
+  await panel.getByRole('button', { name: /Presidência/ }).click();
+  await expect(panel).toBeHidden();
+  // A viagem: o visitante sobe com a cabina e chega à presidência, a 53,3 m.
+  await expect.poll(async () => (await tower()).tower.floor, { timeout: 40_000 }).toBe(12);
+  await expect.poll(async () => (await tower()).tower.door, { timeout: 15_000 }).toBeGreaterThan(0.9);
+  expect((await tower()).walker.y).toBeCloseTo(53.3, 1);
+  await expect(page.getByText(/Torre Bezalel · 12º andar · Presidência/)).toBeVisible();
+  // De volta ao térreo pelo painel.
+  await page.getByRole('button', { name: /Painel do elevador/ }).click();
+  await panel.getByRole('button', { name: /Recepção/ }).click();
+  await expect.poll(async () => (await tower()).tower.floor, { timeout: 40_000 }).toBe(0);
+  await expect.poll(async () => (await tower()).walker.y, { timeout: 15_000 }).toBeLessThan(0.5);
+});

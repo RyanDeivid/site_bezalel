@@ -1,3 +1,5 @@
+import { towerStreetSolids } from './tower';
+
 /**
  * Bezalel Universe — planta da cidade, descrita por dados (sem three.js).
  *
@@ -53,6 +55,11 @@ export interface BuildingSpec {
   solids: Solid[];
   /** Altura total (para a câmera e o mapa). */
   height: number;
+  /**
+   * Colisões finas, quando o edifício se percorre por dentro (a Torre Bezalel): paredes, vãos de porta,
+   * lajes. Os `solids` continuam sendo os volumes grossos (clique, mapa, afastamento das árvores).
+   */
+  collision?: Solid[];
 }
 
 export interface PlaceSpec {
@@ -139,6 +146,8 @@ export const BUILDINGS: BuildingSpec[] = [
     facing: 0,
     height: 81,
     solids: [box(0, -80, 40, 26, 9.3), box(0, -82, 22, 16, 57.3), box(0, -82, 17, 17, 81)],
+    // Por dentro: o pódio oco (recepção, porta, núcleo do elevador) e a torre maciça acima dele (tower.ts).
+    collision: [...towerStreetSolids(), box(0, -82, 17, 17, 81, 57.3)],
   },
   {
     // Laboratório de IA: pavilhão de vidro em que se entra a pé (porta a oeste, para a praça), sob um teto
@@ -456,7 +465,7 @@ export const skybridgeSolid = (s: Skybridge): Solid => ({
 /** Todos os sólidos da cidade: edifícios, monumento, torres e passarelas. */
 export function citySolids(quality: Quality): Solid[] {
   const towers = cityTowers(quality);
-  return [...BUILDINGS.flatMap((b) => b.solids), MONUMENT_SOLID, ...BILLBOARDS.map(billboardSolid), ...towers.flatMap(towerSolids), ...skybridges(towers).map(skybridgeSolid)];
+  return [...BUILDINGS.flatMap((b) => b.collision ?? b.solids), MONUMENT_SOLID, ...BILLBOARDS.map(billboardSolid), ...towers.flatMap(towerSolids), ...skybridges(towers).map(skybridgeSolid)];
 }
 
 /** O ponto (com raio) está dentro de algum sólido, na altura dada? */

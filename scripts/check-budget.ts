@@ -30,7 +30,10 @@ const BUDGET = {
   // Próxima geração: +5 kB (simulação em passo fixo com interpolação, carros estacionados delegados ao trânsito,
   // encaixes de modelos de artistas — os carregadores glTF/KTX2/meshopt ficam fora, só baixam se houver modelo —
   // e o visitante compartilhado com o laboratório).
-  experience: { LabScene: 300, UniverseScene: 335, RevelationScene: 215 },
+  // Torre Bezalel: +10 kB (colisões, elevador, registro dos andares e os textos, que a física usa desde o
+  // primeiro quadro; o interior da torre fica num pedaço à parte, baixado só perto dela), ritmo de 30 quadros
+  // por segundo nos celulares, ambientação sonora e o visitante em 5 chamadas.
+  experience: { LabScene: 300, UniverseScene: 345, RevelationScene: 215 },
 };
 
 const gz = async (file: string) => gzipSync(await readFile(file)).length / KB;

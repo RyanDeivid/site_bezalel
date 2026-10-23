@@ -24,6 +24,22 @@ export function Soundscape({ runtime, enabled, debug }: { runtime: UniverseRunti
     };
   }, [audio, debug]);
   useEffect(() => audio?.setEnabled(enabled), [audio, enabled]);
+  // Fora da tela (outro app, outra aba, tela bloqueada), o som para: o laço de quadros já para sozinho,
+  // mas o contexto de áudio não, e as vozes continuavam no último volume. De volta, ele retoma.
+  useEffect(() => {
+    if (!audio) return;
+    const sync = () => audio.setHidden(document.visibilityState === 'hidden');
+    const hide = () => audio.setHidden(true);
+    document.addEventListener('visibilitychange', sync);
+    window.addEventListener('pagehide', hide);
+    window.addEventListener('pageshow', sync);
+    sync();
+    return () => {
+      document.removeEventListener('visibilitychange', sync);
+      window.removeEventListener('pagehide', hide);
+      window.removeEventListener('pageshow', sync);
+    };
+  }, [audio]);
   useEffect(() => {
     if (!audio) return;
     const resume = () => audio.resume();
@@ -45,6 +61,11 @@ export function Soundscape({ runtime, enabled, debug }: { runtime: UniverseRunti
       s.mode = runtime.mode;
     }
     for (const cue of runtime.sounds.splice(0)) if (cue === 'chime') audio.chime();
+    // Elevador: o sinal ao chegar, e o deslizar da porta.
+    for (const ev of runtime.tower.events.splice(0)) {
+      if (ev === 'arrived') audio.chime();
+      else audio.elevatorDoor();
+    }
     const v = vehicleById(runtime, runtime.active);
     const inVehicle = runtime.mode === 'driving' && v;
     let speed: number;

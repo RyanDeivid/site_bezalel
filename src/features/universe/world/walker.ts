@@ -35,12 +35,17 @@ export function createWalker(at: { x: number; z: number; yaw: number }): WalkerS
 
 export const walkerSpeed = (w: WalkerState) => Math.hypot(w.vx, w.vz);
 
-export function stepWalker(w: WalkerState, input: WalkInput, dt: number, solids: Solid[], bodies: Body[] = []): void {
+/**
+ * `floor`: piso fixo (um andar da Torre ou a cabina do elevador, onde o chão não é o da cidade). Sem ele,
+ * o visitante acompanha o chão da cidade (rua, calçada, quadra, praça).
+ */
+export function stepWalker(w: WalkerState, input: WalkInput, dt: number, solids: Solid[], bodies: Body[] = [], floor?: number): void {
   stepMotion(w, input, dt, (p) => {
     pushOutOfSolids(p, PERSON_RADIUS, solids, w.y + 0.2);
     pushOutOfBodies(p, PERSON_RADIUS, bodies);
   });
   w.x = Math.max(-WORLD_HALF + 1, Math.min(WORLD_HALF - 1, w.x));
   w.z = Math.max(-WORLD_HALF + 1, Math.min(WORLD_HALF - 1, w.z));
-  w.y += (groundHeight(w.x, w.z) - w.y) * (1 - Math.exp(-dt * 14));
+  if (floor !== undefined) w.y = floor;
+  else w.y += (groundHeight(w.x, w.z) - w.y) * (1 - Math.exp(-dt * 14));
 }
