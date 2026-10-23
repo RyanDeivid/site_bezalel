@@ -28,7 +28,7 @@ import { journeyContent } from './journey-content';
 import { CoursePicker, JourneyPanel, type LiveMetric } from './JourneyPanel';
 import { Minimap } from './hud/Minimap';
 import { LabFloorPlan } from './LabFloorPlan';
-import { createLabRuntime, STATION_ORDER } from './layout';
+import { createLabRuntime, STATION_ORDER, type LabRuntime } from './layout';
 import { OpsCenter } from './OpsCenter';
 import { buildHub, buildScreens, buildSideScreens } from './screen-content';
 import { StationDetails } from './StationDetails';
@@ -505,17 +505,39 @@ export default function LabPage() {
                   <span className="kbd">W</span> <span className="kbd">A</span> <span className="kbd">S</span> <span className="kbd">D</span> / ←↑↓→ · {l.hud.move}
                 </p>
                 <p className="mt-1">
+                  <span className="kbd">Shift</span> · {l.hud.run}
+                </p>
+                <p className="mt-1">
                   <span className="kbd">E</span> · {l.hud.interact}
                 </p>
                 <p className="mt-1">{l.hud.clickWalk}</p>
               </div>
             )}
           </div>
+          {device.coarse && !journey && (
+            <button
+              type="button"
+              aria-label={l.hud.run}
+              className="glass absolute bottom-16 right-4 grid size-16 touch-none select-none place-items-center rounded-full border border-line-strong active:bg-accent-soft"
+              onPointerDown={(e) => {
+                e.currentTarget.setPointerCapture(e.pointerId);
+                setRun(runtime, true);
+              }}
+              onPointerUp={() => setRun(runtime, false)}
+              onPointerCancel={() => setRun(runtime, false)}
+              onContextMenu={(e) => e.preventDefault()}
+            >
+              <Footprints className="size-6" />
+            </button>
+          )}
           {device.coarse && !journey && <p className="glass absolute bottom-36 left-4 max-w-[14rem] rounded-lg px-3 py-2 text-xs text-fg-muted md:hidden">{l.hud.touchHint}</p>}
           {!journey && (
-            <Button variant="secondary" size="sm" className="glass absolute bottom-4 right-4 lg:hidden" onClick={() => setOpen('hub')}>
-              {l.ops.title}
-            </Button>
+            // O Button já é `relative` (que venceria um `absolute` nele): quem se posiciona é o invólucro.
+            <div className="absolute bottom-4 right-4 lg:hidden">
+              <Button variant="secondary" size="sm" className="glass" onClick={() => setOpen('hub')}>
+                {l.ops.title}
+              </Button>
+            </div>
           )}
 
           {/* Acesso por teclado/leitor de tela às estações */}
@@ -594,4 +616,9 @@ export default function LabPage() {
       </Dialog>
     </>
   );
+}
+
+/** Escrito fora do componente: o estado do visitante é um objeto mutável (não é estado do React). */
+function setRun(runtime: LabRuntime, on: boolean) {
+  runtime.run = on;
 }

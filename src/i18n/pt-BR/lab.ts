@@ -35,6 +35,7 @@ export const lab = {
       minimap: 'Mapa do laboratório',
       you: 'Você',
       joystick: 'Joystick de movimento',
+      run: 'Correr',
       webglLost: 'O contexto 3D foi perdido. Abrimos a versão 2D.',
       fps: 'Desempenho baixo detectado: qualidade reduzida automaticamente.',
     },

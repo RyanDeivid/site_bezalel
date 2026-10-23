@@ -1,4 +1,5 @@
 import type { AgentEvent, AgentId } from '@/types/domain';
+import { VISITOR_CAMERA, type Mover } from '@/features/universe/world/visitor';
 
 /**
  * Planta do campus do laboratório, compartilhada pela cena 3D, pela planta 2D
@@ -125,7 +126,10 @@ export const OBSTACLES: Obstacle[] = STATIONS.flatMap((s) => [
 export interface LabRuntime {
   keys: Set<string>;
   joystick: { x: number; y: number };
-  player: { x: number; z: number; heading: number };
+  /** O visitante (o mesmo modelo de movimento do Universe: velocidade, rumo e passada). */
+  player: Mover;
+  /** Correr (o botão de toque; no teclado é o Shift). */
+  run: boolean;
   target: { x: number; z: number } | null;
   camera: { yaw: number; pitch: number; distance: number };
   near: AgentId | null;
@@ -153,14 +157,20 @@ export interface GuideRuntime {
   cameraSettled?: boolean;
 }
 
+function mover(x: number, z: number, heading: number): Mover {
+  return { x, z, heading, vx: 0, vz: 0, stride: 0 };
+}
+
 /** Onde o visitante começa: na entrada ou, com `?setor=`, de frente para um setor. */
 export function spawnPose(at?: AgentId | null): { player: LabRuntime['player']; camera: LabRuntime['camera'] } {
-  if (!at) return { player: { x: SPAWN.x, z: SPAWN.z, heading: Math.PI }, camera: { yaw: 0, pitch: 0.6, distance: 13 } };
+  // A câmera começa como a do Universe: atrás do ombro, quase na horizontal.
+  const camera = { pitch: VISITOR_CAMERA.pitch.start, distance: VISITOR_CAMERA.distance.start };
+  if (!at) return { player: mover(SPAWN.x, SPAWN.z, Math.PI), camera: { yaw: 0, ...camera } };
   const s = stationById(at);
   // Na frente do balcão, olhando para o setor; câmera atrás, do lado da Central.
   const p = sectorPoint(s, 6.2);
   const toHub = Math.atan2(-Math.cos(s.angle), -Math.sin(s.angle));
-  return { player: { x: p.x, z: p.z, heading: toHub + Math.PI }, camera: { yaw: toHub, pitch: 0.5, distance: 9 } };
+  return { player: mover(p.x, p.z, toHub + Math.PI), camera: { yaw: toHub, ...camera } };
 }
 
 export function createLabRuntime(at?: AgentId | null): LabRuntime {
@@ -169,6 +179,7 @@ export function createLabRuntime(at?: AgentId | null): LabRuntime {
     keys: new Set(),
     joystick: { x: 0, y: 0 },
     player: pose.player,
+    run: false,
     target: null,
     camera: pose.camera,
     near: null,

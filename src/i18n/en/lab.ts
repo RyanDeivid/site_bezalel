@@ -38,6 +38,7 @@ export const lab: Widen<typeof base> = {
       minimap: 'Lab map',
       you: 'You',
       joystick: 'Movement joystick',
+      run: 'Run',
       webglLost: 'The 3D context was lost. We opened the 2D version.',
       fps: 'Low performance detected: quality reduced automatically.',
     },

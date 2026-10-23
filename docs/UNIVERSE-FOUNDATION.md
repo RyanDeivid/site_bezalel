@@ -436,6 +436,20 @@ seção 5).
 - 8 antes de 9;
 - 1 e 3 são independentes e os de maior retorno imediato.
 
+**Andamento (branch `universe-next`):**
+- **1, feito:** a troca de nível acontece no mesmo canvas (o teste e2e confere que é o mesmo elemento e a mesma
+  contagem de geometrias). Medido: um único quadro de 67–200 ms, contra 733 ms e mais 2 s de travadas antes.
+- **2, feito:** `world/simulation.ts` roda a física a 60 passos por segundo e o desenho interpola entre os dois
+  últimos passos.
+- **3, testado e trocado:** o `BatchedMesh` deixou os quadros mais lentos (ver a seção 5). No lugar dele, os
+  carros estacionados longe do visitante são desenhados pelos conjuntos instanciados do trânsito.
+- **8, base pronta:** há encaixes para modelos de artistas e uma ponte com o Blender, que um agente pode usar
+  pelo MCP do Blender (`BLENDER-PIPELINE.md`). Ainda nenhum modelo foi registrado.
+- **Visitante único:** o laboratório usa o mesmo visitante do Universe: o mesmo corpo (`scene/VisitorBody.tsx`),
+  o mesmo jeito de andar e correr (`world/visitor.ts`, `stepMotion`), a mesma câmera (`VISITOR_CAMERA`) e os
+  mesmos controles (Shift ou o botão de toque para correr). Só continuam próprios do laboratório o anel de
+  pilares, os pavilhões, o guia e o clique no piso.
+
 ---
 
 ## 9. Testes executados nesta fase

@@ -4,6 +4,7 @@ import { createCraft, planAutopilot, type Autopilot, type CraftState } from './f
 import { CAR_SPECS, carCircles, createCar, exitSpot, type Body, type CarClass, type CarState } from './vehicles';
 import { createClock, type SimClock } from './simulation';
 import { createWalker, PERSON_RADIUS, type WalkerState } from './walker';
+import { VISITOR_CAMERA } from './visitor';
 
 /**
  * Estado do jogador e dos veículos que ele pode usar — mutável, compartilhado
@@ -70,8 +71,8 @@ export interface UniverseRuntime {
   delegated: Set<string>;
 }
 
-export const CAMERA_PITCH = { min: -0.15, max: 1.2, start: 0.28 };
-export const CAMERA_DISTANCE = { min: 2.5, max: 40, start: 6.5 };
+export const CAMERA_PITCH = VISITOR_CAMERA.pitch;
+export const CAMERA_DISTANCE = VISITOR_CAMERA.distance;
 
 /** Veículos estacionados que o jogador pode usar (posição e direção iniciais). */
 export const PARKED: Array<{ id: string; kind: 'car'; cls: CarClass; paint: string; x: number; z: number; heading: number } | { id: string; kind: 'hover'; x: number; z: number; heading: number }> = [
