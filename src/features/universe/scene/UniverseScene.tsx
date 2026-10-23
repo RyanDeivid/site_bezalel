@@ -1,10 +1,11 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import * as THREE from 'three';
 import { readStorage } from '@/lib/storage';
 import { ContextLossWatcher } from '@/components/three/watchers';
 import { cityTowers, citySolids, skybridges, type PlaceId, type Quality } from '../world/city';
-import { QUALITY_CONFIG } from './quality';
+import { softwareWebGL } from '@/hooks/useDeviceProfile';
+import { QUALITY_CONFIG, renderConfig } from './quality';
 import type { UniverseRuntime } from '../world/runtime';
 import { AirTraffic } from './AirTraffic';
 import { useUniverseAssets } from './assets';
@@ -25,6 +26,7 @@ import { headlightBeam } from './lightDecals';
 import { Soundscape } from './Soundscape';
 import { Sun } from './Sun';
 import { Traffic } from './Traffic';
+import { mergeStatic } from './staticMerge';
 import { PlayerVehicles } from './Vehicles';
 
 export interface UniverseSceneProps {
@@ -143,10 +145,17 @@ function Sky({ quality }: { quality: Quality }) {
 }
 
 const World = memo(function World(props: UniverseSceneProps) {
-  const { quality, effects, runtime } = props;
-  const cfg = QUALITY_CONFIG[quality];
+  const { quality: render, effects, runtime } = props;
+  const cfg = renderConfig(render, softwareWebGL());
+  // Conteúdo × desenho. O que existe na cidade (densidade de torres, fachadas detalhadas, árvores, holofotes,
+  // trânsito, pedestres, texturas de 1024 px) é o do Ultra em qualquer nível: medido num celular emulado, o
+  // gargalo é o processador (chamadas de desenho), e esse conteúdo entra em malhas já juntas ou instanciadas —
+  // custa triângulos, não chamadas. Os níveis mudam o desenho: resolução, mapa de sombras, brilho. Sem placa
+  // de vídeo (WebGL por software: CI, aparelhos sem aceleração), a cidade leve de antes.
+  const quality: Quality = softwareWebGL() ? 'low' : 'ultra';
   const maxAniso = useThree((s) => s.gl.capabilities.getMaxAnisotropy());
   const assets = useUniverseAssets(quality, Math.min(cfg.anisotropy, maxAniso));
+  const dynamicShadows = !cfg.shadowCache;
   const towers = useMemo(() => cityTowers(quality), [quality]);
   const bridges = useMemo(() => skybridges(towers), [towers]);
   const solids = useMemo(() => citySolids(quality), [quality]);
@@ -167,7 +176,7 @@ const World = memo(function World(props: UniverseSceneProps) {
     [beam],
   );
   const farCarModels = useMemo(() => buildFarCarModels(), []);
-  const carMaterials = useMemo(() => createCarMaterials(quality), [quality]);
+  const carMaterials = useMemo(() => createCarMaterials(render), [render]);
   useEffect(() => () => disposeCarModels(carModels), [carModels]);
   useEffect(() => () => disposeCarModels(midCarModels), [midCarModels]);
   useEffect(() => () => disposeTrafficCarModels(trafficCarModels), [trafficCarModels]);
@@ -179,18 +188,18 @@ const World = memo(function World(props: UniverseSceneProps) {
       {/* Névoa exponencial na cor do horizonte: a cidade se dissolve no brilho dela, em profundidade. */}
       <fogExp2 attach="fog" args={[SKY.fog, cfg.fogDensity]} />
       {/* O mapa de reflexos é gerado no Warmup, sem travar a página. */}
-      <Sky quality={quality} />
+      <Sky quality={render} />
       {/* Luz em papéis: luar frio (principal, com sombras que acompanham a câmera), céu frio por cima e o
           rebote quente da rua por baixo (hemisfério), e um contraluz quente e baixo que recorta as silhuetas. */}
       <hemisphereLight args={['#8ea2d6', '#403c3e', 0.85]} />
       <ambientLight intensity={0.06} />
-      <Sun mapSize={cfg.shadows} range={cfg.shadowRange} every={cfg.shadowEvery} />
+      <Sun mapSize={cfg.shadows} range={cfg.shadowRange} every={cfg.shadowEvery} cached={cfg.shadowCache} />
       <directionalLight position={[150, 38, -160]} intensity={0.5} color="#ffcfae" />
       {/* Grupos com nome: a sonda de desempenho liga e desliga cada parte para medir o custo dela. */}
-      <group name="city">
+      <StaticBatch name="city" deps={[quality, assets, cfg.lightPools]}>
         <City assets={assets} quality={quality} pools={cfg.lightPools} animate={effects} />
         <ArrivalPark assets={assets} quality={quality} />
-      </group>
+      </StaticBatch>
       <group name="towers">
         <Towers assets={assets} quality={quality} towers={towers} />
         <Skybridges assets={assets} bridges={bridges} />
@@ -202,17 +211,17 @@ const World = memo(function World(props: UniverseSceneProps) {
         <Landmarks assets={assets} quality={quality} effects={effects} near={props.near} markers={!props.presenting} texts={props.texts} onSelect={props.onSelect} />
       </group>
       <group name="traffic">
-        <Traffic quality={quality} running={effects} runtime={runtime} models={trafficCarModels} farModels={farCarModels} materials={carMaterials} lodDistance={cfg.carLod} shadows={quality !== 'low'} beam={beam} />
+        <Traffic quality={quality} running={effects} runtime={runtime} models={trafficCarModels} farModels={farCarModels} materials={carMaterials} lodDistance={cfg.carLod} shadows={dynamicShadows} beam={beam} />
       </group>
       {/* Depois do trânsito: os pedestres entram na lista de corpos que ele zera a cada quadro. */}
       <group name="pedestrians">
-        <Pedestrians quality={quality} runtime={runtime} running={effects} />
+        <Pedestrians quality={quality} runtime={runtime} running={effects} shadows={dynamicShadows} />
       </group>
       <group name="air">
-        <AirTraffic quality={quality} running={effects} materials={carMaterials} lodDistance={cfg.airLod} />
+        <AirTraffic quality={quality} running={effects} materials={carMaterials} lodDistance={cfg.airLod} shadows={dynamicShadows} />
       </group>
       <group name="player">
-        <PlayerVehicles runtime={runtime} models={carModels} midModels={midCarModels} farModels={farCarModels} materials={carMaterials} assets={assets} effects={effects} lodDistance={cfg.carLod * 0.6} beam={beam} />
+        <PlayerVehicles runtime={runtime} models={carModels} midModels={midCarModels} farModels={farCarModels} materials={carMaterials} assets={assets} effects={effects} lodDistance={cfg.carLod * 0.6} beam={beam} shadows={dynamicShadows} />
         <Avatar runtime={runtime} effects={effects} />
       </group>
       <PlayerController
@@ -241,7 +250,7 @@ const World = memo(function World(props: UniverseSceneProps) {
  * React reconciliar a cidade inteira (centenas de elementos) — um quadro perdido a cada atualização.
  */
 export default memo(function UniverseScene(props: UniverseSceneProps) {
-  const cfg = QUALITY_CONFIG[props.quality];
+  const cfg = renderConfig(props.quality, softwareWebGL());
   // Resolução: começa no que a tela pede (dentro da faixa do nível) e a AdaptiveResolution ajusta.
   // Só o Ultra sobe além da tela (superamostragem), e só se o aparelho aguentar.
   const device = typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1;
@@ -299,3 +308,20 @@ function DprMirror({ quality, onChange }: { quality: Quality; onChange: (v: { qu
   useEffect(() => onChange({ quality, value }), [quality, value, onChange]);
   return null;
 }
+
+/**
+ * Um grupo estático: depois de montado (os filhos montam antes), as peças que
+ * compartilham material viram uma malha só (`mergeStatic`) — menos chamadas de
+ * desenho, o que mais pesa no processador de um celular.
+ */
+function StaticBatch({ name, deps, children }: { name: string; deps: unknown[]; children: ReactNode }) {
+  const ref = useRef<THREE.Group>(null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useLayoutEffect(() => (ref.current ? mergeStatic(ref.current) : undefined), deps);
+  return (
+    <group ref={ref} name={name}>
+      {children}
+    </group>
+  );
+}
+

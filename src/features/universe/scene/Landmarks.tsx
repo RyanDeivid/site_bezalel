@@ -1,5 +1,5 @@
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
-import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, type ReactNode } from 'react';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { AGENT_HEX } from '@/components/agents/AgentGlyph';
@@ -213,7 +213,7 @@ export function Landmarks({ assets, quality, effects, near, markers, texts, onSe
       {/* ---------------- Sede Bezalel ---------------- */}
       <group>
         {[...hq].map(([slot, geo]) => (
-          <mesh key={slot} geometry={geo} material={hqMaterial(slot)} castShadow={hi && solid(slot)} receiveShadow={solid(slot)} />
+          <mesh key={slot} geometry={geo} material={hqMaterial(slot)} castShadow={solid(slot)} receiveShadow={solid(slot)} />
         ))}
         {/* Refletores no chão lavando os pilares e as laterais do pódio (uma malha só). */}
         <mesh geometry={washes} material={m.wash} renderOrder={6} />
@@ -249,13 +249,16 @@ export function Landmarks({ assets, quality, effects, near, markers, texts, onSe
           núcleo (a rede neural girando) e as seis estações dos agentes, cada uma com a sua luz e o nome. */}
       <group>
         {[...lab].map(([slot, geo]) => (
-          <mesh key={slot} geometry={geo} material={slot === 'labGlass' ? m.glass : towerSlotMaterial(slot, assets)} castShadow={hi && slot === 'metal'} receiveShadow={slot === 'matte'} />
+          <mesh key={slot} geometry={geo} material={slot === 'labGlass' ? m.glass : towerSlotMaterial(slot, assets)} castShadow={slot === 'metal'} receiveShadow={slot === 'matte'} />
         ))}
         {[-1, 1].map((s, i) => (
           <mesh key={s} ref={(el) => void (doors.current[i] = el)} material={m.glass} position={[LAB.x - LAB.half, LAB.base + LAB.door.height / 2, LAB.z + s * LAB.door.half * 0.5]} userData={{ dynamic: true }}>
             <boxGeometry args={[0.08, LAB.door.height, LAB.door.half]} />
           </mesh>
         ))}
+        {/* O interior (núcleo, rede e as seis estações) só de perto: de longe, por trás do vidro, são poucos
+            pixels — e 22 chamadas de desenho, o que mais pesa no processador de um celular. */}
+        <Near x={LAB.x} z={LAB.z} radius={LAB.half + 48}>
         <mesh material={m.glass} position={[LAB.x, LAB.base + 5.4, LAB.z]}>
           <cylinderGeometry args={[LAB.core, LAB.core, 10.8, 32, 1, true]} />
         </mesh>
@@ -284,6 +287,7 @@ export function Landmarks({ assets, quality, effects, near, markers, texts, onSe
             </group>
           );
         })}
+        </Near>
         {/* Nome na faixa de metal, acima da porta. */}
         <mesh position={[LAB.x - LAB.half - 0.08, LAB.wallTop - 0.55, LAB.z]} rotation={[0, -Math.PI / 2, 0]}>
           <planeGeometry args={[13, 1.05]} />
@@ -313,7 +317,7 @@ export function Landmarks({ assets, quality, effects, near, markers, texts, onSe
       {/* ---------------- Centro de Produtos ---------------- */}
       <group>
         {[...products].map(([slot, geo]) => (
-          <mesh key={slot} geometry={geo} material={towerSlotMaterial(slot, assets)} castShadow={hi && solid(slot)} receiveShadow={solid(slot)} />
+          <mesh key={slot} geometry={geo} material={towerSlotMaterial(slot, assets)} castShadow={solid(slot)} receiveShadow={solid(slot)} />
         ))}
         {/* Letreiro */}
         <mesh position={[-61.6, 8.6, 0]} rotation={[0, Math.PI / 2, 0]}>
@@ -329,7 +333,7 @@ export function Landmarks({ assets, quality, effects, near, markers, texts, onSe
 
       {/* ---------------- Monumento da praça ---------------- */}
       <group>
-        <mesh material={m.stone} position={[0, MONUMENT.pedestal / 2 + 0.36, 0]} castShadow={hi}>
+        <mesh material={m.stone} position={[0, MONUMENT.pedestal / 2 + 0.36, 0]} castShadow>
           <cylinderGeometry args={[3.4, 3.9, MONUMENT.pedestal, 8]} />
         </mesh>
         <mesh material={m.glowGold} position={[0, MONUMENT.pedestal + 0.3, 0]} rotation={[Math.PI / 2, 0, Math.PI / 8]}>
@@ -436,6 +440,24 @@ function PlaceMarker(props: {
           <spriteMaterial map={label} toneMapped={false} depthWrite={false} />
         </sprite>
       </group>
+    </group>
+  );
+}
+
+/**
+ * Só aparece com a câmera a até `radius` metros (no chão) do ponto: interiores e
+ * detalhes que de longe são poucos pixels, mas custam chamadas de desenho.
+ * Dinâmico para a junção de peças estáticas (fica de fora dela).
+ */
+function Near({ x, z, radius, children }: { x: number; z: number; radius: number; children: ReactNode }) {
+  const ref = useRef<THREE.Group>(null);
+  useFrame(({ camera }) => {
+    const g = ref.current;
+    if (g) g.visible = (camera.position.x - x) ** 2 + (camera.position.z - z) ** 2 < radius * radius;
+  });
+  return (
+    <group ref={ref} userData={{ dynamic: true }}>
+      {children}
     </group>
   );
 }

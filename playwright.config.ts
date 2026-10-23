@@ -25,6 +25,9 @@ export default defineConfig({
     baseURL: `http://localhost:${port}${base}`,
     trace: 'retain-on-failure',
     ...(channel === 'chromium' ? {} : { channel }),
+    // PW_ARGS: argumentos extras do navegador — por exemplo, reproduzir o CI (sem placa de vídeo) num computador
+    // com placa: PW_ARGS="--use-angle=swiftshader --enable-unsafe-swiftshader".
+    ...(process.env.PW_ARGS ? { launchOptions: { args: process.env.PW_ARGS.split(' ') } } : {}),
   },
   projects: [
     { name: 'desktop', use: { ...devices['Desktop Chrome'], ...(channel === 'chromium' ? {} : { channel }) } },

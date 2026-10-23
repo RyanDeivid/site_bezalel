@@ -557,6 +557,69 @@ luzes no chão), **Média 66,3**, **Alta 46,2**, **Ultra 34,0**. O que importa
 mais para a sensação de fluidez — os quadros longos — está em
 [Fluidez](#fluidez-sem-travadas).
 
+## Baixa e Média com a cidade do Ultra (aparelhos modestos)
+
+Meta: a Baixa e a Média com a mesma cidade do Ultra, rodando num aparelho como o Redmi Note 9S
+(Snapdragon 720G, Adreno 618).
+
+**Como foi medido.** `scripts/bench-redmi.mjs` emula a tela desse celular: 2400 × 1080 a 2,75×, deitado,
+com toque. O processador fica 4× mais lento (CDP), um pouco pessimista: um núcleo do 720G é ~2,7× mais
+lento que o do computador de teste, pelo Geekbench de um núcleo. O quadro fica sem limite de 60 Hz, a
+resolução é fixa e a medida é a mediana de 5 janelas. A placa de vídeo não é emulada, e o número não
+substitui um teste no aparelho.
+
+**Onde estava o custo.** As medições descartaram o que parecia óbvio:
+- O tempo de GPU do temporizador do ANGLE marcava ~13 ms com qualquer resolução, até com nada na tela. É
+  espera, não trabalho, e foi descartado como medida.
+- Com o quadro solto, a resolução não muda o tempo: de 0,5 a 1,25 dá o mesmo.
+- Com o processador 2× mais lento, o quadro cresce 4 ms: o resto é o motor gráfico processando as chamadas
+  de desenho.
+- No perfil de CPU, quase todo o quadro é o three.js desenhando (~10 de 10,6 ms). A simulação (trânsito,
+  pedestres, voo, física) fica abaixo de 0,5 ms.
+
+O gargalo é o número de chamadas de desenho, não pixels nem triângulos.
+
+**O que mudou:**
+- **Uma passada para transparentes dos dois lados.** O three desenha esses objetos duas vezes por quadro e,
+  em cada uma, marca o material como alterado, o que recalcula o programa do shader. Uma armadilha no
+  `version` dos materiais mostrou 11 deles (vidros, brilhos, hologramas) recalculados todo quadro.
+  `forceSinglePass` (em `materialSplit.ts`) zera isso: as chamadas caíram ~20% na mesma vista.
+- **Sombras em cache na Baixa e na Média.** Só o que não se move projeta sombra (torres, marcos, árvores,
+  mobiliário). O mapa só é redesenhado quando o visitante se afasta um terço do alcance; entre um e outro,
+  custo zero por quadro. Carros, pedestres e o visitante ficam com a sombra de contato. A Baixa passou a ter
+  sombras (1024 px, 90 m) e a Média foi de 1024/70 m a 2048/115 m. A Alta e o Ultra seguem com sombras
+  dinâmicas.
+- **Conteúdo separado do desenho.** A cidade é a do Ultra em todo nível: densidade de torres, fachadas
+  detalhadas, árvores, holofotes, trânsito, pedestres e texturas de 1024 px. Isso entra em malhas já juntas
+  ou instanciadas e custa triângulos (de ~170 mil para ~440 mil na Baixa), não chamadas. Os níveis mudam o
+  desenho: resolução, mapa de sombras, brilho e nitidez.
+- **Menos chamadas onde não se vê diferença:**
+  - o interior do Laboratório de IA (22 peças) só aparece a menos de ~60 m;
+  - nos níveis de menor alcance, o carro estacionado só usa o modelo completo de bem perto;
+  - a junção de peças estáticas passou a aceitar transparentes em que a ordem não importa (brilho aditivo,
+    sem escrita de profundidade).
+- **Nitidez adaptativa (CAS) na passada final** da Baixa, Média e Alta. Realça a borda pela vizinhança, com
+  peso que cai onde o contraste já é alto, em espaço comprimido para as luzes HDR não estourarem. Recupera o
+  detalhe que o FXAA e a resolução abaixo da tela tiram. Brilho com mais níveis na Baixa (3 → 4) e na
+  Média (4 → 5).
+- **Perfil "sem placa de vídeo".** Com WebGL por software (SwiftShader no CI), a cidade fica leve, a
+  resolução fica em 0,5–0,6 e não há brilho, sombras nem poças de luz. Detectado uma vez por sessão.
+
+**Resultado no celular emulado (processador 4× mais lento).** O ruído entre rodadas foi de ±25% por um
+processo de vídeo do computador de teste em segundo plano, então os números são faixas de várias rodadas.
+
+| Nível | Antes (cidade leve) | Depois (cidade do Ultra) |
+|---|---|---|
+| Baixa | 36 fps na chegada | 30–41 fps, com sombras e ~2,6× os triângulos |
+| Média | 32 fps na chegada | 21–36 fps, com sombras de 2048 px e ~1,8× os triângulos |
+| Ultra (referência) | — | 14–16 fps (não é para esse aparelho) |
+
+**Limitações:**
+- Não foi medido num aparelho real.
+- A Adreno 618 não foi emulada: mais triângulos custam mais nela do que no computador de teste.
+- A resolução adaptativa e o modo Auto continuam como rede de segurança. Se o aparelho não aguentar,
+  descem a resolução e depois o nível.
+
 ## Fluidez: sem travadas
 
 A média de fps não mostra o engasgo; ele está nos quadros longos. A versão 4

@@ -24,20 +24,22 @@ interface Props {
   lodDistance: number;
   /** Facho dos faróis no asfalto, aceso no carro em uso (da Média para cima). */
   beam?: { geometry: THREE.BufferGeometry; material: THREE.Material } | null;
+  /** Projetam sombra no mapa? (Não com as sombras em cache: ficariam paradas onde o carro esteve.) */
+  shadows?: boolean;
 }
 
 /** Até esta distância da câmera (m), o carro estacionado usa o modelo completo; depois, o intermediário. */
 const NEAR_CAR = 18;
 
 /** Veículos que o jogador pode usar: os carros (com volante e suspensão visíveis) e o carro voador. */
-export function PlayerVehicles({ runtime, models, midModels, farModels, materials, assets, effects, lodDistance, beam }: Props) {
+export function PlayerVehicles({ runtime, models, midModels, farModels, materials, assets, effects, lodDistance, beam, shadows = true }: Props) {
   return (
     <>
       {runtime.vehicles.map((v) =>
         v.kind === 'car' ? (
-          <PlayerCar key={v.id} runtime={runtime} vehicle={v} model={models[v.cls]} mid={midModels[v.cls]} far={farModels[v.cls]} materials={materials} lodDistance={lodDistance} beam={beam ?? null} />
+          <PlayerCar key={v.id} runtime={runtime} vehicle={v} model={models[v.cls]} mid={midModels[v.cls]} far={farModels[v.cls]} materials={materials} lodDistance={lodDistance} beam={beam ?? null} shadows={shadows} />
         ) : (
-          <HoverCar key={v.id} runtime={runtime} vehicle={v} assets={assets} effects={effects} />
+          <HoverCar key={v.id} runtime={runtime} vehicle={v} assets={assets} effects={effects} shadows={shadows} />
         ),
       )}
     </>
@@ -169,8 +171,10 @@ function PlayerCar({
   materials,
   lodDistance,
   beam,
+  shadows,
 }: {
   runtime: UniverseRuntime;
+  shadows: boolean;
   beam: { geometry: THREE.BufferGeometry; material: THREE.Material } | null;
   vehicle: Extract<PlayerVehicle, { kind: 'car' }>;
   model: CarModel;
@@ -221,7 +225,9 @@ function PlayerCar({
     if (detailed.current) detailed.current.visible = near.current;
     if (simple.current) simple.current.visible = !near.current;
     if (!near.current) return;
-    full.current = runtime.active === vehicle.id || (full.current ? d2 < (NEAR_CAR * 1.15) ** 2 : d2 < NEAR_CAR ** 2);
+    // Nos níveis de menor alcance o modelo completo fica para bem perto (cada peça dele é uma chamada de desenho).
+    const fullAt = Math.min(NEAR_CAR, lodDistance * 0.6);
+    full.current = runtime.active === vehicle.id || (full.current ? d2 < (fullAt * 1.15) ** 2 : d2 < fullAt ** 2);
     fullParts.current.forEach((o) => o && (o.visible = full.current));
     midParts.current.forEach((o) => o && (o.visible = !full.current));
     // Suspensão: mergulha ao frear, "senta" ao acelerar, inclina na curva.
@@ -261,7 +267,7 @@ function PlayerCar({
         <group ref={body}>
           <group ref={(g) => void (fullParts.current[0] = g)}>
             {[...model.slots.entries()].map(([slot, geo]) => (
-              <mesh key={slot} geometry={geo} material={material(slot)} castShadow={slot === 'paint'} />
+              <mesh key={slot} geometry={geo} material={material(slot)} castShadow={shadows && slot === 'paint'} />
             ))}
           </group>
           <Cockpit
@@ -288,13 +294,13 @@ function PlayerCar({
           />
           <group ref={(g) => void (midParts.current[0] = g)} visible={false}>
             {[...mid.slots.entries()].map(([slot, geo]) => (
-              <mesh key={slot} geometry={geo} material={material(slot)} castShadow={slot === 'paint'} />
+              <mesh key={slot} geometry={geo} material={material(slot)} castShadow={shadows && slot === 'paint'} />
             ))}
           </group>
         </group>
         {[model, mid].map((lod, k) => (
           <group key={k} ref={(g) => void ((k ? midParts : fullParts).current[1] = g)} visible={k === 0}>
-            <instancedMesh ref={(m) => void (tires.current[k] = m)} args={[lod.tire, materials.tire, 4]} castShadow frustumCulled={false} />
+            <instancedMesh ref={(m) => void (tires.current[k] = m)} args={[lod.tire, materials.tire, 4]} castShadow={shadows} frustumCulled={false} />
             <instancedMesh ref={(m) => void (rims.current[k] = m)} args={[lod.rim, materials.rim, 4]} frustumCulled={false} />
           </group>
         ))}
@@ -325,7 +331,7 @@ const HOVER_LIGHTS: Partial<Record<AirSlot, [number, number, number]>> = {
  * luzes (propulsores e navegação) numa malha só, com a cor no vértice. Escala
  * 0,85: a largura com os rotores fica no raio de colisão do voo (2,2 m).
  */
-function HoverCar({ runtime, vehicle, assets, effects }: { runtime: UniverseRuntime; vehicle: Extract<PlayerVehicle, { kind: 'hover' }>; assets: UniverseAssets; effects: boolean }) {
+function HoverCar({ runtime, vehicle, assets, effects, shadows }: { runtime: UniverseRuntime; vehicle: Extract<PlayerVehicle, { kind: 'hover' }>; assets: UniverseAssets; effects: boolean; shadows: boolean }) {
   const car = useRef<THREE.Group>(null);
   const body = useRef<THREE.Group>(null);
   const shadow = useRef<THREE.Mesh>(null);
@@ -413,7 +419,7 @@ function HoverCar({ runtime, vehicle, assets, effects }: { runtime: UniverseRunt
         <group ref={body} scale={HOVER_SCALE}>
           {parts.map(([slot, mat, cast]) => {
             const geo = model.slots.get(slot);
-            return geo ? <mesh key={slot} geometry={geo} material={mat} castShadow={cast} /> : null;
+            return geo ? <mesh key={slot} geometry={geo} material={mat} castShadow={shadows && cast} /> : null;
           })}
           <mesh geometry={model.lights} material={local.lights} />
           <Cockpit

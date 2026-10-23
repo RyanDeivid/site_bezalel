@@ -2,7 +2,7 @@ import { useFrame } from '@react-three/fiber';
 import { useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { airDebug, airPose, createAirTraffic, type AirClass } from '../world/air';
-import { atLeast, type Quality } from '../world/city';
+import type { Quality } from '../world/city';
 import { AIR_CLASSES, AIR_PAINT, buildFarAirModels, buildNearAirModels, disposeFarAirModels, type NearAirSlot } from './airModels';
 import type { CarMaterials } from './carModels';
 
@@ -14,7 +14,7 @@ import type { CarMaterials } from './carModels';
  * que estão a menos de `lodDistance` da câmera, e o de longe (3 malhas, um
  * terço das divisões) para os demais — quase sempre a maioria, lá no alto.
  */
-export function AirTraffic({ quality, running, materials, lodDistance }: { quality: Quality; running: boolean; materials: CarMaterials; lodDistance: number }) {
+export function AirTraffic({ quality, running, materials, lodDistance, shadows = false }: { quality: Quality; running: boolean; materials: CarMaterials; lodDistance: number; /** Projetam sombra no mapa (só com as sombras dinâmicas). */ shadows?: boolean }) {
   const traffic = useMemo(() => createAirTraffic(quality), [quality]);
   const models = useMemo(() => buildNearAirModels(), []);
   const farModels = useMemo(() => buildFarAirModels(), []);
@@ -127,7 +127,7 @@ export function AirTraffic({ quality, running, materials, lodDistance }: { quali
         const far = farModels[cls];
         return [
           ...[...models[cls].entries()].map(([slot, geo], i) => (
-            <instancedMesh key={`${cls}-${slot}`} ref={(m) => void (meshes.current[cls][i] = m)} args={[geo, material(cls, slot), n]} count={0} frustumCulled={false} castShadow={atLeast(quality, 'high') && slot === 'hull'} />
+            <instancedMesh key={`${cls}-${slot}`} ref={(m) => void (meshes.current[cls][i] = m)} args={[geo, material(cls, slot), n]} count={0} frustumCulled={false} castShadow={shadows && slot === 'hull'} />
           )),
           ...(
             [

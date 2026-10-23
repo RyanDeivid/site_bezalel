@@ -55,7 +55,7 @@ function body() {
  * praça), todos numa malha instanciada. Entram nas colisões como o trânsito:
  * o jogador não os atravessa. Param com "Pausar animações".
  */
-export function Pedestrians({ quality, runtime, running }: { quality: Quality; runtime: UniverseRuntime; running: boolean }) {
+export function Pedestrians({ quality, runtime, running, shadows = false }: { quality: Quality; runtime: UniverseRuntime; running: boolean; /** Projetam sombra no mapa (só com as sombras dinâmicas). */ shadows?: boolean }) {
   const specs = useMemo(() => createPedestrians(quality), [quality]);
   const geometry = useMemo(() => {
     const g = body();
@@ -162,7 +162,7 @@ ${shader.vertexShader}`
   });
   return (
     <>
-      <instancedMesh ref={mesh} args={[geometry, material, specs.length]} frustumCulled={false} castShadow={quality === 'high' || quality === 'ultra'} />
+      <instancedMesh ref={mesh} args={[geometry, material, specs.length]} frustumCulled={false} castShadow={shadows} />
       <instancedMesh ref={contact} args={[contactParts.geometry, contactParts.material, specs.length]} frustumCulled={false} renderOrder={6} />
     </>
   );

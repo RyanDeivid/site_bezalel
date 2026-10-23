@@ -24,6 +24,8 @@ export interface BloomSettings {
    * ~2–3 ms num gráfico integrado) ou `fxaa` (filtro de bordas na própria passada final, quase de graça).
    */
   antialias: 'msaa' | 'fxaa';
+  /** Nitidez adaptativa na passada final (0 = nenhuma, 1 = máxima), com o antisserrilhado FXAA. */
+  sharpen?: number;
 }
 
 const VERT = /* glsl */ `
@@ -113,12 +115,33 @@ vec3 fxaa(vec2 uv) {
   float lB = lumaOf(b);
   return (lB < lMin || lB > lMax) ? a : b;
 }
+// Nitidez adaptativa ao contraste (a ideia do CAS da AMD): realça a borda pela vizinhança em cruz, com peso
+// que diminui onde o contraste já é alto (sem halos nem serrilhado de volta). Recupera o detalhe que o
+// antisserrilhado e a resolução abaixo da tela tiram — o que pesa num celular, que desenha a ~40% da tela.
+// Em espaço comprimido (Reinhard), para as luzes HDR não estourarem o realce.
+vec3 squash(vec3 c) { return c / (1.0 + c); }
+vec3 unsquash(vec3 t) { return t / max(vec3(1e-4), 1.0 - t); }
+uniform float sharpen;
+vec3 cas(vec3 c, vec2 uv) {
+  vec3 t = squash(c);
+  vec3 n = squash(texture2D(tColor, uv + vec2(0.0, -texel.y)).rgb);
+  vec3 s = squash(texture2D(tColor, uv + vec2(0.0, texel.y)).rgb);
+  vec3 e = squash(texture2D(tColor, uv + vec2(texel.x, 0.0)).rgb);
+  vec3 w = squash(texture2D(tColor, uv + vec2(-texel.x, 0.0)).rgb);
+  vec3 mn = min(t, min(min(n, s), min(e, w)));
+  vec3 mx = max(t, max(max(n, s), max(e, w)));
+  vec3 amp = sqrt(clamp(min(mn, 1.0 - mx) / max(mx, vec3(1e-4)), 0.0, 1.0));
+  vec3 wgt = amp * (-1.0 / mix(8.0, 5.0, sharpen));
+  vec3 r = (t + (n + s + e + w) * wgt) / (1.0 + 4.0 * wgt);
+  return unsquash(clamp(r, 0.0, 0.999));
+}
 #endif
 void main() {
   // A cena pode ocupar só um canto da textura (resolução dinâmica): amplia para a tela inteira.
   vec2 suv = min(vUv * uvScale, uvMax);
   #ifdef FXAA
   vec3 c = fxaa(suv);
+  if (sharpen > 0.0) c = cas(c, suv);
   #else
   vec3 c = texture2D(tColor, suv).rgb;
   #endif
@@ -165,7 +188,7 @@ export class BloomPipeline {
     this.up = mat(UP, { tSrc: { value: null }, tBase: { value: null }, texel: { value: new THREE.Vector2() } });
     this.composite = mat(
       COMPOSITE,
-      { tColor: { value: null }, tBloom: { value: null }, strength: { value: settings.strength }, texel: { value: new THREE.Vector2() }, uvScale: { value: new THREE.Vector2(1, 1) }, uvMax: { value: new THREE.Vector2(1, 1) } },
+      { tColor: { value: null }, tBloom: { value: null }, strength: { value: settings.strength }, texel: { value: new THREE.Vector2() }, uvScale: { value: new THREE.Vector2(1, 1) }, uvMax: { value: new THREE.Vector2(1, 1) }, sharpen: { value: settings.sharpen ?? 0 } },
       true,
     );
     if (fxaa) this.composite.defines = { FXAA: '' };

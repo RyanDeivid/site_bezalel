@@ -60,7 +60,8 @@ export function Towers({ assets, quality, towers }: { assets: UniverseAssets; qu
     return out;
   }, [towers, quality]);
   useEffect(() => () => chunks.forEach((c) => c.geo.dispose()), [chunks]);
-  const shadow = quality !== 'low';
+  // Estáticas: projetam e recebem sombra em todo nível (na Baixa e na Média, com o mapa em cache).
+  const shadow = true;
   return (
     <>
       {chunks.map((c, i) => (

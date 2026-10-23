@@ -80,8 +80,8 @@ export function ArrivalPark({ assets, quality }: { assets: UniverseAssets; quali
       <mesh geometry={geos.lot} material={m.lot} receiveShadow renderOrder={1} />
       <mesh geometry={geos.paint} material={m.paint} renderOrder={1} />
       <mesh geometry={geos.gold} material={m.paintGold} renderOrder={1} />
-      <mesh geometry={geos.stops} material={m.stoneLight} castShadow={hi} />
-      <mesh geometry={geos.steel} material={m.steel} castShadow={hi} />
+      <mesh geometry={geos.stops} material={m.stoneLight} castShadow />
+      <mesh geometry={geos.steel} material={m.steel} castShadow />
       <mesh geometry={geos.glass} material={m.glass} />
       {/* "TAXI" pintado no chão da baia e a placa acesa (dois lados) no mastro. */}
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[TAXI.x, top + 0.014, Z1 - 1.1]} renderOrder={2}>

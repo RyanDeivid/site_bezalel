@@ -26,6 +26,19 @@ const signature = (o: Splittable) => {
   return [o.isInstancedMesh ? 'inst' : 'mesh', o.instanceColor ? 'cor' : '', o.receiveShadow ? 'recebe' : '', o.isSkinnedMesh ? 'pele' : '', g?.morphAttributes?.position ? 'morph' : '', color?.itemSize === 4 ? 'rgba' : ''].join('|');
 };
 
+/**
+ * Transparente e dos dois lados, o three desenha o objeto duas vezes por
+ * quadro (faces de trás, depois as da frente) e, em cada uma, marca o material
+ * como alterado — o que o faz recalcular o programa (`getParameters`, a chave
+ * do cache) duas vezes por objeto, todo quadro. Medido: 11 materiais (vidros,
+ * brilhos, hologramas) bumpando a versão a cada quadro, um deles 5×. Numa
+ * cena noturna de brilhos aditivos e vidros finos a ordem das faces não se
+ * nota: uma passada só (`forceSinglePass`).
+ */
+function singlePass(m: THREE.Material) {
+  if (m.transparent && m.side === 2 && !m.forceSinglePass) m.forceSinglePass = true;
+}
+
 export class MaterialSplitter {
   private owner = new Map<THREE.Material, string>();
   private copies = new Map<string, THREE.Material>();
@@ -39,6 +52,7 @@ export class MaterialSplitter {
       if (!o.isMesh || !o.material) return;
       const sig = signature(o);
       const fix = (m: THREE.Material) => {
+        singlePass(m);
         const original = (m.userData.bzSplitFrom as THREE.Material | undefined) ?? m;
         const first = this.owner.get(original);
         if (first === undefined) {

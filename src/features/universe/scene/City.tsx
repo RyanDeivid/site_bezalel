@@ -295,9 +295,9 @@ export function City({ assets, quality, pools, animate = true }: { assets: Unive
 
       {/* Só as copas projetam sombra (o tronco fino não faz diferença no chão). */}
       <instancedMesh ref={roundTrunkRef} args={[treeGeos.round.trunk, m.trunk, treeM.roundTrunk.length]} />
-      <instancedMesh ref={roundCrownRef} args={[treeGeos.round.crown, m.foliage, treeM.roundCrown.length]} castShadow={hi} />
+      <instancedMesh ref={roundCrownRef} args={[treeGeos.round.crown, m.foliage, treeM.roundCrown.length]} castShadow />
       <instancedMesh ref={colTrunkRef} args={[treeGeos.columnar.trunk, m.trunk, treeM.colTrunk.length]} />
-      <instancedMesh ref={colCrownRef} args={[treeGeos.columnar.crown, m.foliage, treeM.colCrown.length]} castShadow={hi} />
+      <instancedMesh ref={colCrownRef} args={[treeGeos.columnar.crown, m.foliage, treeM.colCrown.length]} castShadow />
 
       <instancedMesh ref={poleRef} args={[undefined, m.steel, poleM.length]}>
         <cylinderGeometry args={[0.09, 0.13, 6.4, 6]} />
@@ -306,7 +306,7 @@ export function City({ assets, quality, pools, animate = true }: { assets: Unive
         <boxGeometry args={[0.32, 0.12, 1.5]} />
       </instancedMesh>
 
-      <instancedMesh ref={benchRef} args={[undefined, m.steelLight, benchM.length]} castShadow={hi}>
+      <instancedMesh ref={benchRef} args={[undefined, m.steelLight, benchM.length]} castShadow>
         <boxGeometry args={[0.7, 0.45, 3.2]} />
       </instancedMesh>
       <instancedMesh ref={bollardRef} args={[undefined, m.steel, bollardM.length]}>

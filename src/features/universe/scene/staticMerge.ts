@@ -11,8 +11,10 @@ const HIDDEN_LAYER = 31;
  * pelo Direct3D); os edifícios institucionais eram ~130 peças pequenas.
  *
  * Ficam de fora: o que tem `userData.dynamic` (e tudo dentro), malhas
- * instanciadas, transparentes (a ordem de desenho delas importa), linhas,
- * sprites e materiais usados por uma peça só (não há o que juntar). As
+ * instanciadas, linhas, sprites e materiais usados por uma peça só (não há o
+ * que juntar). Transparentes entram quando a ordem não importa — brilho
+ * aditivo (luz que se soma) ou sem escrita de profundidade — e ficam com a
+ * mesma ordem de desenho (`renderOrder`) das peças de origem. As
  * originais continuam na cena, mas vão para uma camada invisível à câmera, às
  * sombras e aos cliques — o grupo continua clicável pelas malhas novas, que são
  * filhas dele. Devolve a função que desfaz tudo.
@@ -20,15 +22,17 @@ const HIDDEN_LAYER = 31;
 export function mergeStatic(root: THREE.Object3D): () => void {
   root.updateMatrixWorld(true);
   const toRoot = root.matrixWorld.clone().invert();
-  const buckets = new Map<string, { material: THREE.Material; cast: boolean; receive: boolean; meshes: THREE.Mesh[] }>();
+  const buckets = new Map<string, { material: THREE.Material; cast: boolean; receive: boolean; order: number; meshes: THREE.Mesh[] }>();
   const visit = (o: THREE.Object3D) => {
     if (o.userData.dynamic) return;
     const mesh = o as THREE.Mesh & { isInstancedMesh?: boolean; isSkinnedMesh?: boolean };
-    if (mesh.isMesh && !mesh.isInstancedMesh && !mesh.isSkinnedMesh && mesh.visible && !Array.isArray(mesh.material) && !mesh.material.transparent) {
+    const mat = mesh.material as THREE.Material;
+    const orderFree = !!mat && (!mat.transparent || mat.blending === THREE.AdditiveBlending || !mat.depthWrite);
+    if (mesh.isMesh && !mesh.isInstancedMesh && !mesh.isSkinnedMesh && mesh.visible && !Array.isArray(mesh.material) && orderFree) {
       const g = mesh.geometry;
       const attrs = Object.keys(g.attributes).sort().join(',');
-      const key = `${mesh.material.uuid}|${mesh.castShadow}|${mesh.receiveShadow}|${attrs}|${g.morphAttributes.position ? 'm' : ''}`;
-      const b = buckets.get(key) ?? { material: mesh.material, cast: mesh.castShadow, receive: mesh.receiveShadow, meshes: [] };
+      const key = `${mat.uuid}|${mesh.castShadow}|${mesh.receiveShadow}|${mesh.renderOrder}|${attrs}|${g.morphAttributes.position ? 'm' : ''}`;
+      const b = buckets.get(key) ?? { material: mat, cast: mesh.castShadow, receive: mesh.receiveShadow, order: mesh.renderOrder, meshes: [] };
       b.meshes.push(mesh);
       buckets.set(key, b);
     }
@@ -51,6 +55,7 @@ export function mergeStatic(root: THREE.Object3D): () => void {
     const mesh = new THREE.Mesh(geo, b.material);
     mesh.castShadow = b.cast;
     mesh.receiveShadow = b.receive;
+    mesh.renderOrder = b.order;
     mesh.name = 'merged';
     root.add(mesh);
     merged.push(mesh);

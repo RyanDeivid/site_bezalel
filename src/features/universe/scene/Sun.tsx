@@ -17,11 +17,13 @@ const DISTANCE = 260;
  * `every` > 1 redesenha o mapa a cada N quadros (as sombras dos carros atrasam
  * um quadro; quase imperceptível e economiza a passada inteira).
  */
-export function Sun({ mapSize, range, every }: { mapSize: number; range: number; every: number }) {
+export function Sun({ mapSize, range, every, cached = false }: { mapSize: number; range: number; every: number; cached?: boolean }) {
   const light = useRef<THREE.DirectionalLight>(null);
   const gl = useThree((s) => s.gl);
   const tmp = useMemo(() => ({ center: new THREE.Vector3(), fwd: new THREE.Vector3(), rot: new THREE.Matrix4(), inv: new THREE.Matrix4(), p: new THREE.Vector3() }), []);
   const frame = useRef(0);
+  /** Centro em que o mapa em cache foi desenhado (null = ainda não desenhado). */
+  const drawn = useRef<THREE.Vector3 | null>(null);
   const shadows = mapSize > 0;
 
   useLayoutEffect(() => {
@@ -42,12 +44,13 @@ export function Sun({ mapSize, range, every }: { mapSize: number; range: number;
       cam.far = DISTANCE * 2;
       cam.updateProjectionMatrix();
     }
-    gl.shadowMap.autoUpdate = every <= 1;
+    gl.shadowMap.autoUpdate = every <= 1 && !cached;
     gl.shadowMap.needsUpdate = true;
+    drawn.current = null;
     return () => {
       gl.shadowMap.autoUpdate = true;
     };
-  }, [gl, range, every, shadows, tmp]);
+  }, [gl, range, every, shadows, tmp, cached]);
 
   useFrame(({ camera }) => {
     const l = light.current;
@@ -59,6 +62,12 @@ export function Sun({ mapSize, range, every }: { mapSize: number; range: number;
     tmp.fwd.normalize();
     tmp.center.copy(camera.position).addScaledVector(tmp.fwd, range * 0.45);
     tmp.center.y = 0;
+    // Em cache, o mapa fica onde foi desenhado até o visitante se afastar (um terço do alcance): aí ele é
+    // redesenhado uma vez, centrado de novo. Entre um e outro, nenhum custo por quadro.
+    if (cached) {
+      if (drawn.current && drawn.current.distanceTo(tmp.center) < range * 0.33) return;
+      drawn.current = (drawn.current ?? new THREE.Vector3()).copy(tmp.center);
+    }
     // Encaixa o centro na grade de texels, no espaço da luz.
     const texel = (2 * range) / mapSize;
     tmp.p.copy(tmp.center).applyMatrix4(tmp.inv);
@@ -68,7 +77,8 @@ export function Sun({ mapSize, range, every }: { mapSize: number; range: number;
     l.target.position.copy(tmp.p);
     l.target.updateMatrixWorld();
     l.position.copy(tmp.p).addScaledVector(FROM, DISTANCE);
-    if (every > 1 && ++frame.current % every === 0) gl.shadowMap.needsUpdate = true;
+    if (cached) gl.shadowMap.needsUpdate = true;
+    else if (every > 1 && ++frame.current % every === 0) gl.shadowMap.needsUpdate = true;
   });
 
   return (

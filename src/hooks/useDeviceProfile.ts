@@ -22,6 +22,29 @@ export function detectWebGL(): boolean {
   }
 }
 
+let software: boolean | undefined;
+/**
+ * WebGL por software (SwiftShader, llvmpipe…: sem placa de vídeo, como no CI)? Detectado uma vez por sessão,
+ * pelo nome do renderizador de um contexto descartável.
+ */
+export function softwareWebGL(): boolean {
+  if (software !== undefined) return software;
+  software = false;
+  if (typeof document === 'undefined') return false;
+  try {
+    const gl = (document.createElement('canvas').getContext('webgl2') ?? document.createElement('canvas').getContext('webgl')) as WebGLRenderingContext | null;
+    if (gl) {
+      const info = gl.getExtension('WEBGL_debug_renderer_info');
+      const name = String(info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER));
+      software = /swiftshader|llvmpipe|softpipe|software|basic render driver/i.test(name);
+      gl.getExtension('WEBGL_lose_context')?.loseContext();
+    }
+  } catch {
+    software = false;
+  }
+  return software;
+}
+
 let webglSupport: boolean | undefined;
 /** Detecta WebGL uma única vez por sessão (o teste cria um contexto descartável). */
 export function hasWebGL(): boolean {
