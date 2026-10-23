@@ -27,7 +27,10 @@ const BUDGET = {
   // Download total de cada experiência 3D: o chunk dela e tudo o que ele importa
   // (three.js, React Three Fiber, texturas, robôs), menos o que a primeira carga já trouxe.
   // Universe 5: +5 kB (interior dos veículos com painel digital, Laboratório de IA para percorrer a pé).
-  experience: { LabScene: 300, UniverseScene: 330, RevelationScene: 215 },
+  // Próxima geração: +5 kB (simulação em passo fixo com interpolação, carros estacionados delegados ao trânsito,
+  // encaixes de modelos de artistas — os carregadores glTF/KTX2/meshopt ficam fora, só baixam se houver modelo —
+  // e o visitante compartilhado com o laboratório).
+  experience: { LabScene: 300, UniverseScene: 335, RevelationScene: 215 },
 };
 
 const gz = async (file: string) => gzipSync(await readFile(file)).length / KB;
