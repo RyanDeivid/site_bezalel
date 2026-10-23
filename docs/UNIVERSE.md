@@ -451,6 +451,18 @@ Tudo gerado na hora com a Web Audio API (`audio.ts`), nenhum arquivo baixado:
   distância e lado (estéreo) pela direção.
 - **Passos** no ritmo da passada, **porta** ao entrar e sair, **sinal** suave
   ao abrir um local.
+- **Ambientação a pé** (desde a Torre Bezalel): antes era um ruído quase parado e alto, que cansava. Agora:
+  - um acorde suave em ré maior, com dois bancos de cinco notas que se alternam numa fusão lenta a cada
+    ~15–21 s e um "respirar" próprio em cada nota;
+  - sinos distantes e raros (pentatônica do acorde) numa reverberação sintética;
+  - a cidade bem mais baixa, oscilando em ritmos que não coincidem.
+  No veículo, a ambientação recua e o motor domina. Medido a pé, parado na praça
+  (`scripts/audio-level-universe.mjs`): média de −23,9 para −26,1 dBFS, picos de −16,5 para −22,9. O volume
+  geral desceu mais um pouco depois disso.
+- **Fora da tela, silêncio**: ao trocar de app ou de aba ou bloquear a tela, o contexto de áudio é
+  suspenso (`visibilitychange` e `pagehide`) e volta ao retornar. Antes, no celular, o som continuava com o
+  navegador em segundo plano. Teste e2e "o som para quando a página sai da tela".
+- **Elevador da Torre**: sinal na chegada e um sopro na porta.
 
 O botão de alto-falante no HUD e a tecla **M** ligam e desligam (a escolha fica
 no aparelho, `bz-universe-sound`). O som começa depois do clique de "Explorar
@@ -556,6 +568,36 @@ com a 3 — compare com cuidado): **Baixa 83,1 fps** (já com brilho, FXAA e as
 luzes no chão), **Média 66,3**, **Alta 46,2**, **Ultra 34,0**. O que importa
 mais para a sensação de fluidez — os quadros longos — está em
 [Fluidez](#fluidez-sem-travadas).
+
+## Celulares fracos: o ritmo de 30 e o nível que não desce à toa
+
+Num Redmi Note 9S real, o jogo só se firmava na Baixa. Emulado (processador 4×), dava para reproduzir:
+a versão publicada começava na Média e descia para a Baixa em 20 s (`scripts/auto-quality-universe.mjs`).
+Eram três causas:
+
+1. **O Auto começava na Alta no celular.** O nível inicial era lido no primeiro render, antes de as
+   consultas de mídia conhecerem a tela de toque. Agora o nível vem do perfil lido ao vivo, até o
+   governador escolher outro.
+2. **A meta era 45 fps ou descer.** Celular não sustenta isso na Média. Agora, num celular que atrasa a
+   60, o jogo passa a desenhar **30 quadros por segundo sempre iguais** (`FramePacer`, que conduz o laço
+   do R3F à mão a cada ~33 ms da tela), como os jogos de celular fazem:
+   - parece mais liso que 30–45 oscilando;
+   - dobra o orçamento do quadro;
+   - esquenta menos o aparelho.
+
+   Os atrasos passam a ser medidos contra esse alvo. Ele volta a 60 se o custo real couber com folga, e a
+   escolha fica na sessão.
+3. **Descer o nível não ajudava.** A Baixa e a Média desenham a mesma cidade e custam o mesmo ao
+   processador (~37 ms por quadro emulado, nos dois). Agora o nível só desce quando o quadro espera pela
+   placa de vídeo. Se baixar a resolução já não aliviou, o processador é o gargalo e o nível fica.
+
+Resultado emulado: a Média se mantém, a 1,10× de resolução, no ritmo de 30. A placa de vídeo não é
+emulada, então isso não diz quantos quadros por segundo o aparelho real fará: falta medir num celular de
+verdade.
+
+Também nesta rodada:
+- o visitante passou de 16 para 5 desenhos (`HumanoidSolo`: uma malha com esqueleto por material);
+- o trânsito acha o cruzamento mais próximo pela rua mais próxima em cada eixo, em vez de medir todos.
 
 ## Baixa e Média com a cidade do Ultra (aparelhos modestos)
 

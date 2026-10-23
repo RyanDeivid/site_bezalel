@@ -60,6 +60,10 @@ banco de teste com dois níveis e caixa de colisão foi exportado: 2 GLBs (124 e
 licença e posição convertida certa. Ele apareceu na praça do Universe, com sombra; o `check-models` aprovou.
 O teste não ficou no repositório.
 
+Para provar o ambiente (render, exportação e verificação do GLB, sem tocar em nada do site), use
+`art/blender/smoke_test.py`. Os comandos validados, a avaliação do MCP e a recuperação de problemas estão
+em `BLENDER-AUTOMATION.md`.
+
 ## Orçamentos (nível 0)
 
 | Encaixe | Download | Triângulos |

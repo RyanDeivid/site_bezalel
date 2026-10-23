@@ -1,3 +1,9 @@
+// Percurso da Torre Bezalel com capturas (para revisar a arte e comparar antes e depois): a entrada, a
+// recepção, o elevador, a viagem, a presidência (vista e telas) e a Engenharia. Usa o gancho de inspeção
+// (`bz-universe-debug`) para posicionar o visitante e escolher os andares.
+//
+//   npm run build && node scripts/serve-dist.ts      (em outro terminal)
+//   node scripts/shots-tower.mjs <pasta> [qualidade]
 import { chromium } from '@playwright/test';
 const out = process.argv[2];
 const q = process.argv[3] ?? 'medium';

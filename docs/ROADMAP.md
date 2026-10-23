@@ -27,7 +27,8 @@ Executado fase a fase; cada fase é publicada ao terminar.
 
 | Fase | Escopo | Estado |
 |---|---|---|
-| 1 · Fundação e primeira área | Rota `/universe`: praça futurista com a Sede, o Laboratório de IA e o Centro de Produtos (produtos reais do site), ruas com trânsito terrestre determinístico, carro voador pilotável (teclado, mouse, toque), piloto automático até cada local, painéis com links reais, dois níveis de qualidade com rebaixamento automático, tela cheia e sugestão de celular deitado, mapa 2D acessível como alternativa | **Implementada localmente** (branch `universe-1`, não publicada) — ver `docs/UNIVERSE.md` |
+| 1 · Fundação e primeira área | Rota `/universe`: praça futurista com a Sede, o Laboratório de IA e o Centro de Produtos (produtos reais do site), ruas com trânsito terrestre determinístico, carro voador pilotável (teclado, mouse, toque), piloto automático até cada local, painéis com links reais, dois níveis de qualidade com rebaixamento automático, tela cheia e sugestão de celular deitado, mapa 2D acessível como alternativa | **Publicada**, depois evoluída nas fases 2 a 7 (ver `docs/UNIVERSE.md` e `docs/UNIVERSE-FOUNDATION.md`) |
+| Torre Bezalel · protótipo vertical | A sede percorrível por dentro: recepção, elevador com painel, Engenharia (3º), presidência (12º) com vista da cidade, câmera virtual ENG-01 e estado dos setores (demonstração); andares 1–2 e 4–11 no registro, em planejamento | **Implementada** (branch `universe-8`) — ver `docs/BEZALEL-TOWER-ARCHITECTURE.md` |
 
 ---
 

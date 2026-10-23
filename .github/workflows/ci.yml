@@ -16,7 +16,9 @@ jobs:
   frontend:
     name: Frontend — tipos, lint, testes, build e e2e
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # 30 min: a instalação do navegador do Playwright (com as dependências do sistema) já levou 14 min num
+    # runner lento e estourou os 20 de antes no meio do Lighthouse, com todos os testes verdes.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
 
@@ -43,8 +45,22 @@ jobs:
       - name: Orçamento de tamanho (gzip)
         run: npm run check:budget
 
+      # O navegador fica em cache (chave: a versão do Playwright no lockfile); com cache, só as dependências
+      # do sistema são instaladas.
+      - name: Cache do navegador do Playwright
+        id: pw-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
       - name: Instalar Chromium do Playwright
+        if: steps.pw-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
+
+      - name: Dependências do sistema para o Chromium (com o navegador em cache)
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
 
       - name: Testes de navegador (build servido em /site_bezalel/)
         run: npm run test:e2e

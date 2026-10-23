@@ -486,6 +486,13 @@ seção 5).
 
 ---
 
+**Torre Bezalel e celulares (branch `universe-8`):**
+- **Torre:** a sede ficou percorrível por dentro (`BEZALEL-TOWER-ARCHITECTURE.md`).
+- **Celulares:** ritmo de 30 quadros por segundo, nível que só desce quando a placa de vídeo é o gargalo e
+  o visitante em 5 chamadas (`UNIVERSE.md`, seção "Celulares fracos").
+- **Medições novas:** `scripts/auto-quality-universe.mjs` (onde o Auto se firma num aparelho emulado) e
+  `scripts/audio-level-universe.mjs` (nível do som).
+
 ## 9. Testes executados nesta fase
 
 | Teste | Resultado |

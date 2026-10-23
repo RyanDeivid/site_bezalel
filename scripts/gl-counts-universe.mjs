@@ -5,7 +5,7 @@
 // processo da GPU), então menos chamadas é menos tempo por quadro, no mesmo cenário.
 //
 //   npm run build && node scripts/serve-dist.ts      (em outro terminal)
-//   node scripts/gl-counts-universe.mjs [qualidade] [cena: chegada|praça]
+//   node scripts/gl-counts-universe.mjs [qualidade] [cena: chegada|praça|recepção|presidência]
 //
 // Usa a tela do Redmi Note 9S deitado (873 × 393 a 2,75×, toque), como o bench-redmi.mjs.
 import { chromium } from '@playwright/test';
@@ -52,6 +52,15 @@ await page.waitForFunction(() => !!window.__bzUniverse && !!window.__bzUniverseG
 await page.getByText(/Preparando a cidade/).waitFor({ state: 'hidden', timeout: 180_000 });
 if (scene === 'chegada') await page.evaluate(() => window.__bzUniverse.placeWalker(0, 88, Math.PI));
 if (scene === 'praça') await page.evaluate(() => window.__bzUniverse.placeWalker(0, 30, Math.PI));
+// Na Torre Bezalel: a recepção, e a presidência (pelo elevador; a tela da câmera ENG-01 ligada).
+if (scene === 'recepção') await page.evaluate(() => window.__bzUniverse.placeWalker(0, -74, Math.PI));
+if (scene === 'presidência') {
+  await page.evaluate(() => window.__bzUniverse.placeWalker(0, -83.7, Math.PI));
+  await page.waitForTimeout(500);
+  await page.evaluate(() => window.__bzUniverse.towerChoose(12));
+  await page.waitForFunction(() => window.__bzUniverse.state().tower.floor === 12 && window.__bzUniverse.state().tower.door > 0.9, null, { timeout: 60_000 });
+  await page.evaluate(() => window.__bzUniverse.placeWalker(0, -79.5, 0));
+}
 await page.waitForTimeout(3000);
 await page.evaluate(() => {
   window.__raf = 0;
