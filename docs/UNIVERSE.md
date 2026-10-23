@@ -823,11 +823,15 @@ fixos (para medir). Só existem com essas chaves.
 
 ## Próximos passos
 
+A arquitetura recomendada, os gargalos medidos e a ordem de implementação estão em
+[UNIVERSE-FOUNDATION.md](UNIVERSE-FOUNDATION.md).
+
+
 1. Medir o FPS em aparelhos reais e ajustar os níveis de qualidade com base
    nessas medidas.
 2. Modelos glTF próprios (encomendados ou modelados) para os carros e as
    torres-marco, com LOD.
 3. Semáforos visíveis ligados às zonas de cruzamento e troca de faixa.
-4. Interiores: saguão da Sede e salão do Laboratório.
+4. Interiores: saguão da Sede e do Centro de Produtos (o do Laboratório existe desde a versão 5).
 5. Pilotar táxis aéreos usando os corredores existentes.
 6. Ciclo dia/noite suave e reflexos de chão molhado na qualidade alta.

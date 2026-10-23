@@ -37,3 +37,4 @@ npm-debug.log*
 .claude/
 .lighthouseci/
 dist-prof/
+bench-results/
