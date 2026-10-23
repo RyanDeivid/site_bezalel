@@ -5,6 +5,7 @@ import { Humanoid, HumanoidFleet, restPose } from '@/features/lab/scene/robots/h
 import { PALETTE } from './textures';
 import { vehicleById, vehiclePose, type UniverseRuntime } from '../world/runtime';
 import { CAR_SPECS, rightOf } from '../world/vehicles';
+import { renderWalker, type Pose } from '../world/simulation';
 import { walkerSpeed, WALK_SPEED } from '../world/walker';
 import { contactShadowGeometry, contactShadowMaterial } from './contactShadow';
 
@@ -20,6 +21,7 @@ export function Avatar({ runtime, effects }: { runtime: UniverseRuntime; effects
     return { robot, fleet: new HumanoidFleet([robot]), pose: restPose() };
   }, []);
   useEffect(() => () => fleet.dispose(), [fleet]);
+  const pose3 = useMemo<Pose>(() => ({ x: 0, y: 0, z: 0, heading: 0 }), []);
   // Sombra de contato do visitante (na Baixa, sem mapa de sombras, é ela que o põe no chão).
   const contact = useRef<THREE.Mesh>(null);
   const contactParts = useMemo(() => ({ geometry: contactShadowGeometry(0.95, 0.8), material: contactShadowMaterial(0.6) }), []);
@@ -36,10 +38,12 @@ export function Avatar({ runtime, effects }: { runtime: UniverseRuntime; effects
     const w = runtime.walker;
     const mode = runtime.mode;
     const v = vehicleById(runtime, runtime.active);
-    let x = w.x;
-    let z = w.z;
-    let y = w.y;
-    let heading = w.heading;
+    // A pose desenhada fica entre os dois últimos passos da simulação (passo fixo).
+    const drawn = renderWalker(runtime, runtime.clock, pose3);
+    let x = drawn.x;
+    let z = drawn.z;
+    let y = drawn.y;
+    let heading = drawn.heading;
     let scale = 1;
     if ((mode === 'entering' || mode === 'exiting') && v) {
       // Porta do motorista: lado esquerdo do veículo.

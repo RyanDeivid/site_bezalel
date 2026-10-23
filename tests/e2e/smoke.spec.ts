@@ -953,16 +953,21 @@ test.describe('Universe 3D no computador', () => {
     await expect(panel.getByRole('link', { name: 'Entrar no laboratório 3D' })).toHaveAttribute('href', /\/lab$/);
     await page.keyboard.press('Escape');
     await expect(panel).toBeHidden();
-    // Qualidade: o canvas é recriado com a configuração nova.
+    // Qualidade: muda no lugar — o mesmo canvas e a mesma cidade (nada é recriado; antes, a troca reconstruía
+    // tudo e travava o jogo por 0,7 s).
     const quality = page.getByRole('radiogroup', { name: 'Qualidade' });
     const canvas = page.locator('section[data-universe-stage] canvas');
     await canvas.evaluate((c) => c.setAttribute('data-probe', 'old'));
+    await expect(page.getByText(/Preparando a cidade/)).toBeHidden({ timeout: 60_000 });
+    await page.waitForFunction(() => ((window as unknown as { __bzUniverseGl?: { info: () => { geometries: number } } }).__bzUniverseGl?.info().geometries ?? 1) > 0, undefined, { timeout: 30_000 });
+    const geometries = await page.evaluate(() => (window as unknown as { __bzUniverseGl?: { info: () => { geometries: number } } }).__bzUniverseGl?.info().geometries ?? null);
     await quality.getByRole('radio', { name: 'Média' }).click();
     await expect(quality.getByRole('radio', { name: 'Média' })).toHaveAttribute('aria-checked', 'true');
     // Lido logo após o clique: com WebGL por software, o rebaixamento automático (< 28 fps) pode descer o nível depois.
     expect(await page.evaluate(() => sessionStorage.getItem('bz-universe-quality'))).toBe('medium');
-    await expect(page.locator('section[data-universe-stage] canvas[data-probe="old"]')).toHaveCount(0, { timeout: 15_000 });
-    await expect(canvas).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator('section[data-universe-stage] canvas[data-probe="old"]')).toHaveCount(1);
+    await expect(page.getByText(/Preparando a cidade/)).toBeHidden({ timeout: 30_000 });
+    if (geometries !== null) expect(await page.evaluate(() => (window as unknown as { __bzUniverseGl: { info: () => { geometries: number } } }).__bzUniverseGl.info().geometries)).toBe(geometries);
     // Sai do Universe por um link do site: canvas, gancho e laço de quadros somem.
     await page.getByRole('link', { name: 'Metodologia' }).first().click();
     await expect(page).toHaveURL(/\/methodology\/?$/);

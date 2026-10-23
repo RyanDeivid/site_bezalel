@@ -8,6 +8,7 @@ import { CAR_SPECS, type CarClass } from '../world/vehicles';
 import type { UniverseAssets } from './assets';
 import { buildAirModel, type AirSlot } from './airModels';
 import { contactShadowGeometry, contactShadowMaterial } from './contactShadow';
+import { renderVehicle, type Pose } from '../world/simulation';
 import { carInterior, dashboardScreen, HOVER_SCALE, hoverInterior, paintCenter, paintCluster, type Interior, type Screen } from './interior';
 import type { CarMaterials, CarModel, CarSlot, FarCarModel } from './carModels';
 
@@ -207,6 +208,7 @@ function PlayerCar({
   }, [materials, vehicle.paint]);
   useEffect(() => () => [own.paint, own.tail].forEach((m) => m.dispose()), [own]);
   const prevSpeed = useRef(0);
+  const drawn = useMemo<Pose>(() => ({ x: 0, y: 0, z: 0, heading: 0 }), []);
   const pitch = useRef(0);
   const roll = useRef(0);
 
@@ -214,8 +216,10 @@ function PlayerCar({
     const dt = Math.min(rawDt, 0.05);
     const c = vehicle.car;
     if (root.current) {
-      root.current.position.set(c.x, c.y, c.z);
-      root.current.rotation.y = c.heading;
+      // Pose entre os dois últimos passos da simulação (passo fixo): suave em qualquer taxa de quadros.
+      const p = renderVehicle(vehicle, runtime.clock, drawn);
+      root.current.position.set(p.x, p.y, p.z);
+      root.current.rotation.y = p.heading;
     }
     // Nível de detalhe (com margem, para não trocar na fronteira); o carro em uso é sempre o detalhado.
     const d2 = (c.x - camera.position.x) ** 2 + (c.z - camera.position.z) ** 2;
@@ -338,6 +342,7 @@ function HoverCar({ runtime, vehicle, assets, effects, shadows }: { runtime: Uni
   const glows = useRef<Array<THREE.Sprite | null>>([]);
   const t = useRef(0);
   const prevSpeed = useRef(0);
+  const drawn = useMemo<Pose>(() => ({ x: 0, y: 0, z: 0, heading: 0 }), []);
   const glow = useMemo(() => makeGlowTexture('rgba(127,166,245,0.9)'), []);
   const shadowMat = useMemo(() => assets.materials.shadowBlob.clone(), [assets]);
   const model = useMemo(() => {
@@ -382,8 +387,9 @@ function HoverCar({ runtime, vehicle, assets, effects, shadows }: { runtime: Uni
     const accel = (c.speed - prevSpeed.current) / Math.max(dt, 1e-3);
     prevSpeed.current = c.speed;
     if (car.current) {
-      car.current.position.set(c.x, c.y + (effects ? Math.sin(t.current * 2.2) * 0.08 : 0), c.z);
-      car.current.rotation.y = c.yaw;
+      const p = renderVehicle(vehicle, runtime.clock, drawn);
+      car.current.position.set(p.x, p.y + (effects ? Math.sin(t.current * 2.2) * 0.08 : 0), p.z);
+      car.current.rotation.y = p.heading;
     }
     if (body.current) {
       body.current.rotation.z = THREE.MathUtils.lerp(body.current.rotation.z, THREE.MathUtils.clamp(c.turnRate * 0.32, -0.4, 0.4), 1 - Math.exp(-dt * 6));

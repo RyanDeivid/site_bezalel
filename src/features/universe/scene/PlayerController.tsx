@@ -21,6 +21,7 @@ import {
   type UniverseRuntime,
 } from '../world/runtime';
 import { CAR_SPECS, forwardOf, rightOf, stepCar, stopInput, type Body } from '../world/vehicles';
+import { advance, capturePoses, renderVehicle, renderWalker, type Pose } from '../world/simulation';
 import { stepWalker } from '../world/walker';
 
 interface Props {
@@ -180,7 +181,10 @@ export function PlayerController({ runtime, solids, inputEnabled, calmCamera, on
     };
   }, [gl, runtime]);
 
+  const poseA = useMemo<Pose>(() => ({ x: 0, y: 0, z: 0, heading: 0 }), []);
+  const poseW = useMemo<Pose>(() => ({ x: 0, y: 0, z: 0, heading: 0 }), []);
   useFrame((_, rawDt) => {
+    // Tempo do quadro: suaviza a câmera (a física usa o passo fixo, abaixo).
     const dt = Math.min(0.05, rawDt);
     const rt = runtime;
     const gp = inputEnabled ? readGamepad() : null;
@@ -210,63 +214,71 @@ export function PlayerController({ runtime, solids, inputEnabled, calmCamera, on
       lastMode.current = rt.mode;
     }
 
-    const forced = updatePlayer(rt, dt, solids);
-    const active = vehicleById(rt, rt.active);
+    // Física em passo fixo (SIM_STEP), separada do quadro; o desenho lê a pose interpolada.
+    const simulate = (dt: number) => {
+      const forced = updatePlayer(rt, dt, solids);
+      const active = vehicleById(rt, rt.active);
 
-    // Corpos com que o jogador colide: os outros veículos e o trânsito.
-    bodies.length = 0;
-    for (const v of rt.vehicles) if (v !== active) bodies.push(...vehicleBodies(v));
-    bodies.push(...rt.traffic);
+      // Corpos com que o jogador colide: os outros veículos e o trânsito.
+      bodies.length = 0;
+      for (const v of rt.vehicles) if (v !== active) bodies.push(...vehicleBodies(v));
+      bodies.push(...rt.traffic);
 
-    if (rt.mode === 'foot') {
-      const a = inputEnabled ? axes(rt) : { forward: 0, side: 0, lift: 0, run: false, space: false };
-      const fwd = Math.max(-1, Math.min(1, a.forward + (gp ? -gp.ly : 0)));
-      const side = Math.max(-1, Math.min(1, a.side + (gp ? gp.lx : 0)));
-      const f = forwardOf(rt.camera.yaw);
-      const r = rightOf(rt.camera.yaw);
-      stepWalker(rt.walker, { x: f.x * fwd + r.x * side, z: f.z * fwd + r.z * side, run: a.run || !!gp?.rb }, dt, solids, bodies);
-    } else if (rt.mode === 'driving' && active?.kind === 'car') {
-      let input = inputEnabled ? driveInput(rt) : { throttle: 0, brake: 0, steer: 0, handbrake: false };
-      if (gp) {
-        input.throttle = Math.max(input.throttle, gp.rt);
-        input.brake = Math.max(input.brake, gp.lt);
-        input.steer = Math.max(-1, Math.min(1, input.steer + gp.lx));
-        input.handbrake = input.handbrake || gp.b;
-      }
-      if (forced?.brake) input = stopInput(active.car);
-      const impact = stepCar(active.car, CAR_SPECS[active.cls], input, dt, solids, bodies);
-      if (impact > 6 && !calmCamera) shake.current = Math.min(0.6, impact * 0.03);
-    } else if (rt.mode === 'driving' && active?.kind === 'hover') {
-      const c = active.craft;
-      const manual = inputEnabled ? manualInput(rt) : { throttle: 0, turn: 0, lift: 0, boost: false };
-      if (gp) {
-        manual.throttle = Math.max(-1, Math.min(1, manual.throttle + gp.rt - gp.lt));
-        manual.turn = Math.max(-1, Math.min(1, manual.turn + gp.lx));
-        manual.lift = Math.max(-1, Math.min(1, manual.lift + (gp.rb ? 1 : 0) - (gp.lb ? 1 : 0)));
-      }
-      let input = manual;
-      if (forced) input = { throttle: 0, turn: 0, lift: forced.descend ? -1 : 0, boost: false };
-      else if (rt.autopilot) {
-        if (hasManualInput(manual)) {
-          rt.autopilot = null;
-          onAutopilotEnd();
-        } else {
-          const auto = autopilotInput(c, rt.autopilot);
-          if (auto) input = auto;
-          else {
+      if (rt.mode === 'foot') {
+        const a = inputEnabled ? axes(rt) : { forward: 0, side: 0, lift: 0, run: false, space: false };
+        const fwd = Math.max(-1, Math.min(1, a.forward + (gp ? -gp.ly : 0)));
+        const side = Math.max(-1, Math.min(1, a.side + (gp ? gp.lx : 0)));
+        const f = forwardOf(rt.camera.yaw);
+        const r = rightOf(rt.camera.yaw);
+        stepWalker(rt.walker, { x: f.x * fwd + r.x * side, z: f.z * fwd + r.z * side, run: a.run || !!gp?.rb }, dt, solids, bodies);
+      } else if (rt.mode === 'driving' && active?.kind === 'car') {
+        let input = inputEnabled ? driveInput(rt) : { throttle: 0, brake: 0, steer: 0, handbrake: false };
+        if (gp) {
+          input.throttle = Math.max(input.throttle, gp.rt);
+          input.brake = Math.max(input.brake, gp.lt);
+          input.steer = Math.max(-1, Math.min(1, input.steer + gp.lx));
+          input.handbrake = input.handbrake || gp.b;
+        }
+        if (forced?.brake) input = stopInput(active.car);
+        const impact = stepCar(active.car, CAR_SPECS[active.cls], input, dt, solids, bodies);
+        if (impact > 6 && !calmCamera) shake.current = Math.min(0.6, impact * 0.03);
+      } else if (rt.mode === 'driving' && active?.kind === 'hover') {
+        const c = active.craft;
+        const manual = inputEnabled ? manualInput(rt) : { throttle: 0, turn: 0, lift: 0, boost: false };
+        if (gp) {
+          manual.throttle = Math.max(-1, Math.min(1, manual.throttle + gp.rt - gp.lt));
+          manual.turn = Math.max(-1, Math.min(1, manual.turn + gp.lx));
+          manual.lift = Math.max(-1, Math.min(1, manual.lift + (gp.rb ? 1 : 0) - (gp.lb ? 1 : 0)));
+        }
+        let input = manual;
+        if (forced) input = { throttle: 0, turn: 0, lift: forced.descend ? -1 : 0, boost: false };
+        else if (rt.autopilot) {
+          if (hasManualInput(manual)) {
             rt.autopilot = null;
             onAutopilotEnd();
+          } else {
+            const auto = autopilotInput(c, rt.autopilot);
+            if (auto) input = auto;
+            else {
+              rt.autopilot = null;
+              onAutopilotEnd();
+            }
           }
         }
+        stepCraft(c, input, dt, solids);
       }
-      stepCraft(c, input, dt, solids);
-    }
+    };
+    advance(rt.clock, rawDt, (step) => {
+      capturePoses(rt);
+      simulate(step);
+    });
+    const active = vehicleById(rt, rt.active);
 
     // ---- Câmera ---------------------------------------------------------------------
     // Primeira pessoa: os olhos do motorista dentro da cabine; arrastar olha em volta (o olhar volta
     // para a frente sozinho com o veículo andando). Sem amortecimento de posição: ela anda com o veículo.
     if (rt.camera.view === 'first' && rt.mode === 'driving' && active && !rt.cinema && !rt.shot) {
-      const p = vehiclePose(active);
+      const p = renderVehicle(active, rt.clock, poseA);
       const speed = active.kind === 'car' ? active.car.speed : active.craft.speed;
       if (Math.abs(speed) > 2) rt.camera.orbit *= Math.exp(-dt * 0.9);
       rt.camera.orbit = THREE.MathUtils.clamp(rt.camera.orbit, -2.3, 2.3);
@@ -297,7 +309,7 @@ export function PlayerController({ runtime, solids, inputEnabled, calmCamera, on
       const pitch = rt.camera.pitch;
       let fov = 55;
       if ((rt.mode === 'driving' || rt.mode === 'entering' || rt.mode === 'exiting') && active) {
-        const p = vehiclePose(active);
+        const p = renderVehicle(active, rt.clock, poseA);
         const speed = active.kind === 'car' ? active.car.speed : active.craft.speed;
         const desired = p.heading + rt.camera.orbit;
         chaseYaw.current += Math.atan2(Math.sin(desired - chaseYaw.current), Math.cos(desired - chaseYaw.current)) * (1 - Math.exp(-dt * (active.kind === 'car' ? 3.2 : 4)));
@@ -311,7 +323,7 @@ export function PlayerController({ runtime, solids, inputEnabled, calmCamera, on
         look.lerp(aim.set(p.x + f.x * 4, p.y + lift, p.z + f.z * 4), 1 - Math.exp(-dt * 8));
         if (!calmCamera && active.kind === 'car') fov = 56 + Math.min(16, Math.abs(speed) * 0.4);
       } else {
-        const w = rt.walker;
+        const w = renderWalker(rt, rt.clock, poseW);
         const dist = rt.camera.distance;
         target.set(w.x, w.y + 1.55, w.z);
         goal.set(w.x - Math.sin(rt.camera.yaw) * Math.cos(pitch) * dist, w.y + 1.55 + Math.sin(pitch) * dist, w.z - Math.cos(rt.camera.yaw) * Math.cos(pitch) * dist);

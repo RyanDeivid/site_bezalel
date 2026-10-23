@@ -2,6 +2,7 @@ import { airDebug, airPose } from './air';
 import { placeById, SPAWN, type PlaceId, type Solid } from './city';
 import { createCraft, planAutopilot, type Autopilot, type CraftState } from './flight';
 import { CAR_SPECS, carCircles, createCar, exitSpot, type Body, type CarClass, type CarState } from './vehicles';
+import { createClock, type SimClock } from './simulation';
 import { createWalker, PERSON_RADIUS, type WalkerState } from './walker';
 
 /**
@@ -60,6 +61,8 @@ export interface UniverseRuntime {
   nearVehicle: string | null;
   /** Corpos do trânsito (atualizados pela cena): o jogador não os atravessa. */
   traffic: Body[];
+  /** Relógio da simulação (passo fixo) e a fração usada para interpolar o desenho. */
+  clock: SimClock;
 }
 
 export const CAMERA_PITCH = { min: -0.15, max: 1.2, start: 0.28 };
@@ -101,6 +104,7 @@ export function createUniverseRuntime(): UniverseRuntime {
     near: null,
     nearVehicle: null,
     traffic: [],
+    clock: createClock(),
   };
 }
 

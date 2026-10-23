@@ -154,7 +154,8 @@ const World = memo(function World(props: UniverseSceneProps) {
   // de vídeo (WebGL por software: CI, aparelhos sem aceleração), a cidade leve de antes.
   const quality: Quality = softwareWebGL() ? 'low' : 'ultra';
   const maxAniso = useThree((s) => s.gl.capabilities.getMaxAnisotropy());
-  const assets = useUniverseAssets(quality, Math.min(cfg.anisotropy, maxAniso));
+  // Filtragem fixa (8×; 1× sem placa de vídeo): mudar a anisotropia com o nível recriaria todas as texturas.
+  const assets = useUniverseAssets(quality, Math.min(softwareWebGL() ? 1 : 8, maxAniso));
   const dynamicShadows = !cfg.shadowCache;
   const towers = useMemo(() => cityTowers(quality), [quality]);
   const bridges = useMemo(() => skybridges(towers), [towers]);
@@ -176,7 +177,7 @@ const World = memo(function World(props: UniverseSceneProps) {
     [beam],
   );
   const farCarModels = useMemo(() => buildFarCarModels(), []);
-  const carMaterials = useMemo(() => createCarMaterials(render), [render]);
+  const carMaterials = useMemo(() => createCarMaterials(quality), [quality]);
   useEffect(() => () => disposeCarModels(carModels), [carModels]);
   useEffect(() => () => disposeCarModels(midCarModels), [midCarModels]);
   useEffect(() => () => disposeTrafficCarModels(trafficCarModels), [trafficCarModels]);
@@ -241,9 +242,11 @@ const World = memo(function World(props: UniverseSceneProps) {
 /**
  * Cena 3D do Bezalel Universe (three.js + React Three Fiber). Este módulo e
  * suas dependências formam um chunk próprio, baixado só quando o visitante
- * entra no 3D. Trocar a qualidade recria o canvas (`key`), descartando e
- * recriando todos os recursos da GPU de forma previsível; sair da página
- * desmonta o canvas (o R3F encerra o laço de quadros e libera o contexto).
+ * entra no 3D. Trocar a qualidade muda o desenho no lugar — resolução, mapa de
+ * sombras, brilho, alcance da câmera, neblina —, sem recriar a cidade (o
+ * conteúdo é o mesmo em todo nível): antes, o canvas era recriado (`key`) e a
+ * descida automática no meio do jogo travava 0,7 s (2,5 s num celular
+ * emulado). Sair da página desmonta o canvas e libera o contexto.
  */
 /**
  * Memorizada: a página atualiza o HUD várias vezes por segundo, e cada nova renderização daqui faria o
@@ -272,12 +275,20 @@ export default memo(function UniverseScene(props: UniverseSceneProps) {
   // um local...). Aqui vai sempre a resolução atual, espelhada de dentro do Canvas.
   const [seenDpr, setSeenDpr] = useState<{ quality: Quality; value: number } | null>(null);
   const currentDpr = seenDpr?.quality === props.quality ? seenDpr.value : startDpr;
+  // Pronto: o preparo avisa uma vez (primeiro nível); depois, cada troca de nível avisa no quadro seguinte.
+  const [warm, setWarm] = useState(false);
+  const { onReady } = props;
+  useEffect(() => {
+    if (!warm) return;
+    const id = requestAnimationFrame(() => onReady(props.quality));
+    return () => cancelAnimationFrame(id);
+  }, [warm, props.quality, onReady]);
+  const software = softwareWebGL();
   return (
     <Canvas
-      key={props.quality}
       // Parado até o Warmup compilar os shaders e enviar as texturas (sem tela congelada na entrada).
       frameloop="never"
-      shadows={cfg.shadows > 0 ? 'percentage' : false}
+      shadows={software ? false : 'percentage'}
       dpr={currentDpr}
       // Com brilho, o antisserrilhado (MSAA) é feito na textura HDR da cena, não na tela.
       gl={{ antialias: cfg.antialias && !cfg.bloom, powerPreference: 'high-performance', alpha: false, preserveDrawingBuffer: false }}
@@ -294,8 +305,9 @@ export default memo(function UniverseScene(props: UniverseSceneProps) {
       <World {...props} />
       <Soundscape runtime={props.runtime} enabled={props.sound ?? true} debug={props.debug} />
       {cfg.bloom && <PostFX {...cfg.bloom} multisample={cfg.antialias} scale={startScale} />}
-      <Warmup envIntensity={QUALITY_CONFIG[props.quality].envIntensity} envSize={QUALITY_CONFIG[props.quality].envSize} onReady={() => props.onReady(props.quality)} />
-      <PerformanceGovernor level={props.quality} min={cfg.dprMin} max={maxDpr} canUpgrade={props.canUpgrade} probation={props.probation} onLow={props.onLowPerformance} onHeadroom={props.onHeadroom} off={props.debug && readStorage('bz-universe-governor') === 'off'} debug={props.debug} />
+      <Warmup envIntensity={cfg.envIntensity} envSize={software ? 64 : 256} onReady={() => setWarm(true)} />
+      <LiveSettings far={cfg.far} envIntensity={cfg.envIntensity} />
+      <PerformanceGovernor key={props.quality} level={props.quality} min={cfg.dprMin} max={maxDpr} canUpgrade={props.canUpgrade} probation={props.probation} onLow={props.onLowPerformance} onHeadroom={props.onHeadroom} off={props.debug && readStorage('bz-universe-governor') === 'off'} debug={props.debug} />
       <ContextLossWatcher onLost={props.onContextLost} />
       {props.debug && <PerfProbe />}
     </Canvas>
@@ -325,3 +337,15 @@ function StaticBatch({ name, deps, children }: { name: string; deps: unknown[]; 
   );
 }
 
+
+/** O que muda com o nível sem recriar nada: o alcance da câmera e a intensidade dos reflexos. */
+function LiveSettings({ far, envIntensity }: { far: number; envIntensity: number }) {
+  const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera;
+  const scene = useThree((s) => s.scene);
+  useEffect(() => {
+    camera.far = far;
+    camera.updateProjectionMatrix();
+    if (scene.environment) scene.environmentIntensity = envIntensity;
+  }, [camera, scene, far, envIntensity]);
+  return null;
+}

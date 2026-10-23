@@ -26,6 +26,15 @@ export function Sun({ mapSize, range, every, cached = false }: { mapSize: number
   const drawn = useRef<THREE.Vector3 | null>(null);
   const shadows = mapSize > 0;
 
+  // Mapa de outro tamanho (troca de nível no lugar): o three só realoca o alvo se o antigo for descartado.
+  useLayoutEffect(() => {
+    const l = light.current;
+    if (!l?.shadow.map) return;
+    l.shadow.map.dispose();
+    l.shadow.map = null;
+    gl.shadowMap.needsUpdate = true;
+  }, [mapSize, gl]);
+
   useLayoutEffect(() => {
     const l = light.current;
     if (!l) return;
