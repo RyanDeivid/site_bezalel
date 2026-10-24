@@ -41,6 +41,7 @@ Papéis: `reader`, `operator`, `approver`, `admin`. Dê a cada pessoa o menor qu
 | `BEZALEL_RUNTIME_DB` | Caminho do banco | `server/var/runtime.db` |
 | `BEZALEL_RUNTIME_TOKENS` | `nome:papel:sha256`, separados por vírgula | vazio (runtime fechado) |
 | `BEZALEL_RUNTIME_ALLOW_REMOTE_WRITES` | `1` libera escrita vinda da rede (só atrás de TLS) | desligado |
+| `BEZALEL_RUNTIME_PUBLIC_TOWER` | `1` liga a projeção pública do estado dos setores, que alimenta o painel da Torre | desligado (404) |
 | `BEZALEL_LLM_PROVIDER` | `anthropic` para ligar o provedor | desligado |
 | `ANTHROPIC_API_KEY` | Chave do provedor (só no servidor) | — |
 | `BEZALEL_LLM_MODEL` | Modelo | `claude-sonnet-5` |
@@ -49,6 +50,17 @@ Papéis: `reader`, `operator`, `approver`, `admin`. Dê a cada pessoa o menor qu
 | `BEZALEL_LLM_MAX_TOKENS`, `BEZALEL_LLM_TIMEOUT_S` | Limites da chamada | 800 e 60 |
 
 Sem as variáveis do provedor, tudo funciona, exceto o resumo por modelo, que aparece como "não rodou".
+
+## Painel da Torre ligado ao runtime
+
+Para o painel da presidência mostrar o estado real:
+1. No backend:
+   - `BEZALEL_RUNTIME_PUBLIC_TOWER=1`;
+   - a origem do site em `ALLOWED_ORIGINS`.
+2. No build do site, `VITE_API_BASE_URL=https://<api>`. Em qualquer modo de dados, a CSP passa a liberar
+   essa origem em `connect-src`.
+
+Sem isso, ou com o backend fora do ar, o painel mostra a demonstração, marcada.
 
 ## Agendamentos
 

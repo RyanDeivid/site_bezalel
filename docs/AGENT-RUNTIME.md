@@ -81,6 +81,7 @@ Todas as rotas exigem `Authorization: Bearer <token>` e um papel. Sem tokens con
 | `GET /metrics` | reader | Indicadores operacionais (ambiente `live`) |
 | `GET /evaluations` | reader | Avaliações registradas |
 | `GET /tower` | reader | O que o painel de um setor da Torre pode mostrar: só dados reais do runtime |
+| `GET /public/tower` | **sem token** (desligada por padrão) | Projeção mínima para o painel da Torre no site: setor, agentes (nome e versão), contagens, datas, estado do último resultado, falhas em 24 h. Nada de objetivos, erros, custos ou relatórios. Só com `BEZALEL_RUNTIME_PUBLIC_TOWER=1`; senão, 404 |
 
 - **Escritas:** só da própria máquina, salvo `BEZALEL_RUNTIME_ALLOW_REMOTE_WRITES=1`, e com limite de 30
   por minuto por token.

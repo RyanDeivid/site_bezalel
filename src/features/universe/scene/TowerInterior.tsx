@@ -1,11 +1,12 @@
 import { useFrame, useThree } from '@react-three/fiber';
-import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { makeCanvasTexture } from '@/features/lab/scene/textures';
 import { Humanoid, HumanoidFleet, restPose } from '@/features/lab/scene/robots/humanoid';
 import type { UniverseRuntime } from '../world/runtime';
-import { FLOORS, floorBounds, floorY, FURNITURE, INTERIOR_REVEAL, RECEPTION_DESK, SECTOR_CAMERAS, SECTOR_STATUS, TOP_FLOOR, TOWER, type SectorId } from '../world/tower';
+import { FLOORS, floorBounds, floorY, FURNITURE, INTERIOR_REVEAL, RECEPTION_DESK, SECTOR_CAMERAS, TOP_FLOOR, TOWER, type SectorId } from '../world/tower';
+import { fetchTowerLive, mergeSectorStatus, type LiveState, type SectorRow } from '../world/towerLive';
 import { mergeStatic } from './staticMerge';
 
 /** Textos da Torre que a cena desenha (placas, diretório, telas), no idioma da página. */
@@ -17,7 +18,22 @@ export interface TowerTexts {
   planned: string;
   directory: string;
   welcome: { title: string; lines: string[] };
-  status: { title: string; demo: string; planned: string; demoTag: string; agents: string; none: string };
+  status: {
+    title: string;
+    demo: string;
+    planned: string;
+    demoTag: string;
+    liveTag: string;
+    unavailableTag: string;
+    live: string;
+    agents: string;
+    none: string;
+    noActivity: string;
+    states: Record<'succeeded' | 'failed' | 'cancelled', string>;
+    work: (running: number, queued: number) => string;
+    last: (state: string, at: string | null) => string;
+    failures: (n: number) => string;
+  };
   camera: { title: (id: string, sector: string) => string; note: string };
   projects: { title: string; items: Array<{ title: string; line: string }> };
 }
@@ -92,18 +108,22 @@ function drawWelcome(ctx: CanvasRenderingContext2D, w: number, _h: number, t: To
   t.welcome.lines.forEach((l, i) => ctx.fillText(l, 40, 130 + i * 52));
 }
 
-/** Estado dos setores (a fonte é o registro `SECTOR_STATUS`; tudo marcado como demonstração ou planejado). */
-function drawStatus(ctx: CanvasRenderingContext2D, w: number, h: number, t: TowerTexts) {
-  header(ctx, w, t.status.title, t.status.demoTag);
-  const rows = SECTOR_STATUS;
+/**
+ * Estado dos setores: cada linha diz de onde vem. "Ao vivo" é o runtime de agentes do backend (números
+ * gravados por ele); "demonstração" e "em planejamento" vêm da lista local. O cabeçalho diz se o runtime
+ * respondeu, está fora do ar ou não está configurado.
+ */
+function drawStatus(ctx: CanvasRenderingContext2D, w: number, h: number, t: TowerTexts, rows: SectorRow[], live: LiveState) {
+  const tag = live === 'live' ? t.status.liveTag : live === 'unavailable' ? t.status.unavailableTag : t.status.demoTag;
+  header(ctx, w, t.status.title, tag);
   const top = 110;
   const rh = Math.min(84, (h - top - 20) / rows.length);
   rows.forEach((s, i) => {
     const y = top + i * rh;
-    ctx.fillStyle = 'rgba(38,59,84,0.55)';
+    const isLive = s.source === 'live';
+    ctx.fillStyle = isLive ? 'rgba(46,111,92,0.45)' : 'rgba(38,59,84,0.55)';
     ctx.fillRect(30, y, w - 60, rh - 8);
-    const demo = s.availability === 'demo';
-    ctx.fillStyle = demo ? GOLD : '#5d6878';
+    ctx.fillStyle = isLive ? '#5fd3a5' : s.source === 'demo' ? GOLD : '#5d6878';
     ctx.beginPath();
     ctx.arc(60, y + rh / 2 - 4, 10, 0, Math.PI * 2);
     ctx.fill();
@@ -111,9 +131,17 @@ function drawStatus(ctx: CanvasRenderingContext2D, w: number, h: number, t: Towe
     ctx.font = `500 30px ${FONT}`;
     ctx.fillText(t.sectors[s.sector], 90, y + 12);
     ctx.font = `400 22px ${MONO}`;
-    ctx.fillStyle = '#9aa5b5';
+    ctx.fillStyle = isLive ? '#bfe9d6' : '#9aa5b5';
     const agents = s.agents.length ? `${t.status.agents}: ${s.agents.join(', ')}` : t.status.none;
-    ctx.fillText(`${demo ? t.status.demo : t.status.planned} · ${agents}`, 90, y + 50);
+    let line: string;
+    if (isLive) {
+      const parts = [t.status.live, s.agents.join(', ') || t.status.none];
+      if (s.running || s.queued) parts.push(t.status.work(s.running, s.queued));
+      parts.push(s.lastResult ? t.status.last(t.status.states[s.lastResult.state], s.lastResult.finished_at) : t.status.noActivity);
+      if (s.failures24h) parts.push(t.status.failures(s.failures24h));
+      line = parts.join(' · ');
+    } else line = `${s.source === 'demo' ? t.status.demo : t.status.planned} · ${agents}`;
+    ctx.fillText(line.length > 84 ? line.slice(0, 83) + '…' : line, 90, y + 50);
   });
 }
 
@@ -493,13 +521,13 @@ function Engineering({ m, texts, doors, indicator, robots }: { m: Mats; texts: T
 }
 
 /** Presidência (último andar): mesa de frente para a cidade, reunião, estações, telas gigantes. */
-function Presidency({ m, texts, doors, indicator, feed }: { m: Mats; texts: TowerTexts; doors: React.RefObject<Array<THREE.Object3D | null>>; indicator: THREE.Texture; feed: THREE.Texture }) {
+function Presidency({ m, texts, doors, indicator, feed, rows, live }: { m: Mats; texts: TowerTexts; doors: React.RefObject<Array<THREE.Object3D | null>>; indicator: THREE.Texture; feed: THREE.Texture; rows: SectorRow[]; live: LiveState }) {
   const index = TOP_FLOOR;
   const y = floorY(index);
   const top = y + TOWER.clearHeight;
   const c = TOWER.core;
   const sign = useMemo(() => canvasPanel(1024, 256, (cx, w, h) => drawSign(cx, w, h, texts.sectors.presidency, `${texts.floor(index).toUpperCase()} · ${texts.name.toUpperCase()}`)), [texts, index]);
-  const status = useMemo(() => canvasPanel(1280, 720, (cx, w, h) => drawStatus(cx, w, h, texts)), [texts]);
+  const status = useMemo(() => canvasPanel(1280, 720, (cx, w, h) => drawStatus(cx, w, h, texts, rows, live)), [texts, rows, live]);
   const projects = useMemo(() => canvasPanel(1024, 512, (cx, w, h) => drawProjects(cx, w, h, texts)), [texts]);
   const camTitle = useMemo(
     () =>
@@ -525,7 +553,7 @@ function Presidency({ m, texts, doors, indicator, feed }: { m: Mats; texts: Towe
   const feedMat = useMemo(() => new THREE.MeshBasicMaterial({ map: feed, toneMapped: true }), [feed]);
   useEffect(() => () => feedMat.dispose(), [feedMat]);
   const root = useRef<THREE.Group>(null);
-  useMerged(root, [texts]);
+  useMerged(root, [texts, status]);
   return (
     <group ref={root}>
       <FloorShell index={index} m={m} />
@@ -632,6 +660,27 @@ export function TowerInterior({ runtime, texts }: { runtime: UniverseRuntime; te
   }, []);
   useEffect(() => () => crew.fleet.dispose(), [crew]);
   const engLayer = useRef(0);
+  // Estado real dos setores, do runtime do backend (se configurado): ao montar e, com o visitante na
+  // presidência, de minuto em minuto. Sem backend, a demonstração segue marcada.
+  const [live, setLive] = useState<{ state: LiveState; rows: SectorRow[] }>(() => ({ state: 'off', rows: mergeSectorStatus(null) }));
+  useEffect(() => {
+    const ctl = new AbortController();
+    let last = 0;
+    const load = () => {
+      last = Date.now();
+      void fetchTowerLive(ctl.signal).then((r) => {
+        if (!ctl.signal.aborted) setLive({ state: r.state, rows: mergeSectorStatus(r.data) });
+      });
+    };
+    load();
+    const id = setInterval(() => {
+      if (runtime.tower.level === TOP_FLOOR && Date.now() - last > 60_000) load();
+    }, 5000);
+    return () => {
+      ctl.abort();
+      clearInterval(id);
+    };
+  }, [runtime]);
 
   useFrame(({ camera }, rawDt) => {
     const dt = Math.min(rawDt, 0.05);
@@ -737,7 +786,7 @@ export function TowerInterior({ runtime, texts }: { runtime: UniverseRuntime; te
         <Engineering m={m} texts={texts} doors={doors3} indicator={indicators.floor.texture} robots={crew.fleet.group} />
       </group>
       <group ref={pres} visible={false}>
-        <Presidency m={m} texts={texts} doors={doorsTop} indicator={indicators.floor.texture} feed={feed.target.texture} />
+        <Presidency m={m} texts={texts} doors={doorsTop} indicator={indicators.floor.texture} feed={feed.target.texture} rows={live.rows} live={live.state} />
       </group>
       {/* Cabina: piso, paredes e forro por dentro, luz, painel de botões e o mostrador sobre a porta. */}
       <group ref={cabin}>

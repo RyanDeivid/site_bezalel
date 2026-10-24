@@ -147,8 +147,22 @@ Fora da torre, o custo não mudou. A presidência custa mais porque do alto a ci
   - a última atividade real, os resultados recentes e as falhas em 24 h;
   - o custo em 30 dias;
   - tudo com `source: 'runtime'` e só do ambiente `live`.
-- 📄 **Ainda não ligado à cena:** o painel continua com a lista de demonstração. Quando ligar, sem backend
-  ele volta à demonstração marcada; animação de robô nunca conta como evidência. A Torre representa; ela não decide se um agente está ativo (ver
+- ✅ **Painel da presidência ligado ao runtime** (`world/towerLive.ts`):
+  - **Fonte:** a projeção pública `GET /v1/runtime/public/tower`.
+    - O navegador não guarda token, por isso existe essa projeção. Ela fica desligada por padrão e só sai
+      com `BEZALEL_RUNTIME_PUBLIC_TOWER=1`.
+    - Mostra só setor, agentes, contagens, datas e o estado do último resultado, do ambiente `live`.
+  - **Junção, linha a linha:** um setor com agentes registrados no runtime vira **Ao vivo** (verde), com os
+    números reais, inclusive "sem atividade ainda". Os outros continuam **Demonstração** ou **Em
+    planejamento**.
+  - **Cabeçalho:** "AO VIVO + DEMONSTRAÇÃO", "RUNTIME FORA DO AR · DEMONSTRAÇÃO" ou "DADOS DE
+    DEMONSTRAÇÃO". O último aparece sem URL de API configurada, que é o caso do site publicado hoje.
+  - **Atualização:** ao montar e, com o visitante na presidência, a cada minuto.
+  - **Proteção:** a resposta passa por um guard (formato, setores conhecidos, limites).
+  - **Animação de robô nunca conta como evidência.**
+  - **Conferido com capturas:** com o backend no ar, a Engenharia aparece "Ao vivo · Site Intelligence
+    Agent · última concluída 23/10, 23:17", a tarefa real da noite anterior. Fora do ar, a demonstração
+    volta, com o aviso no cabeçalho. A Torre representa; ela não decide se um agente está ativo (ver
   `AGENT-GOVERNANCE.md`).
 
 ## 8. Gerenciamento de ativos 📄

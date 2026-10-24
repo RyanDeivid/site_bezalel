@@ -7,6 +7,7 @@ as ferramentas da lista fixa. Não há rota que rode código, comando de termina
 
 from __future__ import annotations
 
+import os
 import sqlite3
 from typing import Any, Iterator, Literal
 
@@ -160,3 +161,32 @@ def evaluations(agent_id: str | None = Query(None, max_length=60), _: Principal 
 @router.get("/tower")
 def tower(_: Principal = Depends(require("reader")), conn: sqlite3.Connection = Depends(get_conn)) -> dict[str, Any]:
     return tower_status(conn)
+
+
+@router.get("/public/tower")
+def public_tower(conn: sqlite3.Connection = Depends(get_conn)) -> dict[str, Any]:
+    """Projeção pública e mínima do estado dos setores, para o painel da Torre no site.
+
+    Desligada por padrão (404): só com ``BEZALEL_RUNTIME_PUBLIC_TOWER=1``. Sem token, porque o navegador não
+    pode guardar segredo; por isso só sai o que pode ser público: setor, agentes registrados (nome e
+    versão), tarefas rodando e na fila, a data da última atividade real, o estado e a data do último
+    resultado e as falhas em 24 h. Nada de objetivos, erros, custos ou relatórios. Só o ambiente 'live'.
+    """
+    if os.environ.get("BEZALEL_RUNTIME_PUBLIC_TOWER") != "1":
+        raise HTTPException(status_code=404, detail="Não encontrado")
+    full = tower_status(conn)
+    sectors = []
+    for s in full["sectors"]:
+        last = s["recent_results"][0] if s["recent_results"] else None
+        sectors.append(
+            {
+                "sector": s["sector"],
+                "agents": [{"id": a["id"], "name": a["name"], "version": a["version"]} for a in s["agents"] if a["enabled"]],
+                "running": s["running"],
+                "queued": s["queued"],
+                "last_activity_at": s["last_activity_at"],
+                "last_result": {"state": last["state"], "finished_at": last["finished_at"]} if last else None,
+                "failures_24h": s["failures_24h"],
+            }
+        )
+    return {"source": "runtime", "computed_at": full["computed_at"], "sectors": sectors}

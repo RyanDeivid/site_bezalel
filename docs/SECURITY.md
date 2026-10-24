@@ -64,6 +64,13 @@ O backend ganhou rotas de escrita, no runtime de agentes. As defesas:
 - **Nenhuma rota executa código, comando ou ferramenta livre.**
 - **Conteúdo lido de páginas é dado, nunca instrução** (ver `AGENT-TOOLS.md`).
 - **O banco do runtime não entra no git:** ele fica em `server/var/`, que é ignorado.
+- **Projeção pública para a Torre** (`/v1/runtime/public/tower`):
+  - é a única rota do runtime sem token, porque o navegador não pode guardar segredo;
+  - fica desligada por padrão;
+  - expõe só contagens, datas e estados, do ambiente `live`;
+  - no site, a resposta passa por um guard.
+- **CSP:** a origem de `VITE_API_BASE_URL` (HTTPS, ou localhost em desenvolvimento) entra em `connect-src`
+  sempre que estiver configurada.
 
 ## Antes de ativar escrita, autenticação ou Supabase
 

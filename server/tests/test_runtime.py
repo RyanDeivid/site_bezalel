@@ -579,3 +579,30 @@ def test_product_agents_stay_demo_and_runtime_metrics_are_real(db, repo):
     live = next(s for s in tower_status(c)["sectors"] if s["sector"] == "engineering")
     assert live["recent_results"] == [] and live["last_activity_at"] is None
     assert operational_metrics(c)["last_30_days"]["finished"] == 0
+
+
+def test_public_tower_is_off_by_default_and_minimal_when_on(db, repo, monkeypatch):
+    from app.main import app
+
+    monkeypatch.setenv("BEZALEL_RUNTIME_DB", str(db))
+    client = TestClient(app)
+    monkeypatch.delenv("BEZALEL_RUNTIME_PUBLIC_TOWER", raising=False)
+    assert client.get("/v1/runtime/public/tower").status_code == 404
+    # Uma tarefa real (ambiente 'live') e uma de teste: só a real aparece.
+    c = connect(db)
+    d = SITE_INTELLIGENCE
+    live = store.create_task(c, agent_id=d.id, agent_version=d.version, objective="objetivo interno, não público", input={}, max_attempts=1, created_by="user:t", environment="live")
+    Executor(lambda: connect(db), environment="live", provider=UnconfiguredProvider(), tool_overrides={"repo_root": repo}).run_once()
+    enqueue(c)
+    monkeypatch.setenv("BEZALEL_RUNTIME_PUBLIC_TOWER", "1")
+    res = client.get("/v1/runtime/public/tower")
+    assert res.status_code == 200
+    body = res.json()
+    assert body["source"] == "runtime"
+    eng = next(s for s in body["sectors"] if s["sector"] == "engineering")
+    assert set(eng) == {"sector", "agents", "running", "queued", "last_activity_at", "last_result", "failures_24h"}
+    assert eng["last_result"]["state"] == "succeeded" and eng["last_activity_at"]
+    assert eng["queued"] == 0  # a tarefa de teste na fila não conta
+    text = res.text
+    for secret in ("objetivo interno", live["id"], "cost", "error", "objective"):
+        assert secret not in text

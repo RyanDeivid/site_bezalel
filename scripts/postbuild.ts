@@ -42,9 +42,16 @@ const builtBase = readFileSync(join(dist, 'index.html'), 'utf8').match(/<script[
 const rawBase = builtBase ?? process.env.VITE_BASE_PATH ?? '/';
 const base = rawBase === '/' ? '/' : `/${rawBase.replace(/^\/+|\/+$/g, '')}/`;
 const origin = (process.env.VITE_SITE_ORIGIN ?? 'http://localhost:4173').replace(/\/+$/, '');
+// A origem da API entra no connect-src sempre que VITE_API_BASE_URL estiver configurado (o catálogo no modo
+// 'api' e o painel da Torre, que lê o runtime em qualquer modo), com a mesma regra do cliente: HTTPS, ou
+// http://localhost em desenvolvimento.
 const apiOrigin = (() => {
   try {
-    return process.env.VITE_DATA_MODE === 'api' && process.env.VITE_API_BASE_URL ? new URL(process.env.VITE_API_BASE_URL).origin : '';
+    const raw = process.env.VITE_API_BASE_URL;
+    if (!raw) return '';
+    const u = new URL(raw);
+    const local = u.hostname === 'localhost' || u.hostname === '127.0.0.1';
+    return u.protocol === 'https:' || (local && u.protocol === 'http:') ? u.origin : '';
   } catch {
     return '';
   }

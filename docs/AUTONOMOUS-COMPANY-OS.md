@@ -83,7 +83,7 @@ lista fixa.
 | Site Intelligence Agent | **Real**, somente leitura, sobre o build e as verificações do projeto. Avaliado: v1 com precisão de 0,625 (3 falsos positivos achados na revisão), v2 com 1,0 contra o mesmo gabarito |
 | Resumo por modelo de IA | **Depende de credencial**: `BEZALEL_LLM_PROVIDER=anthropic`, a chave, os preços e o orçamento diário. Sem isso, o relatório registra "não rodou" |
 | Aprovações | O **mecanismo** é real e testado. **Nenhuma ação externa** está ligada a ele |
-| Painel da Torre lendo o runtime | O **endpoint** existe (`/v1/runtime/tower`). O frontend **ainda não o consome**: os painéis continuam com os dados de demonstração, marcados como tal |
+| Painel da Torre lendo o runtime | **Real**, mas só com um backend publicado. A presidência lê a projeção pública (`/v1/runtime/public/tower`, desligada por padrão) e marca cada linha como ao vivo, demonstração ou planejado. Conferido com o backend local no ar e fora do ar. O site publicado ainda não tem backend, então mostra a demonstração |
 | Business Metrics | Só o contrato. Nenhuma fonte de negócio ligada |
 | Agentes de SEO ativo, conteúdo, anúncios, vendas, finanças | **Proposta**. Nada implementado nem ligado |
 
@@ -101,8 +101,7 @@ lista fixa.
 
 ## 6. Próximos passos
 
-1. Ligar o painel de Engenharia da Torre ao `/v1/runtime/tower`, com o modo demonstração como alternativa
-   quando o backend estiver indisponível.
+1. ~~Ligar o painel da Torre ao runtime~~ (feito: `BEZALEL-TOWER-ARCHITECTURE.md` › 7).
 2. Rodar o Site Intelligence Agent sobre o build de produção (`npm run build:pages`) num agendamento
    diário, e avaliar cada execução contra a anterior (reprodutibilidade).
 3. Publicar o runtime na VM (instância única, TLS, tokens por pessoa) **só com autorização**.
