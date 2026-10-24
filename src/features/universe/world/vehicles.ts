@@ -115,6 +115,23 @@ export function pushOutOfSolids(p: { x: number; z: number }, r: number, solids: 
     const minZ = s.minZ - r;
     const maxZ = s.maxZ + r;
     if (p.x <= minX || p.x >= maxX || p.z <= minZ || p.z >= maxZ) continue;
+    // Fora do retângulo, perto de uma quina: a quina é redonda (círculo contra retângulo). Quem raspa
+    // nela contorna, em vez de ser empurrado para trás por uma quina "quadrada" de raio r.
+    const qx = Math.max(s.minX, Math.min(s.maxX, p.x));
+    const qz = Math.max(s.minZ, Math.min(s.maxZ, p.z));
+    const outside = qx !== p.x || qz !== p.z;
+    if (outside) {
+      const dx = p.x - qx;
+      const dz = p.z - qz;
+      const d = Math.hypot(dx, dz);
+      if (d >= r) continue;
+      if (d > 1e-9) {
+        p.x = qx + (dx / d) * r;
+        p.z = qz + (dz / d) * r;
+        normal = { x: dx / d, z: dz / d };
+        continue;
+      }
+    }
     const pushes = [p.x - minX, maxX - p.x, p.z - minZ, maxZ - p.z];
     const k = pushes.indexOf(Math.min(...pushes));
     if (k === 0) {

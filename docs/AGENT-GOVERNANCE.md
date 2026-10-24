@@ -24,6 +24,29 @@ O nível é dado pelo **risco da ação**, não pelo setor. Um agente pode ter a
 Atividade jurídica, financeira ou de saúde nunca passa do nível 2 sem revisão de profissional habilitado.
 A IA organiza e analisa; ela não substitui o profissional.
 
+## Em código (runtime, desde 23/10/2026)
+
+Os níveis desta página são aplicados pelo runtime de agentes (`server/app/runtime`, ver
+`AGENT-RUNTIME.md` e `AGENT-TOOLS.md`). Lá eles se chamam A (consulta; nível 1 daqui), B (mudança interna
+reversível; 2), C (ação externa com aprovação; 3) e D (recorrente autorizada; 4). O nível 0 não roda no
+runtime: é a representação visual, no frontend.
+
+| Requisito | Onde é aplicado |
+|---|---|
+| Nível pelo risco da ação | Cada ferramenta tem um nível; o servidor recusa a ferramenta acima da autonomia do agente (`call_tool`) |
+| Permissões mínimas | Cada definição de agente lista as ferramentas dela; fora da lista, recusa e evento `tool.denied` |
+| O agente não aumenta o próprio nível, permissões nem orçamento | Não existe rota nem ferramenta para isso: definições, limites e tokens só mudam por código ou configuração, por pessoa |
+| Autenticação e autorização | Token por pessoa, guardado só como hash; papéis por ação (reader, operator, approver, admin); fechado sem tokens |
+| Auditoria | Toda transição, chamada de ferramenta e decisão vira evento, na mesma transação da mudança |
+| Custos e limites | Tempo, passos, tentativas, chamadas de modelo e custo por tarefa e por dia, conferidos antes da chamada |
+| Aprovação de ação externa | Presa ao hash de ação + parâmetros + destino, com validade, uso único e revogação; agente não aprova |
+| Segredos | Só em variáveis do servidor; o processo filho dos comandos não os recebe |
+| Retenção | `cli retention` (eventos 90 dias, tarefas 180, consumo 400) |
+| Avaliação independente | O agente não avalia o próprio trabalho (`record_evaluation` recusa avaliador `agent:`) |
+
+O primeiro funcionário real, o Site Intelligence Agent, é de nível A: só lê o build e roda verificações da
+lista fixa do projeto. Os agentes de produto do site (Scout e os demais) continuam em demonstração.
+
 ## Requisitos (a partir do nível 1)
 
 | Tema | Requisito |

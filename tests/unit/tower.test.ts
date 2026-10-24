@@ -54,6 +54,15 @@ describe('Torre Bezalel: o edifício', () => {
     expect(car.z).toBeGreaterThan(TOWER.lobby.glassZ + 1);
   });
 
+  it('entra mesmo chegando de lado na porta: contorna as balizas e o batente em vez de ser empurrado para fora', () => {
+    for (const x of [0.55, -0.55, 1.45, -1.45, 0.3]) {
+      const t = createTowerRuntime();
+      const w = createWalker({ x, z: -60, yaw: Math.PI });
+      walk(t, w, { x: 0, z: -1 }, 6);
+      expect(w.z, `x = ${x}`).toBeLessThan(TOWER.lobby.glassZ - 1);
+    }
+  });
+
   it('a porta fechada do elevador não deixa passar; a câmera não atravessa o teto da recepção', () => {
     const t = createTowerRuntime();
     const w = createWalker({ x: 0, z: -79, yaw: Math.PI });

@@ -15,7 +15,7 @@ e o botão da ação).
 | Saguão | Vidro recuado em z = −68,4, de frente para a praça e a avenida; porta de 4,4 m no centro, com balizas que deixam gente passar e barram carro | `TOWER.lobby`, `towerStreetSolids` |
 | Torre | Afunila de 22 × 16 m (9,3 m) a 19 × 13,5 m (57,3 m), centrada em (0, −82) | `TOWER.footprint`, `footprintAt` |
 | Andares | Térreo no pódio + 12 andares de 4 m (3,55 m livres) | `floorY`, `ceilingY` |
-| Núcleo | 6 × 6 m no centro, com a cabina de 2,5 × 3,3 m e a porta de 1,7 m voltada para o sul | `TOWER.core`, `TOWER.cabin` |
+| Núcleo | 6 × 6 m no centro, com a cabina de 4,8 × 5,1 m (3 m de pé-direito) e a porta de 2,2 m voltada para o sul | `TOWER.core`, `TOWER.cabin` |
 
 A escala é a da cidade: o visitante tem 0,45 m de raio e os olhos a ~1,55 m; os carros e as ruas são os
 mesmos de fora. ✅
@@ -55,7 +55,14 @@ marcados "em planejamento". Não há tela vazia atrás deles.
 - **Câmera:**
   - fora da cabina, colide com as paredes do andar e não passa do teto nem do piso;
   - fora da cabina, o núcleo inteiro é parede para ela, para não entrar no poço pela porta aberta;
-  - dentro da cabina, ela fica no fundo, à altura dos olhos, olhando a porta.
+  - dentro da cabina, ela orbita como fora, presa às paredes e ao forro da cabina; viajando, vai sozinha
+    para o fundo, olhando a porta, a menos que o visitante tenha arrastado há pouco.
+- **Viajando**, nenhum andar é desenhado, só a cabina (antes, a laje e o forro do andar cruzado a
+  atravessavam).
+- **Porta do saguão:**
+  - duas balizas com vão central de 1,6 m (passa gente com folga, carro não);
+  - colisão com quinas arredondadas: quem chega de lado contorna, em vez de ser empurrado para fora;
+  - uma verga sobre a porta, para o carro voador não entrar pela bandeira.
 - **Física:** a parede só tira velocidade, nunca dá. A correção vale para a cidade toda: antes, um
   empurrão grande podia arremessar o visitante através da parede.
 
@@ -135,8 +142,13 @@ Fora da torre, o custo não mudou. A presidência custa mais porque do alto a ci
   agentes ligados (os de produto), tarefas, alertas, `updatedAt` e `source` (`demo`, `live`, `none`).
 - ✅ **Hoje:** a fonte é uma lista local, toda `demo` ou `planned`, e a tela mostra "DADOS DE
   DEMONSTRAÇÃO". Um teste impede `live` ou `operational` nela.
-- 📄 **Depois:** um serviço do backend (`server/`) publica o mesmo contrato, com autenticação e
-  `updatedAt` reais; a cena só lê. A Torre representa; ela não decide se um agente está ativo (ver
+- ✅ **Fonte real no backend:** `GET /v1/runtime/tower` (runtime de agentes) devolve, por setor:
+  - os agentes registrados, as tarefas em curso e na fila;
+  - a última atividade real, os resultados recentes e as falhas em 24 h;
+  - o custo em 30 dias;
+  - tudo com `source: 'runtime'` e só do ambiente `live`.
+- 📄 **Ainda não ligado à cena:** o painel continua com a lista de demonstração. Quando ligar, sem backend
+  ele volta à demonstração marcada; animação de robô nunca conta como evidência. A Torre representa; ela não decide se um agente está ativo (ver
   `AGENT-GOVERNANCE.md`).
 
 ## 8. Gerenciamento de ativos 📄

@@ -104,6 +104,8 @@ export function PlayerController({ runtime, solids, inputEnabled, calmCamera, on
   const lastNear = useRef<PlaceId | null>(null);
   const lastNearVehicle = useRef<string | null>(null);
   const shake = useRef(0);
+  // Quando o visitante arrastou a câmera pela última vez (o enquadramento automático da cabina espera).
+  const lastDrag = useRef(0);
   const padA = useRef(false);
   const bodies = useMemo<Body[]>(() => [], []);
   const persp = camera as THREE.PerspectiveCamera;
@@ -149,6 +151,7 @@ export function PlayerController({ runtime, solids, inputEnabled, calmCamera, on
       const prev = pointers.get(e.pointerId);
       if (!prev) return;
       if (pointers.size === 1) {
+        lastDrag.current = performance.now();
         const dx = (e.clientX - prev.x) * 0.006;
         if (runtime.mode === 'foot') runtime.camera.yaw -= dx;
         else runtime.camera.orbit -= dx;
@@ -346,16 +349,20 @@ export function PlayerController({ runtime, solids, inputEnabled, calmCamera, on
       // ela fica no fundo, à altura dos olhos, olhando a porta (o visitante e o mostrador à frente).
       const tower = rt.mode === 'foot' ? towerContext(rt.tower, rt.walker, solids) : { solids, floor: null, ceiling: null };
       const inCabin = rt.mode === 'foot' && insideCabin(rt.walker.x, rt.walker.z) && Math.abs(rt.walker.y - rt.tower.elevator.y) < 1.5;
-      if (inCabin) {
-        const y0 = rt.tower.elevator.y;
-        goal.set(TOWER.x + 0.35, y0 + 2.05, TOWER.cabin.minZ + 0.3);
-        look.lerp(aim.set(TOWER.x, y0 + 1.25, TOWER.core.maxZ + 2.5), 1 - Math.exp(-dt * 10));
+      // Na cabina (grande, 4,8 × 5,1 m), a câmera orbita como fora; as paredes dela a seguram (são o
+      // núcleo) e o forro a limita, logo abaixo.
+      const cabinTop = inCabin ? rt.tower.elevator.y + TOWER.cabin.height - 0.25 : Infinity;
+      // Viajando, a câmera vai sozinha para o fundo da cabina, olhando a porta (o visitante, a porta e o
+      // mostrador em vista), a menos que o visitante tenha arrastado há pouco: aí manda ele.
+      if (inCabin && rt.tower.riding && performance.now() - lastDrag.current > 2500) {
+        const diff = Math.atan2(Math.sin(0 - rt.camera.yaw), Math.cos(0 - rt.camera.yaw));
+        rt.camera.yaw += diff * (1 - Math.exp(-dt * 2.5));
       }
       // De fora da cabina, o núcleo todo é parede para a câmera (pela porta aberta ela entraria no poço).
       const camSolids = rt.mode === 'foot' && !inCabin && (rt.tower.level > 0 || Math.abs(rt.walker.z - TOWER.z) < 14) ? [...tower.solids, coreBlock(tower.floor ?? 0, (tower.floor ?? 0) + 8)] : tower.solids;
       // Não atravessa prédios: percorre do jogador até o ponto desejado e para antes do primeiro volume.
       const steps = 12;
-      for (let i = 1; i <= steps && !inCabin; i++) {
+      for (let i = 1; i <= steps; i++) {
         const k = i / steps;
         const x = target.x + (goal.x - target.x) * k;
         const y = target.y + (goal.y - target.y) * k;
@@ -367,6 +374,7 @@ export function PlayerController({ runtime, solids, inputEnabled, calmCamera, on
         }
       }
       if (tower.ceiling !== null) goal.y = Math.min(goal.y, tower.ceiling - 0.3);
+      goal.y = Math.min(goal.y, cabinTop);
       goal.y = Math.max(goal.y, (tower.floor ?? 0) + 0.8);
       // Viajando, a câmera vai com a cabina (sem o atraso que a deixaria para trás no poço).
       if (inCabin && rt.tower.elevator.phase === 'moving') camPos.copy(goal);

@@ -48,6 +48,23 @@ object-src 'none'; base-uri 'self'; form-action 'self'
 - Rate limit no assistente (em memória → 1 worker).
 - Sem provedor de LLM configurado, responde 501 — nunca simula um modelo.
 
+## Runtime de agentes (`/v1/runtime`)
+
+O backend ganhou rotas de escrita, no runtime de agentes. As defesas:
+- **Fechado por padrão:** sem `BEZALEL_RUNTIME_TOKENS`, o runtime responde 503.
+- **Tokens:** de portador, guardados só como SHA-256 e comparados em tempo constante.
+- **Papéis por ação:** reader, operator, approver, admin.
+- **Escrita só da própria máquina:** a menos que `BEZALEL_RUNTIME_ALLOW_REMOTE_WRITES=1` (só atrás de TLS).
+  Há também limite de 30 escritas por minuto por token.
+- **Execução só pelo worker,** com ferramentas de uma lista fixa:
+  - o único comando de terminal é `npm run <script da lista>`;
+  - sem shell, com tempo limite;
+  - a árvore de processos é encerrada no tempo limite;
+  - o processo filho não recebe os segredos do ambiente.
+- **Nenhuma rota executa código, comando ou ferramenta livre.**
+- **Conteúdo lido de páginas é dado, nunca instrução** (ver `AGENT-TOOLS.md`).
+- **O banco do runtime não entra no git:** ele fica em `server/var/`, que é ignorado.
+
 ## Antes de ativar escrita, autenticação ou Supabase
 
 - Não criar "login" de fachada: autenticação só com provedor real (Supabase Auth, OAuth) validado no servidor.

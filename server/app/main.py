@@ -116,8 +116,14 @@ app.add_middleware(
     allow_origins=ALLOWED_ORIGINS,
     allow_credentials=False,
     allow_methods=["GET", "POST"],
-    allow_headers=["Content-Type", "Accept"],
+    allow_headers=["Content-Type", "Accept", "Authorization"],
 )
+
+
+# Runtime de agentes (docs/AGENT-RUNTIME.md): rotas próprias, todas com token e papel.
+from .runtime.api import router as runtime_router  # noqa: E402
+
+app.include_router(runtime_router)
 
 
 @app.get("/health")

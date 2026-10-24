@@ -35,7 +35,7 @@ export const TOWER = {
   footprint: { base: { w: 22, d: 16 }, top: { w: 19, d: 13.5 } },
   /** Núcleo de circulação (pedra) e a cabina do elevador dentro dele, com a porta para o sul. */
   core: { minX: -3, maxX: 3, minZ: -88, maxZ: -82 },
-  cabin: { minX: -1.25, maxX: 1.25, minZ: -85.5, maxZ: -82.2, doorHalf: 0.85, height: 2.6 },
+  cabin: { minX: -2.4, maxX: 2.4, minZ: -87.4, maxZ: -82.3, doorHalf: 1.1, height: 3.0 },
   /** Espessura das paredes de colisão. */
   wall: 0.3,
 } as const;
@@ -162,8 +162,12 @@ export function towerStreetSolids(): Solid[] {
     box(-l.halfWidth, -l.doorHalf, glass - t / 2, glass + t / 2, 0, l.top),
     box(l.doorHalf, l.halfWidth, glass - t / 2, glass + t / 2, 0, l.top),
     box(-l.halfWidth, l.halfWidth, glass - t / 2, p.maxZ, l.top, top),
-    // Balizas na frente da porta: vãos de 1 m (passa uma pessoa, não passa um carro).
-    ...[-1.95, -0.65, 0.65, 1.95].map((x) => box(x - 0.15, x + 0.15, glass + 1.1, glass + 1.4, 0, 1.2)),
+    // Balizas na frente da porta: o vão do meio tem 1,6 m (passa uma pessoa com folga, não passa um carro,
+    // que tem 1,9 m ou mais). Antes eram quatro, com vãos de 1 m: sobravam 5 cm para os 0,9 m do visitante
+    // e quem chegava um pouco de lado era empurrado para fora.
+    ...[-0.95, 0.95].map((x) => box(x - 0.15, x + 0.15, glass + 1.1, glass + 1.4, 0, 1.2)),
+    // A bandeira de vidro sobre a porta (de 3,2 m até o alto do saguão): o carro voador não entra por ela.
+    box(-l.doorHalf, l.doorHalf, glass - t / 2, glass + t / 2, 3.2, l.top),
     // Laje do teto do salão e o núcleo do elevador no térreo.
     box(p.minX, p.maxX, p.minZ, glass, TOWER.lobbyCeiling, top),
     ...coreSolids(g - 0.3, TOWER.lobbyCeiling),

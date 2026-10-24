@@ -13,6 +13,8 @@
 
 Nomes são provisórios e ficam só em `src/data/demo/agents.ts`. Todos têm `mode: 'demo'`: nenhum agente autônomo está em produção, e a interface mostra isso em cada estado.
 
+> **Agentes de produto × funcionários do runtime.** Os seis agentes acima são do produto e seguem em demonstração. Os funcionários digitais que executam trabalho de verdade vivem no runtime do backend (`server/app/runtime`, ver `AUTONOMOUS-COMPANY-OS.md`); o primeiro é o Site Intelligence Agent. Um não vira o outro por estar registrado: a Torre e as telas só representam.
+
 ## Pipeline
 
 Contratos em [`src/domain/pipeline/contracts.ts`](../src/domain/pipeline/contracts.ts); orquestração pura em `runner.ts`.

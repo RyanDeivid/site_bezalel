@@ -638,7 +638,10 @@ export function TowerInterior({ runtime, texts }: { runtime: UniverseRuntime; te
     const t = runtime.tower;
     const e = t.elevator;
     const nearTower = Math.hypot(camera.position.x - TOWER.x, camera.position.z - (TOWER.z + 6)) < INTERIOR_REVEAL;
-    const level = t.riding ? e.floor : t.level;
+    // Viajando, nenhum andar é desenhado: só a cabina (senão a laje e o forro do andar que a cabina
+    // cruza atravessavam a cabina). Parada num andar, ele volta (a porta se abre para ele).
+    const moving = t.riding && e.phase === 'moving';
+    const level = moving ? -1 : t.riding ? e.floor : t.level;
     const inside = nearTower && (t.level > 0 || t.riding || camera.position.y < TOWER.towerBase + 0.5);
     if (lobby.current) lobby.current.visible = nearTower && level === 0 && camera.position.y < TOWER.towerBase + 2;
     if (pres.current) pres.current.visible = inside && level === TOP_FLOOR;
@@ -658,7 +661,7 @@ export function TowerInterior({ runtime, texts }: { runtime: UniverseRuntime; te
     }
     // Cabina: acompanha o elevador; visível com o visitante por perto (térreo) ou dentro da torre.
     if (cabin.current) {
-      cabin.current.visible = nearTower && (inside || level === 0);
+      cabin.current.visible = nearTower && (inside || level === 0 || moving);
       cabin.current.position.y = e.y - TOWER.ground;
     }
     // Portas: as do andar onde a cabina está abrem com ela; as outras ficam fechadas.

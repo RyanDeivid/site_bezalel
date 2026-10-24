@@ -76,3 +76,19 @@ Depois, no repositório do GitHub, defina as *variables* `VITE_DATA_MODE=api` e 
 - CORS restrito às origens configuradas; sem credenciais/cookies.
 - Somente leitura: nenhum endpoint altera dados. Escrita futura exigirá autenticação real (ver `docs/SECURITY.md`).
 - Rate limit em memória no assistente → mantenha **1 worker** (ou migre para Redis antes de escalar).
+
+## Runtime de agentes (`app/runtime`)
+
+O backend também abriga o núcleo operacional dos funcionários digitais: agentes registrados, tarefas
+persistentes (SQLite em `var/`), um worker com recuperação e limites, ferramentas com permissões,
+eventos de auditoria, aprovações e avaliações. O primeiro agente real é o **Site Intelligence Agent**,
+somente leitura.
+
+```bash
+python -m app.runtime.cli enqueue site-intelligence
+python -m app.runtime.cli worker --once
+python -m app.runtime.cli report <id>
+```
+
+As rotas `/v1/runtime/*` exigem token e papel, e ficam fechadas (503) sem `BEZALEL_RUNTIME_TOKENS`. Ver
+`docs/AGENT-RUNTIME.md` e `docs/AGENT-OPERATIONS.md`.

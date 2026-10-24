@@ -140,20 +140,14 @@ export class UniverseAudio {
     // (antes era um ruído quase parado e alto, que cansava).
     const rumble = c.createBiquadFilter();
     rumble.type = 'lowpass';
-    rumble.frequency.value = 160;
-    lfo(rumble.frequency, 0.031, 45);
+    rumble.frequency.value = 110;
+    lfo(rumble.frequency, 0.031, 25);
     loop().connect(rumble);
     const cityGain = voice(rumble);
-    const hissF = c.createBiquadFilter();
-    hissF.type = 'bandpass';
-    hissF.frequency.value = 700;
-    hissF.Q.value = 0.5;
-    lfo(hissF.frequency, 0.019, 220);
+    // (O chiado de antes, um ruído em banda média, saiu: era o "barulho estático" que cansava. A cidade
+    // fica só no rumor grave e na ambientação tonal abaixo.)
     const hiss = c.createGain();
-    hiss.gain.value = 0.16;
-    lfo(hiss.gain, 0.047, 0.1);
-    lfo(hiss.gain, 0.0113, 0.06);
-    loop().connect(hissF).connect(hiss).connect(cityGain);
+    hiss.gain.value = 0;
     this.city = { gain: cityGain, hiss };
     // Ambientação: dois bancos de cinco notas que se alternam (um some enquanto o outro surge com o
     // acorde seguinte), cada nota com dois osciladores levemente desafinados e um respirar próprio,
@@ -217,14 +211,18 @@ export class UniverseAudio {
     const ea = c.createOscillator();
     const eb = c.createOscillator();
     ea.type = 'sine';
-    eb.type = 'triangle';
+    eb.type = 'sine';
     const eMix = c.createGain();
     eMix.gain.value = 0.5;
+    const eSoft = c.createBiquadFilter();
+    eSoft.type = 'lowpass';
+    eSoft.frequency.value = 900;
     ea.connect(eMix);
     eb.connect(eMix);
+    eMix.connect(eSoft);
     ea.start();
     eb.start();
-    this.electric = { gain: voice(eMix), a: ea, b: eb };
+    this.electric = { gain: voice(eSoft), a: ea, b: eb };
     // Ronco do esportivo: dente de serra grave num passa-baixa.
     const go = c.createOscillator();
     go.type = 'sawtooth';
@@ -240,8 +238,11 @@ export class UniverseAudio {
     tf.type = 'bandpass';
     tf.Q.value = 1.2;
     tf.frequency.value = 700;
-    loop().connect(tf);
-    const tg = voice(tf);
+    const tSoft = c.createBiquadFilter();
+    tSoft.type = 'lowpass';
+    tSoft.frequency.value = 1100;
+    loop().connect(tf).connect(tSoft);
+    const tg = voice(tSoft);
     const whistle = c.createOscillator();
     whistle.type = 'sine';
     const whistleGain = c.createGain();
@@ -251,9 +252,9 @@ export class UniverseAudio {
     this.turbine = { gain: tg, filter: tf, whistle, whistleGain };
     // Carro do trânsito que passa: sopro + zumbido, com lado.
     const pf = c.createBiquadFilter();
-    pf.type = 'bandpass';
-    pf.frequency.value = 600;
-    pf.Q.value = 0.8;
+    pf.type = 'lowpass';
+    pf.frequency.value = 420;
+    pf.Q.value = 0.5;
     const pan = c.createStereoPanner();
     loop().connect(pf).connect(pan);
     this.pass = { gain: voice(pan), pan, filter: pf };
@@ -303,12 +304,12 @@ export class UniverseAudio {
     const high = Math.min(1, Math.max(0, (f.altitude - 6) / 50));
     const foot = f.mode === 'foot';
     // Fundo: a cidade some aos poucos com a altura; o vento cresce com a altura e a velocidade.
-    ramp(this.city.gain.gain, (foot ? 0.13 : 0.09) * (1 - high * 0.75), 0.8);
+    ramp(this.city.gain.gain, (foot ? 0.07 : 0.05) * (1 - high * 0.75), 0.8);
     // Ambientação: inteira a pé, recuada dentro do veículo (a cabine isola, o motor domina).
     ramp(this.pad.bus.gain, foot ? 1 : 0.35, 1.5);
     ramp(this.bells.bus.gain, foot ? 1 : 0.25, 1.5);
     this.evolve(t);
-    const windLevel = flying ? 0.08 + high * 0.35 + Math.min(1, f.speed / 40) * 0.35 : 0.04;
+    const windLevel = flying ? 0.05 + high * 0.22 + Math.min(1, f.speed / 40) * 0.2 : 0.012;
     ramp(this.wind.gain.gain, windLevel, 0.6);
     ramp(this.wind.filter.frequency, 350 + high * 500 + f.speed * 18, 0.6);
     // Motores.
@@ -317,23 +318,23 @@ export class UniverseAudio {
     const whine = 70 + s * 9;
     ramp(this.electric.a.frequency, whine, 0.08);
     ramp(this.electric.b.frequency, whine * 2.01, 0.08);
-    ramp(this.electric.gain.gain, car ? (f.carClass === 'sport' ? 0.05 : 0.09) * (0.35 + f.throttle * 0.65 + Math.min(1, s / 30) * 0.4) : 0, 0.15);
+    ramp(this.electric.gain.gain, car ? (f.carClass === 'sport' ? 0.04 : 0.07) * (0.35 + f.throttle * 0.65 + Math.min(1, s / 30) * 0.4) : 0, 0.15);
     // Esportivo: "marchas" (o tom sobe e cai a cada faixa de velocidade).
     const gear = (s % 11) / 11;
     ramp(this.growl.osc.frequency, 38 + gear * 55 + Math.floor(s / 11) * 4, 0.06);
     ramp(this.growl.filter.frequency, 180 + f.throttle * 700 + gear * 300, 0.08);
     ramp(this.growl.gain.gain, car && f.carClass === 'sport' ? 0.14 * (0.4 + f.throttle * 0.6) : 0, 0.15);
     // Turbina.
-    ramp(this.turbine.gain.gain, flying ? 0.22 + f.throttle * 0.25 : 0, 0.3);
+    ramp(this.turbine.gain.gain, flying ? 0.12 + f.throttle * 0.16 : 0, 0.3);
     ramp(this.turbine.filter.frequency, 500 + f.throttle * 900 + s * 15, 0.25);
     ramp(this.turbine.whistle.frequency, 900 + f.throttle * 700 + s * 12, 0.2);
-    ramp(this.turbine.whistleGain.gain, flying ? 0.05 + f.throttle * 0.06 : 0, 0.3);
+    ramp(this.turbine.whistleGain.gain, flying ? 0.025 + f.throttle * 0.035 : 0, 0.3);
     // Trânsito que passa perto.
     if (f.traffic) {
       const k = 1 / (1 + (f.traffic.distance * f.traffic.distance) / 60);
-      ramp(this.pass.gain.gain, (flying ? 0.12 : 0.4) * k, 0.15);
+      ramp(this.pass.gain.gain, (flying ? 0.08 : 0.26) * k, 0.2);
       ramp(this.pass.pan.pan, Math.max(-1, Math.min(1, f.traffic.pan)), 0.1);
-      ramp(this.pass.filter.frequency, 450 + k * 600, 0.15);
+      ramp(this.pass.filter.frequency, 300 + k * 350, 0.2);
     } else ramp(this.pass.gain.gain, 0, 0.3);
   }
 

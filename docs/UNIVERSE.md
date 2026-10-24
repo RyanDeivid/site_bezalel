@@ -463,6 +463,15 @@ Tudo gerado na hora com a Web Audio API (`audio.ts`), nenhum arquivo baixado:
   suspenso (`visibilitychange` e `pagehide`) e volta ao retornar. Antes, no celular, o som continuava com o
   navegador em segundo plano. Teste e2e "o som para quando a página sai da tela".
 - **Elevador da Torre**: sinal na chegada e um sopro na porta.
+- **Menos ruído em todo o Universe** (rodada do Company OS):
+  - o chiado do fundo da cidade saiu, e o rumor grave ficou mais baixo;
+  - o trânsito que passa ficou mais grave e macio;
+  - o vento a pé quase sumiu;
+  - o motor elétrico ficou sem o triângulo áspero e com passa-baixa; a turbina, filtrada e mais baixa.
+
+  Medido na saída de áudio, a pé na praça, alternando duas vezes com a versão publicada
+  (`scripts/audio-level-universe.mjs`): a energia acima de 450 Hz, onde vivia o chiado, caiu de 12,0% e
+  11,2% para 3,2% e 3,1%, com o mesmo volume (−28 dBFS). Se ficou agradável, só a escuta diz.
 
 O botão de alto-falante no HUD e a tecla **M** ligam e desligam (a escolha fica
 no aparelho, `bz-universe-sound`). O som começa depois do clique de "Explorar

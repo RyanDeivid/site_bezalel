@@ -23,6 +23,8 @@ server/.venv/
 server/__pycache__/
 server/**/__pycache__/
 server/.pytest_cache/
+# banco do runtime de agentes (dados operacionais locais; nunca versionar)
+server/var/
 
 # editores / SO
 .DS_Store
