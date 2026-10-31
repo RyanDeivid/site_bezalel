@@ -1,0 +1,1 @@
+import{Tt as e,vt as t}from"./index-D6h_Aru0.js";var n=()=>t().filter(e=>e.origin===`curated`&&e.publicationStatus===`published`),r=t=>e.find(e=>e.id===t)?.group??`tech`;export{n,r as t};

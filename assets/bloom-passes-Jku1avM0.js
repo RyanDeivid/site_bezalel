@@ -1,0 +1,1 @@
+import{kn as e}from"./three.module-ohYwSPJ2.js";import{i as t,n,r,t as i}from"./UnrealBloomPass-SIKbHGiV.js";function a(a,o,s){let c=new t(a);c.addPass(new n(o,s));let l=new i(new e(256,256),.42,.38,.93);return c.addPass(l),c.addPass(new r),{render:()=>c.render(),setSize(e,t){c.setSize(e,t),l.resolution.set(e/2,t/2)},dispose(){l.dispose(),c.dispose()}}}export{a as createBloom};

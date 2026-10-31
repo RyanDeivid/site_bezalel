@@ -1,0 +1,1 @@
+import{t as e}from"./LegalPage-DJKGLwsG.js";import{At as t,Pt as n}from"./index-D6h_Aru0.js";var r=t();function i(){let t=n();return(0,r.jsx)(e,{content:t.privacy,meta:t.meta.privacy,path:`/privacy`})}export{i as default};
