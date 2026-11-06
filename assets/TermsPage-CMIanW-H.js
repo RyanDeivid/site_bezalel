@@ -1,0 +1,1 @@
+import{t as e}from"./LegalPage-DQwH9QQ9.js";import{At as t,Pt as n}from"./index-DW4onDHj.js";var r=t();function i(){let t=n();return(0,r.jsx)(e,{content:t.terms,meta:t.meta.terms,path:`/terms`})}export{i as default};
