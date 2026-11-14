@@ -1,0 +1,1 @@
+import{Et as e,yt as t}from"./index-YcxOmuGD.js";var n=()=>t().filter(e=>e.origin===`curated`&&e.publicationStatus===`published`),r=t=>e.find(e=>e.id===t)?.group??`tech`;export{n,r as t};
