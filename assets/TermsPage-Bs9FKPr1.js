@@ -1,0 +1,1 @@
+import{t as e}from"./LegalPage-DoLRVI-z.js";import{Ft as t,jt as n}from"./index-DoAVaEzv.js";var r=n();function i(){let n=t();return(0,r.jsx)(e,{content:n.terms,meta:n.meta.terms,path:`/terms`})}export{i as default};

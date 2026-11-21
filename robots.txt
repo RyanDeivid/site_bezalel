@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://ryandeivid.github.io/site_bezalel/sitemap.xml
